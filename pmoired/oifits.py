@@ -564,6 +564,8 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
     if collapse:
         # -- all baselines in a single key (faster computations)
         res = _allInOneOI(res, verbose=verbose, debug=debug)
+
+    # -- keep fitting context, not need to keep error-based ones
     for r in res:
         if 'fit' in r:
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges'] if k in r['fit']}
