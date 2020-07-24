@@ -423,11 +423,11 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
                 for k in res[-1][l].keys():
                     for t in res[-1][l][k].keys():
                         if t.startswith('E') and t[1:] in res[-1][l][k] and 'fit' in res[-1]:
-                            # -- errors -> allow editing
-                            res[-1][l][k][t] = _filtErr(t[1:], res[-1][l][k], res[-1]['fit'])
+                            # -- errors -> allow editing based on 'fit'
+                            res[-1][l][k][t] = _filtErr(t[1:], res[-1][l][k], res[-1]['fit'], debug=0)
                         elif t == 'FLAG' and 'fit' in res[-1]:
-                            # -- flags -> editing based on errors
-                            res[-1][l][k][t] = _filtFlag(res[-1][l][k], res[-1]['fit'])
+                            # -- flags -> allow editing based on 'fit'
+                            res[-1][l][k][t] = _filtFlag(res[-1][l][k], res[-1]['fit'], debug=0)
             continue # exit for loop, nothing else to do
         else:
             # -- find data holder for this setup
@@ -570,14 +570,24 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
     return res
 
 def _filtErr(t, ext, filt, debug=False):
+    """
+    t: name of the observable (e.g. 'T3PHI', 'V2', etc)
+    ext: dictionnary containing the data (OI extension)
+    filt: what to apply to data ('fit' dict from OIDATA)
+    """
     # -- original errors:
     err = ext['E'+t].copy()
+
+    # -- this is a bit of a Kludge :S
+    if t=='FLUX' and 'min error' in filt.keys() and 'NFLUX' in filt['min error']:
+        filt['min error']['FLUX'] = filt['min error']['NFLUX']*ext['FLUX'].mean()
+
     if 'min error' in filt.keys() and t in filt['min error'].keys():
         if debug:
             print('min error:', t, end=' ')
-            print(np.sum(err<filt['min error'][t]),
-                    '/', err.size)
+            print(np.sum(err<filt['min error'][t]), '/', err.size)
         err = np.maximum(filt['min error'][t], err)
+
     if 'min relative error' in filt.keys() and t in filt['min relative error'].keys():
         if debug:
             print('min relative error:', t, end=' ')
@@ -587,9 +597,17 @@ def _filtErr(t, ext, filt, debug=False):
     return err
 
 def _filtFlag(ext, filt, debug=False):
+    """
+    ext: dictionnary containing data (OI extension)
+    """
     flag = ext['FLAG'].copy()
     if not 'max error' in filt and not 'max relative error' in filt:
         return flag
+
+    # -- this is a bit of a Kludge :S
+    if 'FLUX' in ext and 'max error' in filt.keys() and 'NFLUX' in filt['max error']:
+        filt['max error']['FLUX'] = filt['max error']['NFLUX']*ext['FLUX'].mean()
+
     if 'max error' in filt:
         for k in filt['max error']:
             if k == 'DPHI':
@@ -712,7 +730,7 @@ def medianFilt(oi, kernel_size=None):
         for k in oi['OI_FLUX'].keys():
             for i in range(len(oi['OI_FLUX'][k]['MJD'])):
                 mask = ~oi['OI_FLUX'][k]['FLAG'][i,:]
-                oi['OI_FLUX'][k]['FLUX'][i,mask] = scipy.signal.medFilt(
+                oi['OI_FLUX'][k]['FLUX'][i,mask] = scipy.signal.medfilt(
                     oi['OI_FLUX'][k]['FLUX'][i,mask]/t[mask],
                     kernel_size=kernel_size)*t[mask]
                 oi['OI_FLUX'][k]['EFLUX'][i,mask] /= np.sqrt(kernel_size)
@@ -720,11 +738,11 @@ def medianFilt(oi, kernel_size=None):
         for k in oi['OI_VIS'].keys():
             for i in range(len(oi['OI_VIS'][k]['MJD'])):
                 mask = ~oi['OI_VIS'][k]['FLAG'][i,:]
-                oi['OI_VIS'][k]['|V|'][i,mask] = scipy.signal.medFilt(
+                oi['OI_VIS'][k]['|V|'][i,mask] = scipy.signal.medfilt(
                     oi['OI_VIS'][k]['|V|'][i,mask], kernel_size=kernel_size)
                 oi['OI_VIS'][k]['E|V|'][i,mask] /= np.sqrt(kernel_size)
 
-                oi['OI_VIS'][k]['PHI'][i,mask] = scipy.signal.medFilt(
+                oi['OI_VIS'][k]['PHI'][i,mask] = scipy.signal.medfilt(
                     oi['OI_VIS'][k]['PHI'][i,mask], kernel_size=kernel_size)
                 oi['OI_VIS'][k]['EPHI'][i,mask] /= np.sqrt(kernel_size)
 
@@ -732,7 +750,7 @@ def medianFilt(oi, kernel_size=None):
         for k in oi['OI_VIS2'].keys():
             for i in range(len(oi['OI_VIS2'][k]['MJD'])):
                 mask = ~oi['OI_VIS2'][k]['FLAG'][i,:]
-                oi['OI_VIS2'][k]['V2'][i,mask] = scipy.signal.medFilt(
+                oi['OI_VIS2'][k]['V2'][i,mask] = scipy.signal.medfilt(
                     oi['OI_VIS2'][k]['V2'][i,mask], kernel_size=kernel_size)
                 oi['OI_VIS2'][k]['EV2'][i,mask] /= np.sqrt(kernel_size)
 
@@ -740,11 +758,11 @@ def medianFilt(oi, kernel_size=None):
         for k in oi['OI_T3'].keys():
             for i in range(len(oi['OI_T3'][k]['MJD'])):
                 mask = ~oi['OI_T3'][k]['FLAG'][i,:]
-                oi['OI_T3'][k]['T3PHI'][i,mask] = scipy.signal.medFilt(
+                oi['OI_T3'][k]['T3PHI'][i,mask] = scipy.signal.medfilt(
                     oi['OI_T3'][k]['T3PHI'][i,mask], kernel_size=kernel_size)
                 oi['OI_T3'][k]['ET3PHI'][i,mask] /= np.sqrt(kernel_size)
 
-                oi['OI_T3'][k]['T3AMP'][i,mask] = scipy.signal.medFilt(
+                oi['OI_T3'][k]['T3AMP'][i,mask] = scipy.signal.medfilt(
                     oi['OI_T3'][k]['T3AMP'][i,mask], kernel_size=kernel_size)
                 oi['OI_T3'][k]['ET3AMP'][i,mask] /= np.sqrt(kernel_size)
     return oi

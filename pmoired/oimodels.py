@@ -1784,7 +1784,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
         colors = matplotlib.cm.nipy_spectral(np.linspace(0, .9, len(oi['baselines'])))
 
     if figWidth is None and figHeight is None:
-        figHeight =  min(max(ncol, 8), 4)
+        figHeight =  min(max(ncol, 10), 6)
         figWidth = min(figHeight*ncol, 9.5)
     if figWidth is None and not figHeight is None:
         figWidth = min(figHeight*ncol, 9.5)
@@ -2010,8 +2010,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     mask *= err<oi['fit']['max relative error'][data[l]['var']]*np.abs(y)
                     showIgn = True
 
-                if 'min error' in oi['fit'] and \
-                            data[l]['var'] in oi['fit']['min error']:
+                if 'min error' in oi['fit'] and data[l]['var'] in oi['fit']['min error']:
                     err[mask] = np.maximum(oi['fit']['min error'][data[l]['var']], err[mask])
 
                 if 'min relative error' in oi['fit'] and \
@@ -2295,7 +2294,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None, pi
         nplot = len(imWl0)
 
     if figWidth is None and figHeight is None:
-        figHeight =  min(max(nplot, 8), 4)
+        figHeight =  min(max(nplot, 8), 5)
         figWidth = min(figHeight*nplot, 9.5)
     if figWidth is None and not figHeight is None:
         figWidth = min(figHeight*nplot, 9.5)

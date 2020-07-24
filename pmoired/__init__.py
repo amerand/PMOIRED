@@ -37,7 +37,7 @@ class OI:
         self.fig = 0
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
-               withHeader=False, medFilt=False, tellurics=None):
+                withHeader=False, medFilt=False, tellurics=None):
         if not type(filenames)==list:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
@@ -45,7 +45,7 @@ class OI:
                         tellurics=tellurics))
         return
 
-    def setupFit(self, fit):
+    def setupFit(self, fit, update=False):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
@@ -80,14 +80,22 @@ class OI:
                                        len(fit)==len(self.data) and
                                         all([type(f)==dict for f in fit]))
         assert correctType, "parameter 'fit' must be a dictionnary or a list of dict"
+
         if type(fit)==dict:
             for d in self.data:
                 assert _checkSetupFit(fit), 'setup dictionnary is incorrect'
-                d['fit'] = fit
+                if 'fit' in d and update:
+                    d['fit'].update(fit)
+                else:
+                    d['fit'] = fit
+
         if type(fit)==list:
             for i,d in enumerate(self.data):
                 assert _checkSetupFit(fit[i]), 'setup dictionnary is incorrect'
-                d['fit'] = fit[i]
+                if 'fit' in d and update:
+                    d['fit'].update(fit[i])
+                else:
+                    d['fit'] = fit[i]
         return
 
     def doFit(self, model, fitOnly=None, doNotFit=[], useMerged=True, verbose=2):
@@ -116,7 +124,7 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, showFlagged=False,
                 spectro=None, showUV=True, perSetup=False, allInOne=False,
                 fov=None, pix=None, imPow=1., imMax=None, checkImVis=False,
-                vLambda0=None):
+                vLambda0=None, imWl0=None):
         if not fov is None and pix is None:
             pix = fov/100.
 
@@ -140,7 +148,7 @@ class OI:
                     logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     fov=fov, pix=pix, imPow=imPow, imMax=imMax,
-                    checkImVis=checkImVis, vLambda0=vLambda0)
+                    checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0)
             if allInOne:
                 self.fig += 1
             else:
@@ -152,7 +160,7 @@ class OI:
                         spectro=spectro, showUV=showUV,
                         fov=fov if i==(len(data)-1) else None,
                         pix=pix, imPow=imPow, imMax=imMax,
-                        checkImVis=checkImVis, vLambda0=vLambda0)
+                        checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0)
                 self.fig += 1
         if not fov is None:
             self.fig += 1
@@ -165,7 +173,7 @@ def _checkSetupFit(fit):
     keys = {'min error':dict, 'min relative error':dict,
             'max error':dict, 'max relative error':dict,
             'obs':list, 'wl ranges':list,
-            'Nr':int}
+            'Nr':int, 'spec res pix':float}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():
