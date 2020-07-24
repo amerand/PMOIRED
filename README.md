@@ -33,13 +33,7 @@ xargs rm -rf < files.txt
 
 ## Examples
 
-The most basic `PMOIRED` script would go as:
-
-```
-TBD
-```
-
-In this example, the user needs to provide a list of OIFITS files in `files` and a first guess parameters dictionary to describe the model, for instance `{'ud':1.0}` for a 1 milli-arcsecond angular uniform disk diameter. Many options are available for these basic functions. Check out the advanced examples provided in the package in the directory `examples` in the form of Jupyter notebooks:
+Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
 - [Alpha Cen A](https://github.com/amerand/OIUTILS/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks.
 - [FU Ori](https://github.com/amerand/OIUTILS/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
 
@@ -57,7 +51,7 @@ Possible keys in the model dictionary:
 
 ### Position:
   - `x`, `y`: define position in the field, in mas
-      if not give, default will be 'x':0, 'y':0
+      if not give, default will be `'x':0, 'y':0`. `x` is offset in RA, towards East and `y` is offset in declination, towards North.  
 
 ### Size (will decide the model):
   - `ud`: uniform disk diameter (in mas)

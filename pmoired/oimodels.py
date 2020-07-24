@@ -14,7 +14,7 @@ import scipy.interpolate
 import scipy.stats
 
 try:
-    from pmoired import dpfit
+    import pmoired.dpfit as dpfit
 except:
     import dpfit
 

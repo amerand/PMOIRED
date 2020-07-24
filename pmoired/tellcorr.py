@@ -7,7 +7,7 @@ import sys, os
 import time
 
 try:
-    from oiutils import dpfit
+    import pmoired.dpfit as dpfit
 except:
     import dpfit
 
