@@ -583,6 +583,14 @@ def _filtErr(t, ext, filt, debug=False):
     # -- this is a bit of a Kludge :S
     if t=='FLUX' and 'min error' in filt.keys() and 'NFLUX' in filt['min error']:
         filt['min error']['FLUX'] = filt['min error']['NFLUX']*ext['FLUX'].mean()
+    # -- this one is correct
+    if t=='FLUX' and 'mult error' in filt.keys() and 'NFLUX' in filt['mult error']:
+        filt['mult error']['FLUX'] = filt['mult error']['NFLUX']
+
+    if 'mult error' in filt.keys() and t in filt['mult error'].keys():
+        if debug:
+            print('mult error:', t, end=' ')
+        err *= filt['mult error'][t]
 
     if 'min error' in filt.keys() and t in filt['min error'].keys():
         if debug:

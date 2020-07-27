@@ -98,7 +98,7 @@ class OI:
                     d['fit'] = fit[i]
         return
 
-    def doFit(self, model=None, fitOnly=None, doNotFit=[], useMerged=True, verbose=2,
+    def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
               maxfev=1000):
         """
         model: a dictionnary describing the model
@@ -106,9 +106,13 @@ class OI:
         if model is None:
             try:
                 model = self.bestfit['best']
+                if doNotFit=='auto':
+                    doNotFit = self.bestfit['doNotFit']
             except:
                 assert True, ' first guess as "model={...}" should be provided'
-                
+
+        if doNotFit=='auto':
+            doNotFit = []
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
@@ -135,7 +139,7 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, showFlagged=False,
                 spectro=None, showUV=True, perSetup=False, allInOne=False,
                 fov=None, pix=None, imPow=1., imMax=None, checkImVis=False,
-                vLambda0=None, imWl0=None):
+                vLambda0=None, imWl0=None, cmap='magma'):
         if not fov is None and pix is None:
             pix = fov/100.
 
@@ -152,26 +156,33 @@ class OI:
             self.fig = fig
 
         if model=='best':
+            #print('showing best fit model')
             model=self.bestfit
+        else:
+            #print('showing model:', model)
+            pass
+
 
         if not perSetup or allInOne:
-            oimodels.showOI(self.data, model, fig=self.fig, obs=obs,
+            oimodels.showOI(self.data, param=model, fig=self.fig, obs=obs,
                     logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     fov=fov, pix=pix, imPow=imPow, imMax=imMax,
-                    checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0)
+                    checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
+                    cmap=cmap)
             if allInOne:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
         else:
             for i,d in enumerate(data):
-                oimodels.showOI([d], self.bestfit, fig=self.fig, obs=obs,
+                oimodels.showOI([d], param=model, fig=self.fig, obs=obs,
                         logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV,
                         fov=fov if i==(len(data)-1) else None,
                         pix=pix, imPow=imPow, imMax=imMax,
-                        checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0)
+                        checkImVis=checkImVis, vLambda0=vLambda0,
+                        imWl0=imWl0, cmap=cmap)
                 self.fig += 1
         if not fov is None:
             self.fig += 1
@@ -183,6 +194,7 @@ def _checkSetupFit(fit):
     """
     keys = {'min error':dict, 'min relative error':dict,
             'max error':dict, 'max relative error':dict,
+            'mult error':dict,
             'obs':list, 'wl ranges':list,
             'Nr':int, 'spec res pix':float}
     ok = True

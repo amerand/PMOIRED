@@ -70,7 +70,7 @@ def VsingleOI(oi, param, noT3=False,
     different keywords:
     'profile': radial profile, can be 'uniform', 'doughnut' or 'power law'.
         if power law, 'power' gives the radial law
-    'ampi', 'phii': defines the cos variation amplitude and phase for i nodes
+    'az ampi', 'az projangi'projan: defines the cos variation amplitude and phase for i nodes
         along the azimuth
 
     flux modeling:
@@ -336,10 +336,11 @@ def VsingleOI(oi, param, noT3=False,
 
         _n, _amp, _phi = [], [], []
         for k in _param.keys():
-            if k.startswith('amp'):
-                _n.append(int(k.split('amp')[1]))
-                _phi.append(_param[k.replace('amp', 'projang')])
+            if k.startswith('az amp'):
+                _n.append(int(k.split('az amp')[1]))
+                _phi.append(_param[k.replace('az amp', 'az projang')])
                 _amp.append(_param[k])
+
         if 'projang' in _param.keys() and 'incl' in _param.keys():
             stretch = [np.cos(np.pi*_param['incl']/180), _param['projang']]
         else:
@@ -1113,6 +1114,9 @@ def residualsOI(oi, param, timeit=False):
                         # -- ignore data with large error bars
                         mask *= (err<(oi['fit']['max relative error'][f]*
                                         np.abs(oi[ext[f]][k][f])))
+                    if 'mult error' in fit and f in oi['fit']['mult error']:
+                        # -- force error to a minimum value
+                        err *= oi['fit']['mult error'][f]
                     if 'min error' in fit and f in oi['fit']['min error']:
                         # -- force error to a minimum value
                         err = np.maximum(oi['fit']['min error'][f], err)
@@ -1120,9 +1124,6 @@ def residualsOI(oi, param, timeit=False):
                         # -- force error to a minimum value
                         err = np.maximum(oi['fit']['min relative error'][f]*
                                          np.abs(oi[ext[f]][k][f]), err)
-                    if 'mult error' in fit and f in oi['fit']['mult error']:
-                        # -- force error to a minimum value
-                        err *= oi['fit']['mult error'][f]
 
                     tmp = rf(oi[ext[f]][k][f][mask] -
                              m[ext[f]][k][f][mask])/err[mask]
@@ -1655,7 +1656,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                fontsize = 10
            plt.suptitle(title, fontsize=fontsize)
         return
-    #print('->', fov, pix)
+
+    #print('->', computeLambdaParams(param))
+
     if not vLambda0 is None:
         um2kms = lambda um: (um-vLambda0)/um*2.998e5
         kms2um = lambda kms: vLambda0*(1 + kms/2.998e5)
@@ -2009,7 +2012,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     ign *= err>=oi['fit']['max relative error'][data[l]['var']]*np.abs(y)
                     mask *= err<oi['fit']['max relative error'][data[l]['var']]*np.abs(y)
                     showIgn = True
-
+                if 'mult error' in oi['fit'] and \
+                            data[l]['var'] in oi['fit']['mult error']:
+                    err *= oi['fit']['mult error'][data[l]['var']]
                 if 'min error' in oi['fit'] and data[l]['var'] in oi['fit']['min error']:
                     err[mask] = np.maximum(oi['fit']['min error'][data[l]['var']], err[mask])
 
@@ -2018,9 +2023,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     # -- force error to a minimum value
                     err[mask] = np.maximum(oi['fit']['min relative error'][data[l]['var']]*y[mask],
                                            err[mask])
-                if 'mult error' in oi['fit'] and \
-                            data[l]['var'] in oi['fit']['mult error']:
-                    err *= oi['fit']['mult error'][data[l]['var']]
 
                 # -- show data
                 test = testTelescopes(k, ignoreTelescope) or testBaselines(k, ignoreBaseline)
