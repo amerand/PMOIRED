@@ -98,11 +98,17 @@ class OI:
                     d['fit'] = fit[i]
         return
 
-    def doFit(self, model, fitOnly=None, doNotFit=[], useMerged=True, verbose=2,
+    def doFit(self, model=None, fitOnly=None, doNotFit=[], useMerged=True, verbose=2,
               maxfev=1000):
         """
         model: a dictionnary describing the model
         """
+        if model is None:
+            try:
+                model = self.bestfit['best']
+            except:
+                assert True, ' first guess as "model={...}" should be provided'
+                
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
