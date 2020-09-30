@@ -1,7 +1,7 @@
 try:
-    from pmoired import oimodels, oifits
+    from pmoired import oimodels, oifits, oicandid
 except:
-    import oimodels, oifits
+    import oimodels, oifits, oicandid
 
 print('this is PMOIRED: [P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata')
 print('https://github.com/amerand/PMOIRED')
@@ -34,6 +34,11 @@ class OI:
 
         # -- last fit to the data
         self.bestfit = None
+        # -- bootstrap results:
+        self.boot = None
+        # -- CANDID results:
+        self.candidFits = None
+        # -- current figure
         self.fig = 0
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
@@ -99,7 +104,7 @@ class OI:
         return
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
-              maxfev=1000):
+              maxfev=1000, ftol=1e-4):
         """
         model: a dictionnary describing the model
         """
@@ -113,13 +118,28 @@ class OI:
 
         if doNotFit=='auto':
             doNotFit = []
+        # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
-                                      maxfev=maxfev)
+                                      maxfev=maxfev, ftol=ftol)
         return
 
-    def boostrapFit(self, Nfits=None, model=None, multi=True):
+    def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
+                    firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
+                    logchi2=False):
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        if fig is None:
+            self.fig += 1
+            fig = self.fig
+        self.candidFits = oicandid.fitMap(self._merged, rmin=rmin, rmax=rmax,
+                                          rstep=rstep, firstGuess=firstGuess,
+                                          fitAlso=fitAlso, fig=fig, cmap=cmap,
+                                          doNotFit=doNotFit, logchi2=logchi2)
+        self.bestfit = self.candidFits[0]
+        return
+
+    def bootstrapFit(self, Nfits=None, model=None, multi=True):
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if model is None:
             assert not self.bestfit is None, 'you should run a fit first'
@@ -127,19 +147,22 @@ class OI:
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, fig=None):
-        self.boot = oimodels.analyseBootstrap(self.boot,
-                                    sigmaClipping=sigmaClipping, verbose=2)
+    def showBootstrap(self, sigmaClipping=4.5, fig=None, combParam={}):
+        if combParam=={}:
+            self.boot = oimodels.analyseBootstrap(self.boot,
+                                sigmaClipping=sigmaClipping, verbose=0)
         if not fig is None:
+            self.fig += 1
             self.fig = fig
-        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig)
+        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig,
+                        combParam=combParam, sigmaClipping=sigmaClipping)
         self.fig += 1
         return
 
-    def show(self, model='best', fig=None, obs=None, logV=False, logB=False, showFlagged=False,
-                spectro=None, showUV=True, perSetup=False, allInOne=False,
-                fov=None, pix=None, imPow=1., imMax=None, checkImVis=False,
-                vLambda0=None, imWl0=None, cmap='magma'):
+    def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
+             showFlagged=False, spectro=None, showUV=True, perSetup=True,
+             allInOne=False, fov=None, pix=None, imPow=1., imMax=None,
+             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma', dx=0, dy=0):
         if not fov is None and pix is None:
             pix = fov/100.
 
@@ -154,6 +177,9 @@ class OI:
 
         if not fig is None:
             self.fig = fig
+        else:
+            self.fig += 1
+            fig = self.fig
 
         if model=='best':
             #print('showing best fit model')
@@ -162,14 +188,13 @@ class OI:
             #print('showing model:', model)
             pass
 
-
         if not perSetup or allInOne:
             oimodels.showOI(self.data, param=model, fig=self.fig, obs=obs,
                     logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     fov=fov, pix=pix, imPow=imPow, imMax=imMax,
                     checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                    cmap=cmap)
+                    cmap=cmap, dx=dx, dy=dy)
             if allInOne:
                 self.fig += 1
             else:
@@ -182,11 +207,18 @@ class OI:
                         fov=fov if i==(len(data)-1) else None,
                         pix=pix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap)
+                        imWl0=imWl0, cmap=cmap, dx=dx, dy=dy)
                 self.fig += 1
         if not fov is None:
             self.fig += 1
         return
+    def getSpectrum(self, comp, model='best'):
+        if model=='best' and not self.bestfit is None:
+            model = self.bestfit['best']
+        assert type(model) is dict, "model must be a dictionnary"
+        kz = filter(lambda k: k.startswith(comp+','), model.keys())
+        #return {m['insname']:(m['WL'], oimodels[])}
+        pass
 
 def _checkSetupFit(fit):
     """
@@ -196,7 +228,8 @@ def _checkSetupFit(fit):
             'max error':dict, 'max relative error':dict,
             'mult error':dict,
             'obs':list, 'wl ranges':list,
-            'Nr':int, 'spec res pix':float}
+            'Nr':int, 'spec res pix':float,
+            'cont ranges':list}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():

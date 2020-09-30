@@ -41,8 +41,6 @@ tran0 = f[1].data['EMISSION'][0].copy()
 tran80 += np.interp(lbda, lbda0[::50], tran0[::50])
 f.close()
 
-
-
 def Ftran(l, param):
     """
     'dl0', 'wl0', 'dl1',
@@ -142,9 +140,9 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
         return
 
-    #f.info()
+    # -- HARDWIRED, DANGEROUS!!!
     wl = f[4].data['EFF_WAVE']*1e6
-    if len(wl)==5:
+    if len(wl)<10:
         wl = f[3].data['EFF_WAVE']*1e6
 
     if not quiet:
@@ -213,6 +211,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     if True:
         if not quiet:
             print('> fit only spectrum shape, not tellurics')
+        #print('wl', wl.shape, 'sp', sp.shape)
         fit = dpfit.leastsqFit(Ftran, wl[w], p, sp[w], verbose=0, fitOnly=fitOnly, maxfev=1000)
         if MR:
             doNotFit.extend(['kern', 'kernp'])

@@ -239,6 +239,17 @@ def meta(x, params):
         res += dpfunc.__dict__[ff](x, tmp)
     return res
 
+def iterable(obj):
+    """
+    https://stackoverflow.com/questions/1952464/in-python-how-do-i-determine-if-an-object-is-iterable
+    """
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
+
 Ncalls=0
 Tcalls=0
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
@@ -313,7 +324,22 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         if k not in fitOnly:
             pfix[k]=params[k]
     if verbose:
-        print('[dpfit] %d FITTED parameters:'%(len(fitOnly)), fitOnly)
+        print('[dpfit] %d FITTED parameters:'%len(fitOnly), end=' ')
+        if len(fitOnly)<100 or (type(verbose)==int and verbose>1):
+             print(fitOnly)
+        else:
+            print(' ')
+        # if iterable(x):
+        #     print('[dpfit] %d FITTED X'%len(x))
+        # else:
+        #     print('[dpfit] 1 FITTED X')
+        #
+        # if iterable(y):
+        #     print('[dpfit] %d FITTED Y'%len(Y))
+        # else:
+        #     print('[dpfit] 1 FITTED Y')
+
+
     # -- actual fit
     Ncalls=0
     t0=time.time()
@@ -442,27 +468,28 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         format_ = "'%s':"
         # -- write each parameter and its best fit, as well as error
         # -- writes directly a dictionnary
-        print('') # leave some space to the eye
-        for ik,k in enumerate(tmp):
-            padding = ' '*(maxLength-len(k))
-            formatS = format_+padding
-            if ik==0:
-                formatS = '{'+formatS
-            if uncer[k]>0:
-                ndigit = max(-int(np.log10(uncer[k]))+2, 0)
-                fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
-                #print(formatS%k , round(pfix[k], ndigit), ',', end='')
-                #print('# +/-', round(uncer[k], ndigit))
-                print(formatS%k, fmt%(pfix[k], uncer[k]))
-            elif uncer[k]==0:
-                if isinstance(pfix[k], str):
-                    print(formatS%k , "'"+pfix[k]+"'", ',')
+        if len(tmp)<100 or type(verbose)==int and verbose>1:
+            print('') # leave some space to the eye
+            for ik,k in enumerate(tmp):
+                padding = ' '*(maxLength-len(k))
+                formatS = format_+padding
+                if ik==0:
+                    formatS = '{'+formatS
+                if uncer[k]>0:
+                    ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+                    fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+                    #print(formatS%k , round(pfix[k], ndigit), ',', end='')
+                    #print('# +/-', round(uncer[k], ndigit))
+                    print(formatS%k, fmt%(pfix[k], uncer[k]))
+                elif uncer[k]==0:
+                    if isinstance(pfix[k], str):
+                        print(formatS%k , "'"+pfix[k]+"'", ',')
+                    else:
+                        print(formatS%k , pfix[k], ',')
                 else:
-                    print(formatS%k , pfix[k], ',')
-            else:
-                print(formatS%k , pfix[k], ',', end='')
-                print('# +/-', uncer[k])
-        print('}') # end of the dictionnary
+                    print(formatS%k , pfix[k], ',', end='')
+                    print('# +/-', uncer[k])
+            print('}') # end of the dictionnary
 
     # -- result:
     if fullOutput:
@@ -489,7 +516,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             dispCor(pfix)
     return pfix
 
-def randomParam(fit, N=None, x=None):
+def randomParam(fit, N=None, x='auto'):
     """
     get a set of randomized parameters (list of dictionnaries) around the best
     fited value, using a gaussian probability, taking into account the correlations
@@ -511,17 +538,19 @@ def randomParam(fit, N=None, x=None):
         res.append(p)
     ymin, ymax = None, None
     tmp = []
-    if x is None:
+    if x == 'auto':
         x = fit['x']
-    for r in res:
-        tmp.append(fit['func'](x, r))
-    tmp = np.array(tmp)
+    if not x is None:
+        for r in res:
+            tmp.append(fit['func'](x, r))
+        tmp = np.array(tmp)
+        fit['all_y'] = tmp
+        fit['r_y'] = fit['func'](x, fit['best'])
+        fit['r_ym1s'] = np.percentile(tmp, 16, axis=0)
+        fit['r_yp1s'] = np.percentile(tmp, 84, axis=0)
+
     fit['r_param'] = res
-    fit['r_ym1s'] = np.percentile(tmp, 16, axis=0)
-    fit['r_yp1s'] = np.percentile(tmp, 84, axis=0)
     fit['r_x'] = x
-    fit['r_y'] = fit['func'](x, fit['best'])
-    fit['all_y'] = tmp
     return fit
 
 randomParam = randomParam # legacy

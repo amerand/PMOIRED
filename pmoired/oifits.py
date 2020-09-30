@@ -74,12 +74,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['insname'] = insname
     res['filename'] = filename
     res['targname'] = targname
+    if 'ESO PRO REC1 PIPE ID' in h[0].header:
+        res['pipeline'] = h[0].header['ESO PRO REC1 PIPE ID']
+    else:
+        res['pipeline'] = ''
     if withHeader:
         res['header'] = h[0].header
 
     if verbose:
         print('loadOI: loading', res['filename'])
-        print('  > insname:', '"'+insname+'"','targname:', '"'+targname+'"')
+        print('  > insname:', '"'+insname+'"','targname:', '"'+targname+'"',
+                'pipeline:', '"'+res['pipeline']+'"')
     try:
         # -- VLTI 4T specific
         OPL = {}
@@ -97,6 +102,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         res['n_lab'] = n_JHK(res['WL'].astype(np.float64), 273.15+T, P, H)
     except:
         pass
+
 
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
@@ -123,6 +129,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             for k in set(sta1):
                 w = (np.array(sta1)==k)*(hdu.data['TARGET_ID']==targets[targname])
                 try:
+                    # GRAVITY Data have non-standard naming :(
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUX'][w,:],
                                         'EFLUX':hdu.data['FLUXERR'][w,:],
                                         'FLAG':hdu.data['FLAG'][w,:],
@@ -302,7 +309,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                 (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
                 bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
                 bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
+                bavg = np.sqrt(res['OI_T3'][k]['B1']**2 +
+                               res['OI_T3'][k]['B2']**2 +
+                               res['OI_T3'][k]['B3']**2)
                 res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
+                res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
+
                 res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                                                         ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                 res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
@@ -505,7 +517,7 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
-                                'FLAG','Bmax/wl']
+                                'FLAG', 'Bmax/wl', 'Bavg/wl']
                     if debug:
                         print(l, k, res[i0][l][k].keys())
                     for t in ext1:
@@ -565,10 +577,15 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
         # -- all baselines in a single key (faster computations)
         res = _allInOneOI(res, verbose=verbose, debug=debug)
 
-    # -- keep fitting context, not need to keep error-based ones
+    # -- keep fitting context, not need to keep error-based ones, except DPHI!
     for r in res:
         if 'fit' in r:
-            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges'] if k in r['fit']}
+            tmp = {}
+            for k in r['fit'].keys():
+                if type(r['fit'][k]) is dict and 'DPHI' in r['fit'][k].keys():
+                    tmp[k] = {'DPHI':r['fit'][k]['DPHI']}
+            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'cont ranges'] if k in r['fit']}
+            r['fit'].update(tmp)
     return res
 
 def _filtErr(t, ext, filt, debug=False):
