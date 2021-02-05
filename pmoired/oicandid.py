@@ -35,7 +35,7 @@ def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
             R = np.mean(o['WL'])/np.diff(o['WL']).mean()
             if e in D:
                 for b in o[D[e][0]].keys():
-                    print(o[D[e][0]][b].keys())
+                    #print(o[D[e][0]][b].keys())
                     _bmax = max(_bmax, np.max(o[D[e][0]][b][D[e][1]]))
                     _bmaxR = max(_bmaxR, np.max(o[D[e][0]][b][D[e][1]])/R)
 
@@ -60,8 +60,13 @@ def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
         cmap = LinearSegmentedColormap.from_list("candid", list(zip(nodes, colors)))
 
     # -- single star
-    UD = oimodels.fitOI(oi, {'ud':1.0}, verbose=False)
-
+    if type(firstGuess)==dict and '*,ud' in firstGuess:
+        UD = oimodels.fitOI(oi, {'ud':firstGuess['*,ud']}, verbose=False)
+    elif type(firstGuess)==dict and '*,diam' in firstGuess:
+        UD = oimodels.fitOI(oi, {'ud':firstGuess['*,diam']}, verbose=False)
+    else:
+        UD = oimodels.fitOI(oi, {'ud':1.0}, verbose=False)
+    print('uniform disk fit: chi2=%.3f'%UD['chi2'])
     default = {'*,ud':0.0, '*,f':1.0, 'c,ud':0.0, 'c,f':0.01}
 
     if firstGuess is None:
@@ -69,15 +74,21 @@ def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
     default.update(firstGuess)
     firstGuess = default
 
+    if '*,diam' in firstGuess and '*,ud' in firstGuess:
+        firstGuess.pop('*,ud')
+    print('firstGuess:', firstGuess)
+
+
     fitOnly = ['c,f', 'c,x', 'c,y']
     if type(doNotFit) == list:
         for k in doNotFit:
             if k in fitOnly:
                 fitOnly.remove(k)
+
     if type(fitAlso) == list:
         fitOnly.extend(fitAlso)
 
-    kwargs = {'maxfev':5000, 'ftol':1e-5, 'verbose':False,
+    kwargs = {'maxfev':10000, 'ftol':1e-5, 'verbose':False,
               'fitOnly':fitOnly, }
 
     X, Y = [], []
@@ -115,6 +126,7 @@ def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
             tmp = firstGuess.copy()
             tmp['c,x'] = X[i]
             tmp['c,y'] = Y[i]
+            #print(tmp)
             res.append(pool.apply_async(oimodels.fitOI, (oi, tmp, ), kwargs))
         pool.close()
         pool.join()

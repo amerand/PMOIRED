@@ -2,8 +2,9 @@ try:
     from pmoired import oimodels, oifits, oicandid
 except:
     import oimodels, oifits, oicandid
+import time
 
-print('this is PMOIRED: [P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata')
+print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
 class OI:
@@ -104,7 +105,7 @@ class OI:
         return
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
-              maxfev=1000, ftol=1e-4):
+              maxfev=10000, ftol=1e-4):
         """
         model: a dictionnary describing the model
         """
@@ -113,6 +114,7 @@ class OI:
                 model = self.bestfit['best']
                 if doNotFit=='auto':
                     doNotFit = self.bestfit['doNotFit']
+                    fitOnly = self.bestfit['fitOnly']
             except:
                 assert True, ' first guess as "model={...}" should be provided'
 
@@ -123,11 +125,12 @@ class OI:
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol)
+        self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         return
 
     def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
                     firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
-                    logchi2=False):
+                    logchi2=False, multi=True):
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if fig is None:
             self.fig += 1
@@ -135,7 +138,8 @@ class OI:
         self.candidFits = oicandid.fitMap(self._merged, rmin=rmin, rmax=rmax,
                                           rstep=rstep, firstGuess=firstGuess,
                                           fitAlso=fitAlso, fig=fig, cmap=cmap,
-                                          doNotFit=doNotFit, logchi2=logchi2)
+                                          doNotFit=doNotFit, logchi2=logchi2,
+                                          multi=multi)
         self.bestfit = self.candidFits[0]
         return
 
@@ -148,6 +152,11 @@ class OI:
         return
 
     def showBootstrap(self, sigmaClipping=4.5, fig=None, combParam={}):
+        """
+        example:
+        combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
+                   'PA':'np.arctan2($c,x, $c,y)*180/np.pi'}
+        """
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
                                 sigmaClipping=sigmaClipping, verbose=0)
@@ -162,7 +171,10 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, fov=None, pix=None, imPow=1., imMax=None,
-             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma', dx=0, dy=0):
+             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma',
+             dx=0, dy=0):
+        t0 = time.time()
+
         if not fov is None and pix is None:
             pix = fov/100.
 
@@ -189,7 +201,7 @@ class OI:
             pass
 
         if not perSetup or allInOne:
-            oimodels.showOI(self.data, param=model, fig=self.fig, obs=obs,
+            self._model = oimodels.showOI(self.data, param=model, fig=self.fig, obs=obs,
                     logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     fov=fov, pix=pix, imPow=imPow, imMax=imMax,
@@ -201,7 +213,7 @@ class OI:
                 self.fig += len(self.data)
         else:
             for i,d in enumerate(data):
-                oimodels.showOI([d], param=model, fig=self.fig, obs=obs,
+                self._model = oimodels.showOI([d], param=model, fig=self.fig, obs=obs,
                         logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV,
                         fov=fov if i==(len(data)-1) else None,
@@ -211,6 +223,7 @@ class OI:
                 self.fig += 1
         if not fov is None:
             self.fig += 1
+        print('done in %.2fs'%(time.time()-t0))
         return
     def getSpectrum(self, comp, model='best'):
         if model=='best' and not self.bestfit is None:
