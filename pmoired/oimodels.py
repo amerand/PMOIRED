@@ -319,7 +319,6 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
         PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl']/cwl*x + (z['v/wl']/cwl+dv/res['WL'])*y))
 
     # -- guess which visibility function
-
     if 'ud' in _param.keys(): # == uniform disk ================================
         Rout = _param['ud']/2
         Vf = lambda z: 2*scipy.special.j1(_c*_param['ud']*_Bwl(z) + 1e-12)/(_c*_param['ud']*_Bwl(z)+ 1e-12)
@@ -329,7 +328,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
         if du: # -- slanted
             Vfdu = lambda z: 2*scipy.special.j1(_c*_param['ud']*_Bdu(z))/(_c*_param['ud']*_Bdu(z))
             Vfdv = lambda z: 2*scipy.special.j1(_c*_param['ud']*_Bdv(z))/(_c*_param['ud']*_Bdv(z))
-        if not I is None:
+        if not I is None: # -- Compute image
             # -- without anti aliasing
             #I = R<=_param['ud']/2
             # -- anti aliasing:
@@ -505,8 +504,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
     res['OI_VIS'] = {}
     res['OI_VIS2'] = {}
     tv = time.time()
-    for k in baselines:
-        # -- for each baseline
+    for k in baselines: # -- for each baseline
         tmp = {}
         if du: # -- for slanted
             V = Vf(oi[key][k])
@@ -536,7 +534,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
                 tmp[l] = oi[key][k][l]
 
         if not fov is None:
-            # -- slow dow the code!
+            # -- slow down the code!
             for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi[key][k][l].copy()/cwl
@@ -560,14 +558,13 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
 
             tmp['V2'] = np.abs(V)**2
             if not fov is None:
-                # -- slow dow the code!
+                # -- slow down the code!
                 for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                     if '/wl' in l and cwl!=1:
                         tmp[l] = oi['OI_VIS2'][k][l].copy()/cwl
                     else:
                         tmp[l] = oi['OI_VIS2'][k][l]
                 tmp['EV2'] = np.zeros(tmp['V2'].shape)
-
             res['OI_VIS2'][k] = tmp
 
     if timeit:
@@ -720,11 +717,12 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
         # -- number of spectral channel within the band
         # -- larger than need be to be on the safe side
         n = 2*int(SMEA*sep/_sep)+1
+
         # @@@@@@@ KLUDGE!!!!! @@@@@@@@@@
-        if c=='c':
-            n = 2*SMEA+1
-        else:
-            n = 1
+        #if c=='c':
+        #    n = 2*SMEA+1
+        #else:
+        #    n = 1
         # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
         smearing[c] = n
@@ -827,6 +825,7 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
                 res['MOD_VIS'][b] += m['MODEL']['totalflux'][None,:]*\
                                      m['OI_VIS'][b]['|V|']*\
                                      np.exp(1j*np.pi*m['OI_VIS'][b]['PHI']/180)
+
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
 
@@ -838,7 +837,7 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
             res['OI_VIS'][b]['|V|'] = np.abs(res['MOD_VIS'][b])
             res['OI_VIS'][b]['PHI'] = (np.angle(res['MOD_VIS'][b])*180/np.pi+180)%360-180
         if 'OI_VIS2' in res and b in res['OI_VIS2']:
-            res['OI_VIS2'][k]['V2'] = np.abs(res['MOD_VIS'][b])**2
+            res['OI_VIS2'][b]['V2'] = np.abs(res['MOD_VIS'][b])**2
 
     res['OI_FLUX'] = {}
     if 'OI_FLUX' in oi.keys():
@@ -1284,8 +1283,8 @@ def computeT3fromVisOI(oi):
             oi['IM_T3'][k]['T3PHI'] = (oi['IM_T3'][k]['T3PHI']+180)%360-180
 
             oi['IM_T3'][k]['T3AMP'] = np.abs(oi['IM_VIS'][t[0]]['|V|'][w0,:])*\
-                                       np.abs(oi['IM_VIS'][t[1]]['|V|'][w1,:])*\
-                                       np.abs(oi['IM_VIS'][t[2]]['|V|'][w2,:])
+                                      np.abs(oi['IM_VIS'][t[1]]['|V|'][w1,:])*\
+                                      np.abs(oi['IM_VIS'][t[2]]['|V|'][w2,:])
     return oi
 
 
@@ -1588,6 +1587,10 @@ def randomiseData(oi, randomise='telescope or baseline', P=None, verbose=False):
                     Nt += (len(o['telescopes'])-1)*(len(o['telescopes'])-2)//2
                     Nb += len(o['baselines']) - 1
                 if x in ['T3PHI']:
+                    Nall += len(o['OI_T3'])
+                    Nt += (len(o['telescopes'])-2)*(len(o['telescopes'])-3)//2
+                    Nb += len(o['OI_T3']) - (len(o['telescopes'])-2)
+                if x in ['T3AMP']:
                     Nall += len(o['OI_T3'])
                     Nt += (len(o['telescopes'])-2)*(len(o['telescopes'])-3)//2
                     Nb += len(o['OI_T3']) - (len(o['telescopes'])-2)
@@ -2073,10 +2076,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
         if not fov is None and checkImVis:
             #print('compute V from Image, fov=', fov)
             m = VfromImageOI(m)
-        if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
-            print('bandwidth smearing spectral channel(s):', m['smearing'])
-        if not 'smearing' in m:
-            print('! no smearing? !')
+        #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
+        #    print('bandwidth smearing spectral channel(s):', m['smearing'])
+        #if not 'smearing' in m:
+        #    print('! no smearing? !')
     else:
         m = None
 
@@ -2200,9 +2203,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                                 color=col, marker=mark,
                                 linestyle='none', markersize=5)
                         label = ''
+                        showLabel=False
 
             bmax = 1.05*np.max(bmax)
-            ax.legend(fontsize=6, loc='upper left', ncol=2)
+            ax.legend(fontsize=5, loc='upper left', ncol=2)
             ax.set_title('u,v (m)', fontsize=10)
             ax.tick_params(axis='x', labelsize=7)
             ax.tick_params(axis='y', labelsize=7)
@@ -2265,6 +2269,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     }
             keys = ['']
 
+        showLegend = False
         for i,k in enumerate(sorted(keys)):
             # -- for each telescope / baseline / triangle
             X = lambda r, j: r['WL']
@@ -2446,6 +2451,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                                     yerr=err[flagged], color='m', alpha=0.2,
                                     linestyle='None')
 
+                showLegend = showLegend or showLabel
+
                 if showIgn and showFlagged:
                     # -- show ignored data (filtered on error for example)
                     plt.plot(X(oi,j)[ign], y[ign]+yoffset*i, 'xy', alpha=0.5)
@@ -2505,12 +2512,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     if not spectro: #allInOne:
                         ax.plot(X(m, j)[mask],
                              m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                            '1b', label='from image' if j==0 else '', alpha=0.4)
+                            '1b', alpha=0.4)
                     else:
                         ax.step(X(m, j)[mask],
                              m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                            '--b', label='from image' if j==0 else '',
-                            alpha=0.4, linewidth=2, where='mid')
+                            '--b', alpha=0.4, linewidth=2, where='mid')
 
                 # -- show continuum for differetial PHI and normalized FLUX
                 if (l=='DPHI' or l=='NFLUX') and 'WL cont' in oi:
@@ -2524,7 +2530,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                 # -- show phase based on OPL
                 if l=='PHI' and 'OPL' in oi.keys():
                     dOPL = oi['OPL'][k[2:]] - oi['OPL'][k[:2]]
-                    print(k, dOPL)
+                    #print(k, dOPL)
                     wl0 = 2.2
                     cn = np.polyfit(oi['WL']-wl0, oi['n_lab'], 8)
                     cn[-2:] = 0.0
@@ -2545,7 +2551,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                 try:
                     chi2 = np.mean(resi**2)
                 except:
-                    print(resi)
+                    print('ERROR chi2! "resi":', resi)
 
                 if len(resi)<24:
                     rms = np.std(resi)
@@ -2605,8 +2611,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                     axv.set_xlabel('velocity (km/s)')
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)
-            if allInOne or l=='T3PHI':
-                ax.legend(fontsize=6, ncol=3)
+            if (allInOne or l=='T3PHI') and showLegend:
+                ax.legend(fontsize=5, ncol=3)
 
         i_col += 1
 
@@ -2721,19 +2727,24 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
               (a,c,c), (c,a,c), (c,c,a),
               (b,b,c), (b,c,b), (c,b,b),
               (b,b,b)]
+    markers = ['1', '2', '3', '4'] # 3 branches crosses
     _ic = 0
+    _im =  0
     for c in comps:
         if wlpeak[c] is None:
-            symbols[c] = {'m':'x', 'c':colors[_ic%len(colors)]}
+            symbols[c] = {'m':markers[_im%len(markers)],
+                          'c':colors[_ic%len(colors)]}
             _ic+=1
+            _im+=1
         else:
             if len(allpeaks)==1:
-                # -- only one componenet with line
+                # -- only one component with line
                 symbols[c] = {'m':'+', 'c':'orange'}
             else:
-                symbols[c] = {'m':'+',
+                symbols[c] = {'m':markers[_im%len(markers)],
                               'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
                              }
+                _im+=1
 
     if 'WL mask' in oi.keys():
         mask = oi['WL mask']
@@ -2945,7 +2956,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                     color=color3 if combi else color2, fmt='d',
                     capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
 
-        plt.legend(fontsize=6)
+        plt.legend(fontsize=5)
         # -- title
         n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
         fmt = '%s=\n'+'%.'+'%d'%n+'f'+'$\pm$'+'%.'+'%d'%n+'f'
@@ -2998,7 +3009,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             x, y = dpfit.errorEllipse(boot, k1, k2)
             plt.plot(x, y, '-', color=_c, label='c=%.2f'%boot['cord'][k1][k2])
 
-            plt.legend(fontsize=6)
+            plt.legend(fontsize=5)
             if i2==(len(boot['fitOnly'])-1):
                 plt.xlabel(k1, fontsize=fontsize)
                 ax.tick_params(axis='x', labelsize=fontsize*0.8)
@@ -3335,7 +3346,7 @@ def testAzVar():
                         bottom=0.12, hspace=0.25, wspace=0)
     ax = plt.subplot(1,4,1)
     ax.set_aspect('equal')
-    plt.pcolormesh(X, Y, I, cmap='inferno', vmin=0)
+    plt.pcolormesh(X, Y, I, cmap='inferno', vmin=0, shading='auto')
     # plt.imshow(I, cmap='gist_heat', vmin=0, origin='lower',
     #             extent=[_r[0], _r[-1], _r[0], _r[-1]])
     title = r'image %dx%d, $\theta$=%.2fmas'%(Nx, Nx, diam)
@@ -3359,14 +3370,14 @@ def testAzVar():
     plt.title('|V| numerical')
     ax0.set_aspect('equal')
     pvis = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, np.abs(Vis),
-                          cmap='gist_stern', vmin=0, vmax=1)
+                          cmap='gist_stern', vmin=0, vmax=1, shading='auto')
     plt.colorbar(pvis)
 
     ax = plt.subplot(2,4,3, sharex=ax0, sharey=ax0)
     plt.title('|V| semi-analytical')
     ax.set_aspect('equal')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, np.abs(Visp),
-                    cmap='gist_stern', vmin=0, vmax=1)
+                    cmap='gist_stern', vmin=0, vmax=1, shading='auto')
 
     ax = plt.subplot(2,4,4, sharex=ax0, sharey=ax0)
     dyn = 1. # in 1/100 visibility
@@ -3374,7 +3385,7 @@ def testAzVar():
     ax.set_aspect('equal')
     res = 100*(np.abs(Vis)-np.abs(Visp))
     pv = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0,
-                    res, cmap='RdBu',
+                    res, cmap='RdBu', shading='auto',
                     vmin=-np.max(np.abs(res)),
                     vmax=np.max(np.abs(res)),
                     )
@@ -3387,7 +3398,7 @@ def testAzVar():
     ax.set_aspect('equal')
     plt.title('$\phi$ numerical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Vis),
-                    cmap='hsv', vmin=-180, vmax=180)
+                    cmap='hsv', vmin=-180, vmax=180, shading='auto')
     plt.colorbar()
 
     ax = plt.subplot(2,4,7, sharex=ax0, sharey=ax0)
@@ -3395,14 +3406,14 @@ def testAzVar():
     ax.set_aspect('equal')
     plt.title('$\phi$ semi-analytical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Visp),
-                    cmap='hsv', vmin=-180, vmax=180)
+                    cmap='hsv', vmin=-180, vmax=180, shading='auto')
 
     ax = plt.subplot(2,4,8, sharex=ax0, sharey=ax0)
     dyn = 1
     plt.title('$\Delta\phi$ (deg)')
     ax.set_aspect('equal')
     res = 180/np.pi*((np.angle(Vis)-np.angle(Visp)+np.pi)%(2*np.pi)-np.pi)
-    pp = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, res,
+    pp = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, res, shading='auto',
                         cmap='RdBu', vmin=-dyn, vmax=dyn)
     print('median phase residual (abs.) = %.3f'%np.median(np.abs(res)), 'deg')
     print('90perc phase residual (abs.) = %.3f'%np.percentile(np.abs(res), 90), 'deg')

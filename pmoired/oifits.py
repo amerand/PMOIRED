@@ -796,7 +796,7 @@ def medianFilt(oi, kernel_size=None):
 
 def n_JHK(wl, T=None, P=None, H=None):
     """
-    wl: wavelnegth in microns (only valid from 1.3 to 2.5um)
+    wl: wavelength in microns (only valid from 1.3 to 2.5um)
     T: temperature in K
     P: pressure in mbar
     H: relative humidity in %
