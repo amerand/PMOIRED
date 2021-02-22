@@ -151,7 +151,8 @@ class OI:
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, fig=None, combParam={}):
+    def showBootstrap(self, sigmaClipping=4.5, fig=None, combParam={},
+                        showChi2=False):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -164,14 +165,15 @@ class OI:
             self.fig += 1
             self.fig = fig
         oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig,
-                        combParam=combParam, sigmaClipping=sigmaClipping)
+                               combParam=combParam, sigmaClipping=sigmaClipping,
+                               showChi2=showChi2)
         self.fig += 1
         return
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, fov=None, pix=None, imPow=1., imMax=None,
-             checkImVis=False, vLambda0=None,  =None, cmap='magma',
+             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma',
              dx=0, dy=0):
         t0 = time.time()
 

@@ -2900,7 +2900,7 @@ def _callbackAxes(ax):
     return
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
-                  combParam={}, sigmaClipping=4.5):
+                  combParam={}, sigmaClipping=4.5, showChi2=False):
     """
     you can look at combination of parameters:
 
@@ -2909,23 +2909,38 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     """
     global _AX, _AY
     boot = copy.deepcopy(b)
+
+    if showChi2:
+        if not type(combParam) == dict:
+            combParam = {}
+        combParam.update({'_chi2': 'chi2'})
+
+    #boot['fitOnly'] = boot['fitOnly']
+
     if len(combParam)>0:
         s = '$'
         for k in combParam:
             if not k in boot['fitOnly']:
                 boot['fitOnly'].append(k)
-            for i,f in enumerate(boot['all fits']):
-                tmp = combParam[k]+''
-                j = 0
-                while s in tmp and j<5:
-                    for x in f['best'].keys():
-                        if s+x in tmp:
-                            tmp = tmp.replace(s+x, '('+str(f['best'][x])+')')
-                boot['all fits'][i]['best'][k] = eval(tmp)
-                boot['all fits'][i]['uncer'][k] = 0.0
+            for i,f in enumerate(boot['fitOnly']):
+                if 'chi2' in k:
+                    boot['all fits'][i]['best'][k] = boot['all fits'][i]['chi2']
+                    boot['all fits'][i]['uncer'][k] = 0.0
+                else:
+                    tmp = combParam[k]+''
+                    j = 0
+                    while s in tmp and j<5:
+                        for x in boot['best'].keys():
+                            if s+x in tmp:
+                                tmp = tmp.replace(s+x, '('+str(boot['best'][x])+')')
+                        j+=1
+                    boot['all fits'][i]['best'][k] = eval(tmp)
+                    boot['all fits'][i]['uncer'][k] = 0.0
+
         print('analyse')
         boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping)
         print('done')
+
 
     if figWidth is None:
         figWidth = min(9.5, 1+2*len(boot['fitOnly']))
@@ -2941,13 +2956,19 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     combi = False
     # -- for each fitted parameters, show histogram
+
     for i1, k1 in enumerate(sorted(boot['fitOnly'])):
         _AX[i1] = plt.subplot(len(boot['fitOnly']),
                               len(boot['fitOnly']),
                               1+i1*len(boot['fitOnly'])+i1)
-        bins = int(3*np.ptp(boot['all best'][k1])/boot['uncer'][k1])
+        if k1 in boot['uncer']:
+            #print(boot['all best'].keys())
+            bins = int(3*np.ptp(boot['all best'][k1])/boot['uncer'][k1])
+        else:
+            bins = 10
         bins = min(bins, len(boot['mask'])//5)
         bins = max(bins, 5)
+
         h = plt.hist(boot['all best'][k1], bins=bins,
                      color='k', histtype='step', alpha=0.9)
         h = plt.hist(boot['all best'][k1], bins=bins,
@@ -3007,11 +3028,13 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                 plt.plot(x, y, '-', color=color1)#, label='c=%.2f'%boot['cord'][k1][k2])
 
             # -- combined parameters function of the other one?
+            #print(combParam, k1, k2)
             if (k1 in combParam and k2 in combParam[k1]) or \
-                (k2 in combParam and k1 in combParam[k2]):
+               (k2 in combParam and k1 in combParam[k2]):
                 _c = color3
             else:
                 _c = color2
+
             plt.plot(boot['best'][k1], boot['best'][k2], '+',
                     color=_c)
             x, y = dpfit.errorEllipse(boot, k1, k2)
