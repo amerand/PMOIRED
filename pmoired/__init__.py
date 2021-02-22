@@ -1,7 +1,7 @@
 try:
-    from pmoired import oimodels, oifits, oicandid
+    from pmoired import oimodels, oifits, oicandid, oifake
 except:
-    import oimodels, oifits, oicandid
+    import oimodels, oifits, oicandid, oifake
 import time
 
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
@@ -171,7 +171,7 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, fov=None, pix=None, imPow=1., imMax=None,
-             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma',
+             checkImVis=False, vLambda0=None,  =None, cmap='magma',
              dx=0, dy=0):
         t0 = time.time()
 

@@ -865,11 +865,13 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
         spectrum: spectrum (same lemgth as wl), should be sum(image, axis=(0,1))
 
     """
+    if noise == 0:
+        noise = {k:0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
     if noise is None:
         noise = {'V2': 0.01, '|V|':0.01, 'PHI':1., 'FLUX':0.01,
                 'T3PHI':1., 'T3AMP':0.01}
-        #noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
-        #         'T3PHI':.1, 'T3AMP':0.001}
+        noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
+                 'T3PHI':.1, 'T3AMP':0.001}
 
     tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
@@ -888,18 +890,18 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
     # -- fake MJD
     tmp['MJD'] = (np.array(lst)-lst0)/24 + mjd0
-    res = {'insname':'fake_%.3f_%.3fum'%(min(wl), max(wl)),
-           'filename':'None',
+    res = {'insname':'fake_%.3f_%.3fum_R%d'%(min(wl), max(wl),
+                        np.mean(wl)/np.ptp(wl)*len(wl)),
+           'filename':'',
            'targname':target if type(target)==str else
                             '%.3f %.3f'%tuple(target),
            'pipeline':'None',
            'header':{},
            'WL':wl,
-           'telescopes': t,
+           'telescopes': list(t),
            'baselines':tmp['baselines'],
            'TELLURICS':np.ones(len(wl)),
            }
-
     # == complex visibility function
     # -- unresolved gray object
     fvis = lambda u, v, l: np.ones((len(u), len(l)))
@@ -983,9 +985,11 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
     # -- OI_T3
     OIT3 = {}
+    res['triangles'] = []
     if len(t)>=3:
         #print(tmp['baselines'])
         for i, tri in enumerate(itertools.combinations(t, 3)):
+            res['triangles'].append(''.join(tri))
             if tri[0]+tri[1] in tmp['baselines']:
                 b1 = tri[0]+tri[1]
                 s1 = 1

@@ -182,7 +182,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
     'fpow', 'famp': famp*(wl-wl_min)**fpow (wl in um)
     spectral lines:
     'line_i_f': amplitude of line i (>0 for emission, <0 for absorption)
-    'line_i_wl0': central wavelnegth of line i (um)
+    'line_i_wl0': central wavelength of line i (um)
     'line_i_gaussian': fwhm for Gaussian profile (warning: in nm, not um!)
         or
     'line_i_lorentzian': width for Lorentzian (warning: in nm, not um!)
@@ -2170,7 +2170,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
             for e in ext:
                 if debug:
                     print(e, sorted(oi[e].keys()))
-                for k in sorted(oi[e].keys()):
+                #for k in sorted(oi[e].keys()): # alphabetical order
+                for k in sorted(oi[e].keys(), key=lambda x: np.mean(oi[e][x]['B/wl'])): # lengh
                     if debug:
                         print(len(oi[e][k]['MJD']))
                     if not k in mcB.keys():
@@ -2204,25 +2205,26 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                                 linestyle='none', markersize=5)
                         label = ''
                         showLabel=False
-
-            bmax = 1.05*np.max(bmax)
-            ax.legend(fontsize=5, loc='upper left', ncol=2)
-            ax.set_title('u,v (m)', fontsize=10)
-            ax.tick_params(axis='x', labelsize=7)
-            ax.tick_params(axis='y', labelsize=7)
-            if ax.get_xlim()[1]<bmax or ax.get_ylim()[1]<bmax:
-                ax.set_xlim(-bmax, bmax)
-                ax.set_ylim(-bmax, bmax)
+            bmax = np.array(bmax)
+            Bc = []
+            for b in [10, 20, 50, 100, 150, 200, 250, 300]:
+                if any(b>bmax) and any(b<bmax):
+                    Bc.append(b)
 
             if allInOne and not 'UV' in ai1ax:
                 ai1ax['UV'] = ax
-                t = np.linspace(0, 2*np.pi, 100)
-                for b in [50, 100, 150, 200, 250, 300]:
-                     ax.plot(b*np.cos(t), b*np.sin(t), ':k', alpha=0.2)
-            elif not allInOne:
-                t = np.linspace(0, 2*np.pi, 100)
-                for b in [50, 100, 150, 200, 250, 300]:
-                     ax.plot(b*np.cos(t), b*np.sin(t), ':k', alpha=0.2)
+            t = np.linspace(0, 2*np.pi, 100)
+            for b in Bc:
+                 ax.plot(b*np.cos(t), b*np.sin(t), ':k', alpha=0.2)
+
+            bmax = 1.1*np.max(bmax)
+            ax.legend(fontsize=5, loc='upper left', ncol=2)
+            ax.set_title('u,v (m)', fontsize=10)
+            ax.tick_params(axis='x', labelsize=6)
+            ax.tick_params(axis='y', labelsize=6)
+            if ax.get_xlim()[1]<bmax or ax.get_ylim()[1]<bmax:
+                ax.set_xlim(-bmax, bmax)
+                ax.set_ylim(-bmax, bmax)
 
             i_flux += 1
             if not any(['FLUX' in o for o in obs]):
@@ -2239,6 +2241,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
         N = len(oi[data[l]['ext']].keys())
         # -- for each telescope / baseline / triplets
         keys = [k for k in oi[data[l]['ext']].keys()]
+        if 'X' in data[l] and spectro and \
+                all([data[l]['X'] in oi[data[l]['ext']][x] for x in keys]):
+            keys = sorted(keys,
+                key=lambda x: np.mean(oi[data[l]['ext']][x][data[l]['X']]))
+        else:
+            keys = sorted(keys)
 
         # -- average normalized flux
         if l=='NFLUX' and 'UV' in obs:
@@ -2270,7 +2278,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
             keys = ['']
 
         showLegend = False
-        for i,k in enumerate(sorted(keys)):
+        for i,k in enumerate(keys):
             # -- for each telescope / baseline / triangle
             X = lambda r, j: r['WL']
             Xlabel = r'wavelength ($\mu$m)'
@@ -2390,7 +2398,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                                     colors[mcT['i']%len(colors)] )
                         mcT['i'] += 1
                         ai1mcT.update(mcT)
-                        showLabel = True
+                        showLabel = True and not spectro
                     else:
                         showLabel = False
                 if  l in ['V2', '|V|', 'DPHI']:
@@ -2399,7 +2407,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                                     colors[mcB['i']%len(colors)] )
                         mcB['i'] += 1
                         ai1mcB.update(mcB)
-                        showLabel = True
+                        showLabel = True and not spectro
                     else:
                         showLabel = False
 
@@ -2588,8 +2596,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                 if not 'UV' in obs or not 'FLUX' in l:
                     ax.text(0.02, 0.98, k, transform=ax.transAxes,
                             ha='left', va='top', fontsize=6, color=col)
-                ax.tick_params(axis='x', labelsize=8)
-                ax.tick_params(axis='y', labelsize=8)
+                ax.tick_params(axis='x', labelsize=6)
+                ax.tick_params(axis='y', labelsize=6)
                 ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
             else:
                 if l in ['V2', '|V|']:
@@ -2800,7 +2808,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
         XcbL = [xcbl.replace('e+00', '').replace('e-0', 'e-') for xcbl in XcbL]
         cb.set_ticks(Xcb)
         cb.set_ticklabels(XcbL)
-        cb.ax.tick_params(labelsize=7)
+        cb.ax.tick_params(labelsize=6)
         plt.xlabel(r'$\leftarrow$ E (mas)')
         if i==0:
             plt.ylabel(r'N $\rightarrow$ (mas)')
@@ -2818,8 +2826,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
             plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c)
             if i==0:
                 plt.legend(fontsize=5, ncol=2)
-        axs[-1].tick_params(axis='x', labelsize=7)
-        axs[-1].tick_params(axis='y', labelsize=7)
+        axs[-1].tick_params(axis='x', labelsize=6)
+        axs[-1].tick_params(axis='y', labelsize=6)
 
     axs[-1].invert_xaxis()
     if not 'cube' in m['MODEL']:
@@ -2869,8 +2877,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
 
     plt.legend(fontsize=5)
     plt.xlabel('wavelength ($\mu$m)')
-    ax.tick_params(axis='x', labelsize=7)
-    ax.tick_params(axis='y', labelsize=7)
+    ax.tick_params(axis='x', labelsize=6)
+    ax.tick_params(axis='y', labelsize=6)
 
     plt.ylim(0)
     plt.tight_layout()
