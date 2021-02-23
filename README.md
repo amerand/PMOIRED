@@ -34,8 +34,8 @@ xargs rm -rf < files.txt
 ## Examples
 
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
-- [Alpha Cen A](https://github.com/amerand/OIUTILS/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks.
-- [FU Ori](https://github.com/amerand/OIUTILS/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
+- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening.
+- [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
 
 ## Loading data
 
@@ -46,6 +46,10 @@ Check out the examples provided in the package in the directory `examples`, in t
 `self.show`
 
 ## Model syntax
+
+Models are defined as dictionaries. The keys describe the model and the values are the actual parameters. Models can have many components (see "Combining blocks to build complex models" below). The model also support expressing parameters as function of other parameters (including from another component). The parametrisation applies to both geometrical and spectral dimensions, although by default models are grey.
+
+The example notebook linked above provide examples of usage of the modeling capability.
 
 Possible keys in the model dictionary:
 

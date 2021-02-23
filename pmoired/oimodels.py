@@ -1987,6 +1987,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             else:
                 fontsize = 10
             if _showIm:
+                # -- go back one figure
                 plt.figure(f)
             plt.suptitle(title, fontsize=fontsize)
             #plt.tight_layout()
