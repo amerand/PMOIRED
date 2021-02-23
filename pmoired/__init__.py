@@ -172,13 +172,16 @@ class OI:
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
-             allInOne=False, fov=None, pix=None, imPow=1., imMax=None,
+             allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='magma',
-             dx=0, dy=0):
+             imX=0, imY=0):
         t0 = time.time()
 
-        if not fov is None and pix is None:
-            pix = fov/100.
+        if not imFov is None and imPix is None:
+            imPix = imFov/50.
+
+        if not imFov is None:
+            assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
 
         if spectro is None:
             N = [len(d['WL']) for d in self.data]
@@ -203,27 +206,27 @@ class OI:
             pass
 
         if not perSetup or allInOne:
-            self._model = oimodels.showOI(self.data, param=model, fig=self.fig, obs=obs,
-                    logV=logV, logB=logB, showFlagged=showFlagged,
+            self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
+                    obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
-                    fov=fov, pix=pix, imPow=imPow, imMax=imMax,
+                    imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                     checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                    cmap=cmap, dx=dx, dy=dy)
+                    cmap=cmap, imX=imX, imY=imY)
             if allInOne:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
         else:
             for i,d in enumerate(data):
-                self._model = oimodels.showOI([d], param=model, fig=self.fig, obs=obs,
-                        logV=logV, logB=logB, showFlagged=showFlagged,
+                self._model = oimodels.showOI([d], param=model, fig=self.fig,
+                        obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV,
-                        fov=fov if i==(len(data)-1) else None,
-                        pix=pix, imPow=imPow, imMax=imMax,
+                        imFov=imFov if i==(len(data)-1) else None,
+                        imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap, dx=dx, dy=dy)
+                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY)
                 self.fig += 1
-        if not fov is None:
+        if not imFov is None:
             self.fig += 1
         print('done in %.2fs'%(time.time()-t0))
         return

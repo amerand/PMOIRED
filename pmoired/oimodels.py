@@ -122,7 +122,7 @@ def Ssingle(oi, param, noLambda=False):
         f += eval(sp)
     return f
 
-def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
+def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0):
     """
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
@@ -132,10 +132,10 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
 
     param: a dictionnary with the possible keys defined below.
 
-    fov: field of view of synthetic image (in mas). if None (default), will
+    imFov: field of view of synthetic image (in mas). if None (default), will
         not produce a sinthetic image
-    pix: pixel size (in mas) for synthetic image
-    dx, dy: coordinates of the center of the image (in mas). default is 0,0
+    imPix: imPixel size (in mas) for synthetic image
+    imX, imY: coordinates of the center of the image (in mas). default is 0,0
 
     Possible keys in the parameters dictionnary:
 
@@ -211,15 +211,15 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
     # -- model -> no telluric features
     res['TELLURICS'] = np.ones(res['WL'].shape)
 
-    #print('->', fov, pix)
-    if not fov is None and not pix is None:
+    #print('->', imFov, imPix)
+    if not imFov is None and not imPix is None:
         # -- image coordinates in mas
-        X, Y = np.meshgrid(np.linspace(-fov/2, fov/2, int(fov/pix)+1),
-                           np.linspace(-fov/2, fov/2, int(fov/pix)+1))
-        if not dx is None:
-            X += dx
-        if not dy is None:
-            Y += dy
+        X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, int(imFov/imPix)+1),
+                           np.linspace(-imFov/2, imFov/2, int(imFov/imPix)+1))
+        if not imX is None:
+            X += imX
+        if not imY is None:
+            Y += imY
         I = np.zeros(X.shape)
         #print('setting synthetic images')
     else:
@@ -333,13 +333,13 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
             #I = R<=_param['ud']/2
             # -- anti aliasing:
             na = 3
-            for _dx in np.linspace(-pix/2, pix/2, na+2)[1:-1]:
-                for _dy in np.linspace(-pix/2, pix/2, na+2)[1:-1]:
-                    R2 = (_X-_dx)**2+(_Y-_dy)**2
+            for _imX in np.linspace(-imPix/2, imPix/2, na+2)[1:-1]:
+                for _imY in np.linspace(-imPix/2, imPix/2, na+2)[1:-1]:
+                    R2 = (_X-_imX)**2+(_Y-_imY)**2
                     I += R2<=(_param['ud']/2)**2
             I/=na**2
             if np.sum(I)==0:
-                # -- unresolved -> single pixel
+                # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
 
@@ -357,7 +357,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
         if not I is None:
             I = np.exp(-R**2*a)
             if np.sum(I)==0:
-                # -- unresolved -> single pixel
+                # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
 
@@ -425,7 +425,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
             I = _Vazvar(None, None, Ir, _r, _n, _phi, _amp,
                         stretch=stretch, numerical=1, XY=(X-x,Y-y))
             if np.sum(I)==0:
-                # -- unresolved -> single pixel
+                # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
 
@@ -452,13 +452,13 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
     #         #I = (R<=_param['udout']/2)*(R>=udin/2)
     #         # -- anti aliasing:
     #         na = 3
-    #         for _dx in np.linspace(-pix/2, pix/2, na+2)[1:-1]:
-    #             for _dy in np.linspace(-pix/2, pix/2, na+2)[1:-1]:
-    #                 R2 = (_X-_dx)**2+(_Y-_dy)**2
+    #         for _imX in np.linspace(-imPix/2, imPix/2, na+2)[1:-1]:
+    #             for _imY in np.linspace(-imPix/2, imPix/2, na+2)[1:-1]:
+    #                 R2 = (_X-_imX)**2+(_Y-_imY)**2
     #                 I += (R2<=(_param['udout']/2)**2)*(R2>=(udin/2)**2)
     #             I/=na**2
     #             if np.sum(I)==0:
-    #                 # -- unresolved -> single pixel
+    #                 # -- unresolved -> single imPixel
     #                 R2 = _X**2+_Y**2
     #                 I = R2==np.min(R2)
     else:
@@ -533,7 +533,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
             else:
                 tmp[l] = oi[key][k][l]
 
-        if not fov is None:
+        if not imFov is None:
             # -- slow down the code!
             for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                 if '/wl' in l and cwl!=1:
@@ -557,7 +557,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
                     tmp[l] = oi['OI_VIS2'][k][l]
 
             tmp['V2'] = np.abs(V)**2
-            if not fov is None:
+            if not imFov is None:
                 # -- slow down the code!
                 for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                     if '/wl' in l and cwl!=1:
@@ -595,7 +595,7 @@ def VsingleOI(oi, param, noT3=False, fov=None, pix=None, dx=0, dy=0,
 
 def VfromImageOI(oi):
     """
-    oi dict must have key 'image' of 'cube' -> Vmodel with "fov" and "pix"
+    oi dict must have key 'image' of 'cube' -> Vmodel with "imFov" and "imPix"
     """
     if type(oi)==list:
         return [VfromImageOI(o) for o in oi]
@@ -604,7 +604,7 @@ def VfromImageOI(oi):
                 not ('image' in oi['MODEL'].keys() or
                      'cube' in oi['MODEL'].keys()):
         print('WARNING: VfromImage cannot compute visibility from image')
-        print('         run "Vmodel" with fov and pix values set before')
+        print('         run "Vmodel" with imFov and imPix values set before')
         return oi
 
     oi['IM_VIS'] = {}
@@ -642,20 +642,20 @@ def VfromImageOI(oi):
     return oi
 
 SMEA = 7
-def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
+def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, indent=0,
              v2smear=True):
     global SMEA
     param = computeLambdaParams(p)
     if type(oi) == list:
         # -- iteration on "oi" if a list
-        return [VmodelOI(o, param, fov=fov, pix=pix, dx=dx, dy=dy,
+        return [VmodelOI(o, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent) for o in oi]
 
     # -- split in components if needed
     comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x])
     if len(comp)==0:
         # -- assumes single component
-        return VsingleOI(oi, param, fov=fov, pix=pix, dx=dx, dy=dy,
+        return VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                          timeit=timeit, indent=indent+1)
 
     tinit = time.time()
@@ -761,7 +761,7 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
             _dwl, _ffrac = 0., 1.0
         if res=={}:
             # -- initialise
-            res = VsingleOI(oi, _param, fov=fov, pix=pix, dx=dx, dy=dy,
+            res = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                             timeit=timeit, indent=indent+1, noT3=True,
                             _dwl=_dwl, _ffrac=_ffrac)
             if 'image' in res['MODEL'].keys():
@@ -793,7 +793,7 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
             m = {}
         else:
             # -- combine model with others
-            m = VsingleOI(oi, _param, fov=fov, pix=pix, dx=dx, dy=dy,
+            m = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent+1, noT3=True,
                         _dwl=_dwl, _ffrac=_ffrac)
             if 'image' in m['MODEL'].keys():
@@ -881,11 +881,11 @@ def VmodelOI(oi, p, fov=None, pix=None, dx=0.0, dy=0.0, timeit=False, indent=0,
     res['param'] = computeLambdaParams(param)
 
     t0 = time.time()
-    if 'fit' in res and 'spec res pix' in res['fit']:
+    if 'fit' in res and 'spec res imPix' in res['fit']:
         # -- convolve by spectral Resolution
-        N = 2*int(2*oi['fit']['spec res pix'])+3
+        N = 2*int(2*oi['fit']['spec res imPix'])+3
         x = np.arange(N)
-        ker = np.exp(-(x-np.mean(x))**2/(2.*(oi['fit']['spec res pix']/2.355)**2))
+        ker = np.exp(-(x-np.mean(x))**2/(2.*(oi['fit']['spec res imPix']/2.355)**2))
         ker /= np.sum(ker)
         if 'NFLUX' in res.keys():
             for k in res['NFLUX'].keys():
@@ -1916,8 +1916,8 @@ ai1mcB = {'i':0} # initialize global marker/color for baselines
 ai1mcT = {'i':0} # initialize global marker/color for triangles
 ai1ax = {} # initialise global list of axes
 
-def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
-           imPow=1., imWl0=None, cmap='bone', dx=0.0, dy=0.0, debug=False,
+def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None,
+           imPow=1., imWl0=None, cmap='bone', imX=0.0, imY=0.0, debug=False,
            showChi2=True, wlMin=None, wlMax=None, spectro=None, imMax=None,
            figWidth=None, figHeight=None, logB=False, logV=False, color=(1.0,0.2,0.1),
            checkImVis=False, showFlagged=False, onlyMJD=None, showUV=False,
@@ -1935,14 +1935,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
         logV: V2 and |V| in log scale (default False)
 
     showIm: show image (False)
-        fov: field of view (in mas)
-        pix: pixel size (in mas)
+        imFov: field of view (in mas)
+        imPix: imPixel size (in mas)
         imPow: show image**imPow (default 1.0)
         imWl0: wavelength(s) at which images are shown
         imMax: max value for image
         cmap: color map ('bone')
-        dx: center of FoV (in mas, default:0.0)
-        dy: center of FoV (in mas, default:0.0)
+        imX: center of FoV (in mas, default:0.0)
+        imY: center of FoV (in mas, default:0.0)
 
     """
     global ai1ax, ai1mcB, ai1mcT
@@ -1960,9 +1960,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                 f = fig
             else:
                 f = fig+i
-            _showIm = (showIm or not fov is None ) and i==(len(oi)-1)
-            #print('=>', showIm, fov, pix, '->', _showIm)
-            m = showOI(o, param=param, fig=f, obs=obs, fov=fov, pix=pix, dx=dx, dy=dy,
+            _showIm = (showIm or not imFov is None ) and i==(len(oi)-1)
+            #print('=>', showIm, imFov, imPix, '->', _showIm)
+            m = showOI(o, param=param, fig=f, obs=obs, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                    checkImVis=checkImVis, showIm=_showIm, allInOne=allInOne,
                    imWl0=imWl0, imPow=imPow, cmap=cmap, figWidth=figWidth,
                    wlMin=wlMin, wlMax=wlMax, spectro=spectro, imMax=imMax,
@@ -1973,11 +1973,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                    )
             models.append(m)
         if allInOne:
-            #print(ai1mcB)
-            #print(ai1mcT)
-            ai1mcB = {'i':0} # initialize global marker/color for baselines
-            ai1mcT = {'i':0} # initialize global marker/color for triangles
-            ai1ax = {} # initialise global list of axes
             title = []
             for o in oi:
                 title.extend([os.path.basename(f) for f in o['filename'].split(';')])
@@ -1991,7 +1986,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
                 fontsize = 8
             else:
                 fontsize = 10
+            if _showIm:
+                plt.figure(f)
             plt.suptitle(title, fontsize=fontsize)
+            #plt.tight_layout()
+            ai1mcB = {'i':0} # initialize global marker/color for baselines
+            ai1mcT = {'i':0} # initialize global marker/color for triangles
+            ai1ax = {} # initialise global list of axes
+
         return
 
     #print('->', computeLambdaParams(param))
@@ -2072,9 +2074,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
 
     if not param is None:
         #print('compute model V (analytical)')
-        m = VmodelOI(oi, param, fov=fov, pix=pix, dx=dx, dy=dy, )
-        if not fov is None and checkImVis:
-            #print('compute V from Image, fov=', fov)
+        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY, )
+        if not imFov is None and checkImVis:
+            #print('compute V from Image, imFov=', imFov)
             m = VfromImageOI(m)
         #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
         #    print('bandwidth smearing spectral channel(s):', m['smearing'])
@@ -2640,12 +2642,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, fov=None, pix=None,
         plt.suptitle(title, fontsize=fontsize)
 
     if showIm and not param is None:
-        showModel(oi, param, m=m, fig=fig+1, imPow=imPow, cmap=cmap, figWidth=figWidth,
-                fov=fov, pix=pix, dx=dx, dy=dy, imWl0=imWl0, imMax=imMax)
+        showModel(oi, param, m=m, fig=fig+1, imPow=imPow, cmap=cmap,
+                 figWidth=None,#figWidth,
+                 imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                 imWl0=imWl0, imMax=imMax)
     return m
 
-def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
-              pix=None, imPow=1.0, dx=0., dy=0., imWl0=None, cmap='bone', imMax=None):
+def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
+              imPix=None, imPow=1.0, imX=0., imY=0., imWl0=None, cmap='bone', imMax=None):
     """
     oi: result from loadOI for mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
@@ -2654,11 +2658,11 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
     fig: which figure to plot on (default 1)
     figHeight: height of the figure, in inch
 
-    fov: field of view in mas
-    pix: pixel size in mas
+    imFov: field of view in mas
+    imPix: imPixel size in mas
     imPow: power law applied to image for display. use 0<imPow<1 to show low
         surface brightness features
-    dx, dy: center of image (in mas)
+    imX, imY: center of image (in mas)
     imWl0: list of wavelength (um) to show the image default (min, max)
     cmap: color map (default 'bone')
     """
@@ -2670,7 +2674,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
               }
 
     if m is None:
-        m = VmodelOI(oi, param, fov=fov, pix=pix, dx=dx, dy=dy)
+        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY)
         #print(m['MODEL'].keys())
         #if not 'WL mask' in oi and 'WL mask' in m:
         #    oi['WL mask'] = m['WL mask'].copy()
@@ -2693,6 +2697,9 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
     else:
         nplot = len(imWl0)
 
+    #print('showModel: nplot=', nplot)
+    #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
+
     if figWidth is None and figHeight is None:
         figHeight =  min(max(nplot, 8), 5)
         figWidth = min(figHeight*nplot, 9.5)
@@ -2700,6 +2707,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
         figWidth = min(figHeight*nplot, 9.5)
     if not figWidth is None and figHeight is None:
         figHeight =  max(figWidth/nplot, 6)
+
+    #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
 
     plt.close(fig)
     plt.figure(fig, figsize=(figWidth, figHeight))
@@ -2765,7 +2774,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
         if axs ==[]:
             axs = [plt.subplot(1, nplot, i+1, aspect='equal')]
         else:
-            axs.append(plt.subplot(1, len(imWl0)+1, i+1, aspect='equal',
+            axs.append(plt.subplot(1, nplot, i+1, aspect='equal',
                        sharex=axs[0], sharey=axs[0]))
         _j = np.argmin(np.abs(oi['WL'][mask]-wl))
         _wl = oi['WL'][mask][_j]
@@ -2834,7 +2843,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, fov=None,
         plt.tight_layout()
         return
 
-    ax = plt.subplot(1, len(imWl0)+1, len(imWl0)+1)
+    ax = plt.subplot(1, nplot, nplot)
     if 'totalnflux' in m['MODEL']:
         key = 'nflux'
         plt.title('spectra, normalized\nto total continuum', fontsize=8)
@@ -3181,9 +3190,9 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
         B = np.sqrt(u**2+v**2)
         if XY is None:
             # -- to double check
-            pix = 1/(B.max()*_c*20)
-            Nx = int(np.ptp(r)/pix)+1
-            Ny = int(np.ptp(r)/pix)+1
+            imPix = 1/(B.max()*_c*20)
+            Nx = int(np.ptp(r)/imPix)+1
+            Ny = int(np.ptp(r)/imPix)+1
             Nmax = 200 # RAM requirement balloons quickly
             if Nx>Nmax:
                 print("WARNING: synthetic image size is too large >Nmax=%d"%Nmax)
@@ -3193,7 +3202,7 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             retFull = True
         else:
             X,Y = XY
-            pix = np.diff(X).mean()
+            imPix = np.diff(X).mean()
             Nx = X.shape[0]
             Ny = X.shape[1]
             retFull = False
@@ -3213,9 +3222,9 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
         # ns = 3
         # for i in range(Ny):
         #     for j in range(Nx):
-        #         for dx in np.linspace(-pix/2, pix/2, ns+2)[1:-1]:
-        #             for dy in np.linspace(-pix/2, pix/2, ns+2)[1:-1]:
-        #                 _r2 = (Xr[j,i]+dx)**2+(Yr[j,i]+dy)**2
+        #         for imX in np.linspace(-imPix/2, imPix/2, ns+2)[1:-1]:
+        #             for imY in np.linspace(-imPix/2, imPix/2, ns+2)[1:-1]:
+        #                 _r2 = (Xr[j,i]+imX)**2+(Yr[j,i]+imY)**2
         #                 Im[j,i] += 1./ns**2*np.interp(_r2,r2,I,right=0.0,left=0.0)
         Im = np.interp(Xr**2+Yr**2, r2, I, right=0, left=0)
         # -- azimutal variations in image
@@ -3380,7 +3389,7 @@ def testAzVar():
     plt.pcolormesh(X, Y, I, cmap='inferno', vmin=0, shading='auto')
     # plt.imshow(I, cmap='gist_heat', vmin=0, origin='lower',
     #             extent=[_r[0], _r[-1], _r[0], _r[-1]])
-    title = r'image %dx%d, $\theta$=%.2fmas'%(Nx, Nx, diam)
+    title = r'image %imX%d, $\theta$=%.2fmas'%(Nx, Nx, diam)
     plt.title(title)
     plt.xlim(plt.xlim()[1], plt.xlim()[0])
     plt.xlabel('E <- (mas)')
@@ -3411,7 +3420,7 @@ def testAzVar():
                     cmap='gist_stern', vmin=0, vmax=1, shading='auto')
 
     ax = plt.subplot(2,4,4, sharex=ax0, sharey=ax0)
-    dyn = 1. # in 1/100 visibility
+    imYn = 1. # in 1/100 visibility
     plt.title('$\Delta$|V| (1/100)')
     ax.set_aspect('equal')
     res = 100*(np.abs(Vis)-np.abs(Visp))
@@ -3440,12 +3449,12 @@ def testAzVar():
                     cmap='hsv', vmin=-180, vmax=180, shading='auto')
 
     ax = plt.subplot(2,4,8, sharex=ax0, sharey=ax0)
-    dyn = 1
+    imYn = 1
     plt.title('$\Delta\phi$ (deg)')
     ax.set_aspect('equal')
     res = 180/np.pi*((np.angle(Vis)-np.angle(Visp)+np.pi)%(2*np.pi)-np.pi)
     pp = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, res, shading='auto',
-                        cmap='RdBu', vmin=-dyn, vmax=dyn)
+                        cmap='RdBu', vmin=-imYn, vmax=imYn)
     print('median phase residual (abs.) = %.3f'%np.median(np.abs(res)), 'deg')
     print('90perc phase residual (abs.) = %.3f'%np.percentile(np.abs(res), 90), 'deg')
 
