@@ -1209,7 +1209,11 @@ def computeLambdaParams(params):
                 compute = False
                 for _k in paramsI.keys():
                     if s+_k in paramsI[k]:
-                        tmp = tmp.replace(s+_k, '('+str(paramsI[_k])+')')
+                        try:
+                            repl = '%f'%paramsI[_k]
+                        except:
+                            repl = str(paramsI[_k])
+                        tmp = tmp.replace(s+_k, '('+repl+')')
                         if not s in tmp:
                             # -- no more replacement
                             compute = True
@@ -1463,7 +1467,7 @@ def residualsOI(oi, param, timeit=False):
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
           maxfev=5000, ftol=1e-6, follow=None, prior=None,
-          randomise=False, iter=-1, obs=None):
+          randomise=False, iter=-1, obs=None, epsfcn=1e-8):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -1531,7 +1535,7 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
         fitOnly = list(firstGuess.keys())
     fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z, verbose=verbose,
                            maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
-                           doNotFit=doNotFit, follow=follow)
+                           doNotFit=doNotFit, follow=follow, epsfcn=1e-7)
     fit['prior'] = prior
     return fit
 
@@ -1675,11 +1679,12 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
     doNotFit = fit['doNotFit']
     maxfev = fit['maxfev']
     ftol = fit['ftol']/10
+    epsfcn= fit['epsfcn']
     prior = fit['prior']
     firstGuess = fit['best']
 
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
-              'fitOnly':fitOnly, 'doNotFit':doNotFit,
+              'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1}
 
     res = []
@@ -1765,16 +1770,21 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
             res['uncer'][k] = np.std(x[mask])
         res['all best'][k] = x[mask]
         res['all best ignored'][k] = x[~mask]
+    res['all chi2'] = np.array([b['chi2'] for b in Boot])[mask]
+    res['all chi2 ignored'] = np.array([b['chi2'] for b in Boot])[~mask]
+
     for k in Boot[0]['best'].keys():
         if not k in res['best'].keys():
             res['best'][k] = Boot[0]['best'][k]
             res['uncer'][k] = 0.0
-
+    res['chi2'] = Boot[0]['chi2']
     res['mask'] = mask
 
-    M = [[b['best'][k] for i,b in enumerate(Boot) if mask[i]] for k in res['fitOnly']]
+    fitOnly = res['fitOnly'].copy()
+    fitOnly.append('chi2')
+    M = [[b['chi2'] if k=='chi2' else b['best'][k]  for i,b in enumerate(Boot) if mask[i]] for k in fitOnly]
 
-    if len(res['fitOnly'])>1:
+    if len(fitOnly)>1:
         res['cov'] = np.cov(M)
         cor = np.sqrt(np.diag(res['cov']))
         cor = cor[:,None]*cor[None,:]
@@ -1783,10 +1793,10 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
         cor = np.array([[np.sqrt(res['cov'])]])
 
     res['cor'] = res['cov']/cor
-    res['covd'] = {ki:{kj:res['cov'][i,j] for j,kj in enumerate(res['fitOnly'])}
-                   for i,ki in enumerate(res['fitOnly'])}
-    res['cord'] = {ki:{kj:res['cor'][i,j] for j,kj in enumerate(res['fitOnly'])}
-                   for i,ki in enumerate(res['fitOnly'])}
+    res['covd'] = {ki:{kj:res['cov'][i,j] for j,kj in enumerate(fitOnly)}
+                   for i,ki in enumerate(fitOnly)}
+    res['cord'] = {ki:{kj:res['cor'][i,j] for j,kj in enumerate(fitOnly)}
+                   for i,ki in enumerate(fitOnly)}
     if verbose:
         if not sigmaClipping is None:
             print('using %d fits out of %d (sigma clipping %.2f)'%(
@@ -2146,7 +2156,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         figWidth = min(figHeight*ncol, 9.5)
     if not figWidth is None and figHeight is None:
         figHeight =  max(figWidth/ncol, 6)
-
+    #plt.close(fig)
     plt.figure(fig, figsize=(figWidth, figHeight))
     i_flux = 0
     i_col = 0
@@ -2814,7 +2824,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
         cb = plt.colorbar(pc, ax=axs[-1])
         #Xcb = np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0])*imMax
         Xcb = np.linspace(0,1,11)*imMax**imPow
-        XcbL = ['%.1e'%(xcb**(1./imPow)) for xcb in Xcb]
+        XcbL = ['%.0e'%(xcb**(1./imPow)) for xcb in Xcb]
         XcbL = [xcbl.replace('e+00', '').replace('e-0', 'e-') for xcbl in XcbL]
         cb.set_ticks(Xcb)
         cb.set_ticklabels(XcbL)
@@ -2920,10 +2930,11 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     global _AX, _AY
     boot = copy.deepcopy(b)
 
-    if showChi2:
-        if not type(combParam) == dict:
-            combParam = {}
-        combParam.update({'_chi2': 'chi2'})
+    # -- THIS IS NOT WORKING :(
+    #if showChi2:
+    #    if not type(combParam) == dict:
+    #        combParam = {}
+    #    combParam.update({'_chi2': 'chi2'})
 
     #boot['fitOnly'] = boot['fitOnly']
 
@@ -2957,85 +2968,152 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     fontsize = max(min(4*figWidth/len(boot['fitOnly']), 14), 6)
     plt.close(fig)
-    fig = plt.figure(fig, figsize=(figWidth, figWidth))
+    plt.figure(fig, figsize=(figWidth, figWidth))
     _AX = {}
 
     color1 = 'orange'
     color2 = (0.2, 0.4, 1.0)
     color3 = (0.8, 0.2, 0.4)
+    colorC2 = (0, 0.4, 0.2)
 
     combi = False
     # -- for each fitted parameters, show histogram
 
-    for i1, k1 in enumerate(sorted(boot['fitOnly'])):
-        _AX[i1] = plt.subplot(len(boot['fitOnly']),
-                              len(boot['fitOnly']),
-                              1+i1*len(boot['fitOnly'])+i1)
-        if k1 in boot['uncer']:
-            #print(boot['all best'].keys())
-            bins = int(3*np.ptp(boot['all best'][k1])/boot['uncer'][k1])
-        else:
-            bins = 10
-        bins = min(bins, len(boot['mask'])//5)
-        bins = max(bins, 5)
+    showP = sorted(boot['fitOnly'])
+    if showChi2:
+        showP.append('chi2')
 
-        h = plt.hist(boot['all best'][k1], bins=bins,
-                     color='k', histtype='step', alpha=0.9)
-        h = plt.hist(boot['all best'][k1], bins=bins,
-                     color='k', histtype='stepfilled', alpha=0.05)
-        if k1 in boot['fit to all data']['best']:
-            plt.errorbar(boot['fit to all data']['best'][k1],
-                        0.4*max(h[0]), markersize=fontsize/2,
-                        xerr=boot['fit to all data']['uncer'][k1], color=color1,
-                        fmt='s', capsize=fontsize/2, label='fit to all data')
-            combi = False
-        else:
-            combi = True
-        plt.errorbar(boot['best'][k1], 0.5*max(h[0]), xerr=boot['uncer'][k1],
-                    color=color3 if combi else color2, fmt='d',
-                    capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
+    offs = {}
+    amps = {}
 
+    for i1, k1 in enumerate(showP):
+        # -- create histogram plot
+        _AX[i1] = plt.subplot(len(showP),
+                              len(showP),
+                              1+i1*len(showP)+i1)
+        if k1=='chi2':
+            # -- assumes bins is already defined (chi2 cannot be first!)
+            # -- show histogram: line and area
+            h = plt.hist(boot['all chi2'], bins=bins,
+                         color=colorC2, histtype='step', alpha=0.9)
+            h = plt.hist(boot['all chi2'], bins=bins,
+                         color=colorC2, histtype='stepfilled', alpha=0.05)
+            plt.plot(boot['fit to all data']['chi2'],
+                        0.4*max(h[0]), 's', markersize=fontsize/2,
+                        color=colorC2, label='fit to all data')
+            plt.title(r'$\chi_{\rm red}^2$', fontsize=fontsize)
+            offs['chi2'] = 0
+            amps['chi2'] = 1
+            plt.xlim(min(min(h[1]),
+                        boot['fit to all data']['chi2']-0.1*np.ptp(h[1])),
+                    max(max(h[1]),
+                        boot['fit to all data']['chi2']+0.1*np.ptp(h[1])))
+            #print('Xlim:', min(h[1]), max(h[1]), boot['fit to all data']['chi2'])
+        else:
+            # -- guess number of bins
+            if k1 in boot['uncer']:
+                bins = int(3*np.ptp(boot['all best'][k1])/boot['uncer'][k1])
+            else:
+                bins = 10
+            bins = min(bins, len(boot['mask'])//5)
+            bins = max(bins, 5)
+
+            nd = np.abs(np.mean(boot['all best'][k1])/np.ptp(boot['all best'][k1]))
+            if nd>0:
+                nd = int(np.log10(nd))
+
+            if nd>=4:
+                offs[k1] = np.round(np.mean(boot['all best'][k1]), nd)
+                amps[k1] = 10**(nd+1)
+            else:
+                offs[k1] = 0.0
+                amps[k1] = 1.0
+
+            #print(k1, nd, offs[k1])
+            # -- show histogram: line and area
+            h = plt.hist(amps[k1]*(boot['all best'][k1]-offs[k1]), bins=bins,
+                         color='k', histtype='step', alpha=0.9)
+            h = plt.hist(amps[k1]*(boot['all best'][k1]-offs[k1]), bins=bins,
+                         color='k', histtype='stepfilled', alpha=0.05)
+            # -- fitted and bootstrap values and uncertainties
+            if k1 in boot['fit to all data']['best']:
+                plt.errorbar(amps[k1]*(boot['fit to all data']['best'][k1]-offs[k1]),
+                            0.4*max(h[0]), markersize=fontsize/2,
+                            xerr=amps[k1]*boot['fit to all data']['uncer'][k1],
+                            color=color1, fmt='s', capsize=fontsize/2,
+                            label='fit to all data')
+                combi = False
+            else:
+                combi = True
+            plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
+                        xerr=amps[k1]*boot['uncer'][k1],
+                        color=color3 if combi else color2, fmt='d',
+                        capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
+            n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
+            fmt = '%s=\n'+'%.'+'%d'%n+'f'+'$\pm$'+'%.'+'%d'%n+'f'
+            plt.title(fmt%(k1, boot['best'][k1], boot['uncer'][k1]),
+                        fontsize=fontsize)
         plt.legend(fontsize=5)
+
         # -- title
-        n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-        fmt = '%s=\n'+'%.'+'%d'%n+'f'+'$\pm$'+'%.'+'%d'%n+'f'
-        plt.title(fmt%(k1, boot['best'][k1], boot['uncer'][k1]),
-                    fontsize=fontsize)
         _AX[i1].yaxis.set_visible(False)
-        if i1!=(len(boot['fitOnly'])-1):
+        if i1!=(len(showP)-1):
             _AX[i1].xaxis.set_visible(False)
         else:
             _AX[i1].tick_params(axis='x', labelsize=fontsize*0.8)
             _AX[i1].set_xlabel(k1, fontsize=fontsize)
+            if offs[k1]<0:
+                _AX[i1].set_xlabel(k1+'\n+%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                                fontsize=fontsize)
+            elif offs[k1]>0:
+                _AX[i1].set_xlabel(k1+'\n-%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                                    fontsize=fontsize)
+        # -- end histogram
+
     _AY = {}
+
     # -- show density plots
-    for i1, k1 in enumerate(sorted(boot['fitOnly'])):
-        for i2 in range(i1+1, len(boot['fitOnly'])):
-            k2 = sorted(boot['fitOnly'])[i2]
+    for i1, k1 in enumerate(showP):
+        for i2 in range(i1+1, len(showP)):
+            k2 = showP[i2]
             if i1==0:
-                _AY[i2] = plt.subplot(len(boot['fitOnly']),
-                            len(boot['fitOnly']),
-                            1+i2*len(boot['fitOnly'])+i1,
+                _AY[i2] = plt.subplot(len(showP),
+                            len(showP),
+                            1+i2*len(showP)+i1,
                             sharex=_AX[i1])
                 ax = _AY[i2]
             else:
-                ax = plt.subplot(len(boot['fitOnly']),
-                            len(boot['fitOnly']),
-                            1+i2*len(boot['fitOnly'])+i1,
+                ax = plt.subplot(len(showP),
+                            len(showP),
+                            1+i2*len(showP)+i1,
                             sharex=_AX[i1],
                             sharey=_AY[i2])
 
-            plt.plot(boot['all best'][k1], boot['all best'][k2], '.',
-                     alpha=np.sqrt(2/len(boot['mask'])), color='k')
-            if showRejected:
-                plt.plot(boot['all best ignored'][k1],
-                         boot['all best ignored'][k2], 'xr', alpha=0.3)
+            #if k1=='chi2' or k2=='chi2':
+            #    continue
+            #print(k1, k2)
+            c, m = 'k', '.'
+            if k1=='chi2':
+                X1 = boot['all chi2']
+                X1r = boot['all chi2 ignored']
+                c = colorC2
+            else:
+                X1 = boot['all best'][k1]
+                X1r = boot['all best ignored'][k1]
+            if k2=='chi2':
+                X2 = boot['all chi2']
+                X2r = boot['all chi2 ignored']
+                c = colorC2
+            else:
+                X2 = boot['all best'][k2]
+                X2r = boot['all best ignored'][k2]
 
-            if k1 in boot['fit to all data']['best'] and k2 in boot['fit to all data']['best']:
-                plt.plot(boot['fit to all data']['best'][k1],
-                         boot['fit to all data']['best'][k2], 'x', color='0.5')
-                x, y = dpfit.errorEllipse(boot['fit to all data'], k1, k2)
-                plt.plot(x, y, '-', color=color1)#, label='c=%.2f'%boot['cord'][k1][k2])
+            plt.plot(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), m,
+                      alpha=np.sqrt(2/len(boot['mask'])), color=c)
+
+            if showRejected:
+                plt.plot(amps[k1]*(X1r-offs[k1]), amps[k2]*(X2r-offs[k2]),
+                        'xr', alpha=0.3)
 
             # -- combined parameters function of the other one?
             #print(combParam, k1, k2)
@@ -3045,19 +3123,73 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             else:
                 _c = color2
 
-            plt.plot(boot['best'][k1], boot['best'][k2], '+',
-                    color=_c)
-            x, y = dpfit.errorEllipse(boot, k1, k2)
-            plt.plot(x, y, '-', color=_c, label='c=%.2f'%boot['cord'][k1][k2])
+            #x, y = dpfit.errorEllipse(boot, k1, k2)
+            if k1=='chi2':
+                _i1 = len(boot['fitOnly'])
+                _c = colorC2
+            else:
+                _i1 = boot['fitOnly'].index(k1)
+            if k2=='chi2':
+                _i2 = len(boot['fitOnly'])
+                _c = colorC2
+            else:
+                _i2 = boot['fitOnly'].index(k2)
+            t = np.linspace(0,2*np.pi,100)
+            sMa, sma, a = dpfit._ellParam(boot['cov'][_i1,_i1],
+                                    boot['cov'][_i2,_i2],
+                                    boot['cov'][_i1,_i2])
+            _X,_Y = sMa*np.cos(t), sma*np.sin(t)
+            _X,_Y = _X*np.cos(a)+_Y*np.sin(a),-_X*np.sin(a)+_Y*np.cos(a)
+            if (k1.endswith(',x') and k2.endswith(',y')) or \
+                (k1.endswith(',y') and k2.endswith(',x')):
+                print('ellipse (emin, emax, PA) for %s/%s: %.4f %.4f %.1f'%(
+                            k1, k2, sMa, sma, a*180/np.pi))
 
+            if k1=='chi2':
+                x = np.mean(boot['all chi2'])+_X
+            else:
+                x = boot['best'][k1]+_X
+            if k2=='chi2':
+                y = np.mean(boot['all chi2'])+_Y
+            else:
+                y = boot['best'][k2]+_Y
+
+            plt.plot(amps[k1]*(x-offs[k1]),
+                     amps[k2]*(y-offs[k2]), '-', color=_c,
+                        label='c=%.2f'%boot['cord'][k1][k2])
             plt.legend(fontsize=5)
-            if i2==(len(boot['fitOnly'])-1):
+
+            if k1 in boot['fit to all data']['best'] and \
+                    k2 in boot['fit to all data']['best']:
+                plt.plot(amps[k1]*(boot['fit to all data']['best'][k1]-offs[k1]),
+                         amps[k2]*(boot['fit to all data']['best'][k2]-offs[k2]),
+                         'x', color='0.5')
+                x, y = dpfit.errorEllipse(boot['fit to all data'], k1, k2)
+                plt.plot(amps[k1]*(x-offs[k1]), amps[k2]*(y-offs[k2]), '-',
+                            color=color1)#, label='c=%.2f'%boot['cord'][k1][k2])
+                plt.plot(amps[k1]*(boot['best'][k1]-offs[k1]),
+                         amps[k2]*(boot['best'][k2]-offs[k2]),
+                         '+', color=_c)
+
+            if i2==(len(showP)-1):
                 plt.xlabel(k1, fontsize=fontsize)
+                if offs[k1]<0:
+                    plt.xlabel(k1+'\n+%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                                fontsize=fontsize)
+                elif offs[k1]>0:
+                    plt.xlabel(k1+'\n-%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                                fontsize=fontsize)
                 ax.tick_params(axis='x', labelsize=fontsize*0.8)
             else:
                 ax.xaxis.set_visible(False)
             if i1==0:
                 plt.ylabel(k2, fontsize=fontsize)
+                if offs[k2]<0:
+                    plt.ylabel(k2+'\n+%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
+                                fontsize=fontsize)
+                elif offs[k2]>0:
+                    plt.ylabel(k2+'\n-%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
+                                fontsize=fontsize)
                 _AY[i2].callbacks.connect('ylim_changed', _callbackAxes)
                 _AY[i2].tick_params(axis='y', labelsize=fontsize*0.8)
             else:
@@ -3381,6 +3513,7 @@ def testAzVar():
     print('Image min/max = %f / %f'%(np.min(I), np.max(I)))
     # == Show result =======================================
     print('speedup: x%.0f'%(tn/tsa))
+    plt.close(0)
     plt.figure(0, figsize=(11,4))
     plt.clf()
     plt.subplots_adjust(left=0.05, right=0.95, top=0.93,

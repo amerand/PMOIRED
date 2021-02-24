@@ -107,7 +107,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
-            res['WL'] = hdu.data['EFF_WAVE']*1e6
+            res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
 
     #res['n_lab'] = n_JHK(res['WL'].astype(np.float64))#, 273.15+T, P, H)
 

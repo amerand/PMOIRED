@@ -12,8 +12,8 @@ The modeling of data is based on several principles:
 - Each component has a spectrum, including modelling of emission or absorption lines (Gaussian or Lorentzian)
 - In order for the computation to be fast (a requirement to perform data fitting), basic blocks have analytical or semi-analytical complex visibilities. Moreover, for the same reason, their spectral component is independent of the geometry.
 
-The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/tools/data-analysis/litpro). However, OIUTILS offers additional features:
-- `PMOIRED` extends the modeling in the spectral dimension. For this reason, it contains a module to do basic telluric correction (only for GRAVITY at the moment)
+The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/tools/data-analysis/litpro). However, `PMOIRED` offers additional features:
+- `PMOIRED` extends the modelling in the spectral dimension. For this reason, it contains a module to do basic telluric correction (only for GRAVITY at the moment)
 - Models' parameters can be expressed a function of each others, which allows to build complex geometrical shapes: astronomical realistic models (e.g. approximate Keplerian rotating disks) can be build this way, without compromising on execution speed.
 
 ## Install

@@ -105,7 +105,7 @@ class OI:
         return
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
-              maxfev=10000, ftol=1e-4):
+              maxfev=10000, ftol=1e-4, epsfcn=1e-7):
         """
         model: a dictionnary describing the model
         """
@@ -124,7 +124,7 @@ class OI:
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
-                                      maxfev=maxfev, ftol=ftol)
+                                      maxfev=maxfev, ftol=ftol, epsfcn=epsfcn)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         return
 

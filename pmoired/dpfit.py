@@ -360,7 +360,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                       scipy.optimize.leastsq(_fitFunc, pfit,
                             args=(fitOnly,x,y,err,func,pfix,verbose,follow,),
                             full_output=True, epsfcn=epsfcn, ftol=ftol,
-                            maxfev=maxfev, )
+                            maxfev=maxfev)
             info['exec time'] = time.time() - t0
         else:
             method = 'L-BFGS-B'
@@ -396,11 +396,16 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             except:
                 cov = np.zeros((len(fitOnly), len(fitOnly)))
             # ------------------------------------------------------
-            info, mesg, ier = {'nfev':Ncalls, 'exec time':time.time()-t0}, result.message, None
+            info = {'nfev':Ncalls, 'exec time':time.time()-t0},
+            mesg, ier = result.message, None
 
     if verbose:
         print('[dpfit]', mesg)
+        print('[dpfit] ier:', ier)
         print('[dpfit] number of function call:', info['nfev'])
+        if cov is None:
+            print('[dpfit] WARNING: singular covariance matrix!!')
+            print('       ', info['fjac'].shape)
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
         print('[dpfit] time per function call:', round(t, n), '(ms)')

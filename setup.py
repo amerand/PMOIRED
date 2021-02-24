@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as readme_file:
     readme = readme_file.read()
 
-requirements = ["astropy>=4", "numpy>=1.18", "scipy>=1.4", "matplotlib>=3.1"]
+requirements = ["astropy>=4", "numpy>=1.18", "scipy>=1.4", "matplotlib>=3.1",
+                "astroquery>=0.4"]
 
 setup(name="pmoired",
       version="0.1dev",
