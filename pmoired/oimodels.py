@@ -170,8 +170,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     different keywords:
     'profile': radial profile, can be 'uniform', 'doughnut' or 'power law'.
         if power law, 'power' gives the radial law
-    'az ampi', 'az projangi'projan: defines the cos variation amplitude and phase for i nodes
-        along the azimuth
+    'az ampi', 'az projangi': defines the cos variation amplitude and phase for
+        i-th nodes along the azimuth
 
     flux modeling:
     --------------
@@ -825,7 +825,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 res['MOD_VIS'][b] += m['MODEL']['totalflux'][None,:]*\
                                      m['OI_VIS'][b]['|V|']*\
                                      np.exp(1j*np.pi*m['OI_VIS'][b]['PHI']/180)
-
+        res['MODEL']['param'] = computeLambdaParams(p)
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
 
@@ -1972,10 +1972,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 f = fig+i
             _showIm = (showIm or not imFov is None ) and i==(len(oi)-1)
             #print('=>', showIm, imFov, imPix, '->', _showIm)
-            m = showOI(o, param=param, fig=f, obs=obs, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                   checkImVis=checkImVis, showIm=_showIm, allInOne=allInOne,
-                   imWl0=imWl0, imPow=imPow, cmap=cmap, figWidth=figWidth,
-                   wlMin=wlMin, wlMax=wlMax, spectro=spectro, imMax=imMax,
+            m = showOI(o, param=param, fig=f, obs=obs,
+                   imFov=imFov, imPix=imPix, imX=imX, imY=imY, imMax=imMax,
+                   imWl0=imWl0, imPow=imPow, checkImVis=checkImVis, showIm=_showIm,
+                   allInOne=allInOne, cmap=cmap, figWidth=figWidth,
+                   wlMin=wlMin, wlMax=wlMax, spectro=spectro,
                    logB=logB, logV=logV, color=color, showFlagged=showFlagged,
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
@@ -1987,9 +1988,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             for o in oi:
                 title.extend([os.path.basename(f) for f in o['filename'].split(';')])
             title = sorted(title)
+            #print('title:', title, len(title))
             if len(title)>2:
-                title = title[0]+' ... '+title[-1]
-                title += ' (%d files)'%len(title)
+                title = title[0]+' ... '+title[-1]+' (%d files)'%len(title)
                 fontsize = 8
             elif len(title)>1:
                 title = ', '.join(title)
@@ -2004,8 +2005,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1mcB = {'i':0} # initialize global marker/color for baselines
             ai1mcT = {'i':0} # initialize global marker/color for triangles
             ai1ax = {} # initialise global list of axes
-
-        return
+        return m
 
     #print('->', computeLambdaParams(param))
 
@@ -2028,9 +2028,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     else:
         if type(param)==dict and 'best' in param.keys() and 'fitOnly' in param.keys():
             param = param['best']
-
-    if ai1ax == {}:
-        plt.close(fig)
 
     # -- user-defined wavelength range
     fit = {'wl ranges':[(min(oi['WL']), max(oi['WL']))]}
@@ -2156,8 +2153,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         figWidth = min(figHeight*ncol, 9.5)
     if not figWidth is None and figHeight is None:
         figHeight =  max(figWidth/ncol, 6)
-    #plt.close(fig)
-    plt.figure(fig, figsize=(figWidth, figHeight))
+    if not allInOne or ai1ax == {}:
+        plt.close(fig)
+        plt.figure(fig, figsize=(figWidth, figHeight))
     i_flux = 0
     i_col = 0
     yoffset = 0
@@ -2231,13 +2229,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                  ax.plot(b*np.cos(t), b*np.sin(t), ':k', alpha=0.2)
 
             bmax = 1.1*np.max(bmax)
-            ax.legend(fontsize=5, loc='upper left', ncol=2)
+            ax.legend(fontsize=4, loc='upper left', ncol=3)
             ax.set_title('u,v (m)', fontsize=10)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
-            if ax.get_xlim()[1]<bmax or ax.get_ylim()[1]<bmax:
+            if np.abs(ax.get_xlim())[1]<bmax or ax.get_ylim()[1]<bmax:
                 ax.set_xlim(-bmax, bmax)
                 ax.set_ylim(-bmax, bmax)
+            if ax.get_xlim()[0]<ax.get_xlim()[1]:
+                ax.invert_xaxis()
 
             i_flux += 1
             if not any(['FLUX' in o for o in obs]):
@@ -2303,9 +2303,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     if logB:
                         Xscale = 'log'
                 yoffset = 0.0
-
             if allInOne and l+str(i) in ai1ax:
                 ax = ai1ax[l+str(i)]
+                if 'r'+l+str(i) in ai1ax:
+                    axr = ai1ax['r'+l+str(i)]
             else:
                 if 'UV' in obs and 'FLUX' in l:
                     if i==0:
@@ -2325,8 +2326,19 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                                 sharex=ax0)
                 else:
                     if not spectro:
+                        # -- as function of baseline/wl
                         if i==0:
-                            ax = plt.subplot(1, ncol, i_col+1)
+                            if param is None:
+                                ax = plt.subplot(1, ncol, i_col+1)
+                            else:
+                                # -- TODO: use GridSpec!
+                                ax = plt.subplot(2, ncol, i_col+1)
+                                axr = plt.subplot(2, ncol, ncol+i_col+1)
+                                axr.set_title('residuals ($\sigma$)',
+                                                color='0.5',
+                                                fontsize=8, x=.15, y=.9)
+                                ax.tick_params(axis='y', labelsize=8)
+                                axr.tick_params(axis='y', labelsize=8)
                     else:
                         if ax0 is None:
                             ax0 = plt.subplot(N, ncol, ncol*i+i_col+1)
@@ -2334,7 +2346,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         else:
                             ax = plt.subplot(N, ncol, ncol*i+i_col+1, sharex=ax0)
                 if allInOne:
+                    # -- keep track of windows
                     ai1ax[l+str(i)] = ax
+                    if not spectro and not param is None:
+                        ai1ax['r'+l+str(i)] = axr
 
             if not ('UV' in obs and 'FLUX' in l):
                 yoffset = 0.0
@@ -2367,7 +2382,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 y = oi[data[l]['ext']][k][data[l]['var']][j,:]
                 if 'PHI' in l and any(mask):# and np.ptp(y[mask])>300:
                     y[mask] = np.unwrap(y[mask]*np.pi/180)*180/np.pi
-                    y[mask] = np.mod(y[mask]-np.mean(y[mask])+180, 360)+np.mean(y[mask]-180)%360-360
+                    y[mask] = np.mod(y[mask]-np.mean(y[mask])+180, 360)+\
+                                np.mean(y[mask]-180)%360-360
                     #y[flagged] = np.unwrap(y[flagged]*np.pi/180)*180/np.pi
                     #y[flagged] = np.mod(y[flagged]+180, 360)-180
                     pass
@@ -2434,7 +2450,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
                     # -- data dots
                     ax.plot(X(oi, j)[mask], y[mask], mark,
-                            color=col if not test else '0.5',
+                            color=col if not test else '0.5', markersize=5,
                             alpha=0.5, label=k if showLabel else '',)
                     # -- data error bars
                     ax.errorbar(X(oi, j)[mask], y[mask], yerr=err[mask],
@@ -2476,7 +2492,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
                 if showIgn and showFlagged:
                     # -- show ignored data (filtered on error for example)
-                    plt.plot(X(oi,j)[ign], y[ign]+yoffset*i, 'xy', alpha=0.5)
+                    ax.plot(X(oi,j)[ign], y[ign]+yoffset*i, 'xy', alpha=0.5)
 
                 maskp = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
                 try:
@@ -2492,7 +2508,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         k = list(m[data[l]['ext']].keys())[0]
                     ym = m[data[l]['ext']][k][data[l]['var']][j,:]
                     ym[mask] = np.unwrap(ym[mask]*np.pi/180)*180/np.pi
-                    ym[mask] = np.mod(ym[mask]+180-np.mean(ym[mask]), 360)+(np.mean(ym[mask])-180)%360-360
+                    ym[mask] = np.mod(ym[mask]+180-np.mean(ym[mask]), 360)+\
+                                (np.mean(ym[mask])-180)%360-360
 
                     # -- computed chi2 *in the displayed window*
                     maskc2 = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
@@ -2514,6 +2531,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             ax.plot(X(m,j)[maskc2], ym[maskc2],
                                     '--', alpha=0.7, color=col,
                                     linewidth=2)
+                        # -- residuals
+                        if 'PHI' in l:
+                            axr.plot(X(m,j)[maskc2],
+                                    ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2],
+                                    mark, color=col, markersize=5)
+                        else:
+                            axr.plot(X(m,j)[maskc2],
+                                    (y[maskc2]-ym[maskc2])/err[maskc2],
+                                    mark, color=col, markersize=5)
                     else:
                         ax.step(X(m,j)[maskc2], ym[maskc2]+yoffset*i,
                                 '-', alpha=0.4 if not test else 0.2,
@@ -2620,9 +2646,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     else:
                         ax.set_ylim(0,1)
             if i==N-1:
-                ax.set_xlabel(Xlabel)
+                if not spectro and not param is None:
+                    axr.set_xlabel(Xlabel)
+                else:
+                    ax.set_xlabel(Xlabel)
                 if Xscale=='log':
                     ax.set_xscale('log')
+                    if not spectro and not param is None:
+                        axr.set_xscale('log')
             if i==0:
                 title = l
                 if 'unit' in data[l]:
@@ -2633,7 +2664,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
-                ax.legend(fontsize=5, ncol=3)
+                ax.legend(fontsize=4, ncol=4)
 
         i_col += 1
 
@@ -2750,7 +2781,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
         wlpeak[c] = None
     symbols = {}
     a, b, c = 0.9, 0.6, 0.1
-    colors = [(a,b,c), (b,c,a), (c,a,b),
+    colors = [(c,a,b), (a,b,c), (b,c,a),
               (a,c,b), (c,b,a), (b,a,c),
               (a,c,c), (c,a,c), (c,c,a),
               (b,b,c), (b,c,b), (c,b,b),
@@ -2820,7 +2851,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
 
         pc = plt.pcolormesh(m['MODEL']['X'], m['MODEL']['Y'],
                             im, vmin=vmin, vmax=vmax,
-                             cmap=cmap, shading='auto')
+                            cmap=cmap, shading='auto')
         cb = plt.colorbar(pc, ax=axs[-1])
         #Xcb = np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0])*imMax
         Xcb = np.linspace(0,1,11)*imMax**imPow
@@ -2843,7 +2874,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
                 y = param[c+',y']
             else:
                 y = 0.0
-            plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c)
+            plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
+                    markersize=8)
             if i==0:
                 plt.legend(fontsize=5, ncol=2)
         axs[-1].tick_params(axis='x', labelsize=6)
@@ -2852,7 +2884,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
     axs[-1].invert_xaxis()
     if not 'cube' in m['MODEL']:
         plt.tight_layout()
-        return
+        return m
 
     ax = plt.subplot(1, nplot, nplot)
     if 'totalnflux' in m['MODEL']:
@@ -2902,7 +2934,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
 
     plt.ylim(0)
     plt.tight_layout()
-    return
+    return m
 
 def _callbackAxes(ax):
     global _AX, _AY

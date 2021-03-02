@@ -51,7 +51,7 @@ class OI:
                         tellurics=tellurics))
         return
 
-    def setupFit(self, fit, update=False):
+    def setupFit(self, fit, update=False, debug=False):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
@@ -93,7 +93,7 @@ class OI:
                 if 'fit' in d and update:
                     d['fit'].update(fit)
                 else:
-                    d['fit'] = fit
+                    d['fit'] = fit.copy()
 
         if type(fit)==list:
             for i,d in enumerate(self.data):
@@ -101,11 +101,22 @@ class OI:
                 if 'fit' in d and update:
                     d['fit'].update(fit[i])
                 else:
-                    d['fit'] = fit[i]
+                    d['fit'] = fit[i].copy()
+        if debug:
+            print([d['fit']['obs'] for d in self.data])
+
+        for d in self.data:
+            if 'obs' in d['fit']:
+                if debug:
+                    print(d['filename'],
+                        list(filter(lambda x: x.startswith('OI_'), d.keys())))
+                d['fit']['obs'] = _checkObs(d, d['fit']['obs']).copy()
+                if debug:
+                    print(d['fit']['obs'])
         return
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
-              maxfev=10000, ftol=1e-4, epsfcn=1e-7):
+              maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None):
         """
         model: a dictionnary describing the model
         """
@@ -124,7 +135,8 @@ class OI:
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
-                                      maxfev=maxfev, ftol=ftol, epsfcn=epsfcn)
+                                      maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
+                                      follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         return
 
@@ -173,7 +185,7 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
-             checkImVis=False, vLambda0=None, imWl0=None, cmap='magma',
+             checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0):
         t0 = time.time()
 
@@ -206,6 +218,25 @@ class OI:
             pass
 
         if not perSetup or allInOne:
+            # -- figure out the list of obs, could be heteregenous
+            if not obs is None:
+                obs = list(obs)
+            else:
+                obs = []
+                for d in data:
+                    if not 'fit' in d and not 'obs' in d['fit']:
+                        if 'OI_T3' in d:
+                            obs.append('T3PHI')
+                        if 'OI_VIS2' in oi:
+                            obs.append('V2')
+                        if 'OI_VIS' in oi:
+                            obs.append('|V|')
+                        if 'OI_FLUX' in oi:
+                            obs.append('FLUX')
+                    else:
+                        obs.extend(d['fit']['obs'])
+                obs = list(set(obs))
+
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
                     obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
@@ -237,6 +268,21 @@ class OI:
         kz = filter(lambda k: k.startswith(comp+','), model.keys())
         #return {m['insname']:(m['WL'], oimodels[])}
         pass
+
+
+def _checkObs(data, obs):
+    """
+    data: OI dict
+    obs: list of observable in ['|V|', 'V2', 'DPHI', 'T3PHI', 'FLUX']
+
+    returns list of obs actually in data
+    """
+    ext = {'|V|':'OI_VIS', 'DPHI':'OI_VIS', 'PHI':'OI_VIS',
+           'V2':'OI_VIS2',
+           'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
+           'FLUX':'OI_FLUX'
+           }
+    return [o for o in obs if o in ext and ext[o] in data]
 
 def _checkSetupFit(fit):
     """
