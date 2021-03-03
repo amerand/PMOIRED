@@ -224,7 +224,7 @@ class OI:
             else:
                 obs = []
                 for d in data:
-                    if not 'fit' in d and not 'obs' in d['fit']:
+                    if not 'fit' in d or not 'obs' in d['fit']:
                         if 'OI_T3' in d:
                             obs.append('T3PHI')
                         if 'OI_VIS2' in oi:
