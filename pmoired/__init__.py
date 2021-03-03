@@ -227,11 +227,11 @@ class OI:
                     if not 'fit' in d or not 'obs' in d['fit']:
                         if 'OI_T3' in d:
                             obs.append('T3PHI')
-                        if 'OI_VIS2' in oi:
+                        if 'OI_VIS2' in d:
                             obs.append('V2')
-                        if 'OI_VIS' in oi:
+                        if 'OI_VIS' in d:
                             obs.append('|V|')
-                        if 'OI_FLUX' in oi:
+                        if 'OI_FLUX' in d:
                             obs.append('FLUX')
                     else:
                         obs.extend(d['fit']['obs'])
