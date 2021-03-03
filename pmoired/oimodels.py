@@ -2277,7 +2277,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     mask = ~oi[data[l]['ext']][k]['FLAG'][j,:]
                     tmp[mask] += oi[data[l]['ext']][k][l][j,mask]/\
                                  oi[data[l]['ext']][k]['E'+l][j,mask]
-                    # todo: better estimation of error of average flux
+                    # TODO: better estimation of error of average flux
                     etmp[mask] = np.minimum(etmp[mask],
                                oi[data[l]['ext']][k]['E'+l][j,mask])
                     weight[mask] += 1/oi[data[l]['ext']][k]['E'+l][j,mask]
@@ -2329,6 +2329,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         # -- as function of baseline/wl
                         if i==0:
                             if param is None:
+                                # -- no model
                                 ax = plt.subplot(1, ncol, i_col+1)
                             else:
                                 # -- TODO: use GridSpec!
@@ -2652,8 +2653,20 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     ax.set_xlabel(Xlabel)
                 if Xscale=='log':
                     ax.set_xscale('log')
+                    xlims = ax.get_xlim()
+                    XTICKS = []
+                    for _p in [-1,0,1,2]:
+                        for xtick in [1, 2, 5]:
+                            if xtick*10**_p>=xlims[0] and xtick*10**_p<=xlims[1]:
+                                XTICKS.append(xtick*10**_p)
+                    ax.set_xticks(XTICKS)
+                    ax.set_xticklabels([str(x) for x in XTICKS])
                     if not spectro and not param is None:
                         axr.set_xscale('log')
+                        axr.set_xticks(XTICKS)
+                        axr.set_xticklabels([str(x) for x in XTICKS])
+
+
             if i==0:
                 title = l
                 if 'unit' in data[l]:
@@ -2852,7 +2865,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, imFov=None,
         pc = plt.pcolormesh(m['MODEL']['X'], m['MODEL']['Y'],
                             im, vmin=vmin, vmax=vmax,
                             cmap=cmap, shading='auto')
-        cb = plt.colorbar(pc, ax=axs[-1])
+        cb = plt.colorbar(pc, ax=axs[-1], orientation='horizontal')
         #Xcb = np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0])*imMax
         Xcb = np.linspace(0,1,11)*imMax**imPow
         XcbL = ['%.0e'%(xcb**(1./imPow)) for xcb in Xcb]

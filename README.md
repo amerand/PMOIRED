@@ -85,7 +85,7 @@ param = {'diam':1.0, 'profile':'$MU**$alpha', '$alpha':0.1}
 ```
 The parsing of `profile` is very basic, so do not create variable names with common name (e.g. `np` or `sqrt`).
 
-- `ampi`, `phii`: defines the cos variation amplitude and phase for i nodes along the azimuth. exact definition TBD
+- `az ampi`, `az projangi`: defines the cos variation amplitude and phase for i nodes along the azimuth.
 
 ### Flux modeling:
 If nothing is specified, flux is assume equal to 1 at all wavelengths. Flux can be described using several parameters:
@@ -98,11 +98,13 @@ If nothing is specified, flux is assume equal to 1 at all wavelengths. Flux can 
   - `line_1_gaussian`: full width at half maximum, in nm (not microns!!!)
   - or `line_1_lorentzian`: width at half maximum, in nm (not microns!!!). `1/(1+($WL-wl0)**2/(lorentzian/1000)**2)`
 
-You can define several lines by using `line_2...`, `line_3...` etc. parameters. Note that using lines defined this way will allow for fitting differential quantities such as `NFLUX` (flux nomarlised to the continuum) or `DPHI` (differential phase, with respect to continuum).
+You can define several lines by using `line_2_...`, `line_3_...` etc. or even be more explicit and use `line_H_...`, `line_Fe_...` etc.
+
+Note that using lines defined this way will allow for fitting differential quantities such as `NFLUX` (flux normalised to the continuum) or `DPHI` (differential phase, with respect to continuum). The continuum is automatically determined using the lines' parameters. 
 
 Arbitrary chromatic variations can be achieved using the `spectrum` parameter, very much like the `profile` parameter for rings. Note that the spectrum will be added to any over spectral information present in the parameters:
 ```
-{'A0':1.0, 'A2':0.2, 'spectrum':'A0 + A2*(WL-np.min(WL))**2'}
+{'A0':1.0, 'A2':0.2, 'spectrum':'A0 + A2*($WL-np.min($WL))**2'}
 ```
 
 ## Combining blocks to build complex models
