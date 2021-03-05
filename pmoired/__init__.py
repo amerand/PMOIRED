@@ -15,7 +15,7 @@ class OI:
             of str).
 
         insname: which instrument to select. Not needed if only one instrument
-            per file
+            per file. If multi instruments in files, all will be loaded.
 
         targname: which target. Not needed if only one target in files
 
@@ -24,8 +24,8 @@ class OI:
         medfilt: apply median filter of width 'medfilt'. Default no filter
 
         tellurics: pass a telluric correction vector, or a list of vectors,
-            one per file. If nothing given, will use the tellurics in the oifits
-            file
+            one per file. If nothing given, will use the tellurics in the OIFITS
+            file. Works with results from 'pmoired.tellcorr'
         """
         # -- load data
         self.data = []
@@ -119,6 +119,11 @@ class OI:
               maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None):
         """
         model: a dictionnary describing the model
+        fitOnly: list of parameters to fit (default: all)
+        doNotFit: list of parameters not to fit (default: none)
+        maxfev: maximum number of iterations
+        ftol: chi2 stopping criteria
+        follow: list of parameters to display as fit is going on
         """
         if model is None:
             try:
@@ -156,6 +161,11 @@ class OI:
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
+        """
+        perform 'Nfits' bootstrapped fits around dictionnary parameters 'model'.
+        by default Nfits is set to the number of data, and model to the last best
+        fit. 'multi' sets the number of threads (default==all available).
+        """
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if model is None:
             assert not self.bestfit is None, 'you should run a fit first'
@@ -187,10 +197,39 @@ class OI:
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0):
+        """
+        - model: dict defining a model to be overplotted. if a fit was performed,
+            the best fit models will be displayed by default. Set to None for no
+            models
+        - fig: figure number (int)
+        - obs: list of pbservables to show (in ['|V|', 'V2', 'T3PHI', 'DPHI',
+            'FLUX']). Defautl will show all data. If fit was performed, fitted
+            observables will be shown.
+        - logV, logB: show visibilities, baselines in log scale (boolean)
+        - showFlagged: show data flagged in the file (boolean)
+        - showUV: show u,v coordinated (boolean)
+        - spectro: force spectroscopic mode
+        - vLambda0: show sepctroscopic data with velocity scale,
+            around this central wavelength (in microns)
+        - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
+        - allInOne: all data in a single figure
+
+        show image and sepctrum of model: set imFov to a value to show image
+        - imFov: field of view in mas
+        - imPix: imPixel size in mas
+        - imMax: cutoff for image display (0..1) or in percentile ('0'..'100')
+        - imPow: power law applied to image for display. use 0<imPow<1 to show low
+            surface brightness features
+        - imX, imY: center of image (in mas)
+        - imWl0: list of wavelength (um) to show the image default (min, max)
+        - cmap: color map (default 'bone')
+        - checkImVis: compute visibility from image to check (can be wrong if
+            fov is too small)
+        """
         t0 = time.time()
 
         if not imFov is None and imPix is None:
-            imPix = imFov/50.
+            imPix = imFov/100.
 
         if not imFov is None:
             assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
@@ -210,12 +249,13 @@ class OI:
             self.fig += 1
             fig = self.fig
 
-        if model=='best':
-            #print('showing best fit model')
-            model=self.bestfit
-        else:
-            #print('showing model:', model)
-            pass
+        if model=='best' and type(self.bestfit) is dict and \
+                    'best' in self.bestfit:
+            print('showing best fit model')
+            model = self.bestfit['best']
+        elif not type(model) is dict:
+            print('no model to show...')
+            model = None
 
         if not perSetup or allInOne:
             # -- figure out the list of obs, could be heteregenous

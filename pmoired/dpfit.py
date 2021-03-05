@@ -460,21 +460,18 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                 uncer[k]= np.sqrt(np.abs(np.diag(cov)[i]))
 
     if verbose:
-        print('-'*30)
-        print('        CHI2=', chi2)
-        print('REDUCED CHI2=', reducedChi2)
-        print('-'*30)
-        if normalizedUncer:
-            print('(uncertainty normalized to data dispersion)')
-        else:
-            print('(uncertainty assuming error bars are correct)')
+        #print('-'*30)
+        print('# --         CHI2=', chi2)
+        print('# -- REDUCED CHI2=', reducedChi2)
+        #print('-'*30)
         tmp = list(pfix.keys()); tmp.sort()
         maxLength = np.max(np.array([len(k) for k in tmp]))
         format_ = "'%s':"
         # -- write each parameter and its best fit, as well as error
         # -- writes directly a dictionnary
         if len(tmp)<100 or type(verbose)==int and verbose>1:
-            print('') # leave some space to the eye
+            #print('') # leave some space to the eye
+            #print('{ # -- chi2=%.4f'%chi2)
             for ik,k in enumerate(tmp):
                 padding = ' '*(maxLength-len(k))
                 formatS = format_+padding
@@ -495,6 +492,10 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                     print(formatS%k , pfix[k], ',', end='')
                     print('# +/-', uncer[k])
             print('}') # end of the dictionnary
+            if normalizedUncer:
+                print('(uncertainty normalized to data dispersion)')
+            else:
+                print('(uncertainty assuming error bars are correct)')
 
     # -- result:
     if fullOutput:
@@ -695,7 +696,8 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
         if follow is None:
             print('')
         else:
-            _follow = list(filter(lambda x: x in params.keys(), follow))
+            _follow = list(filter(lambda x: x in params.keys() and
+                                        type(params[x])==float, follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
     return res
 
