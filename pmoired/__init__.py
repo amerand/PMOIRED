@@ -4,6 +4,9 @@ except:
     import oimodels, oifits, oicandid, oifake
 import time
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
@@ -301,6 +304,14 @@ class OI:
             self.fig += 1
         print('done in %.2fs'%(time.time()-t0))
         return
+
+    def halfLightRadii(self):
+        if not self.bestfit is None:
+            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit, verbose=1)
+        else:
+            print('no best fit model to compute half light radii!')
+        return
+
     def getSpectrum(self, comp, model='best'):
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']

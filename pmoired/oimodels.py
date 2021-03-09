@@ -1188,7 +1188,7 @@ def computeLambdaParams(params):
     s = '$' # special character to identify keywords
     while loop and nloop<10:
         loop = False
-        for k in paramsI.keys():
+        for k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
             if type(paramsI[k])==str:
                 # -- allow parameter to be expression of others
                 tmp = paramsI[k]
@@ -1514,7 +1514,7 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
         #print('all data')
         tmp = oi
     else:
-        #print('randomise')
+        #print('running fit', iter)
         tmp = randomiseData2(oi,  verbose=False)
     z = 0.0
     if fitOnly is None and doNotFit is None:
@@ -3015,6 +3015,86 @@ def _callbackAxes(ax):
     else:
         print('could not find axes')
     return
+
+def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
+    if type(param) is dict and 'best' in param and 'uncer' in param:
+        # -- ramdomised params
+        allP = dpfit.randomParam(param, N=100, x=None)['r_param']
+        if comp is None:
+            C = list(filter(lambda x: x.endswith(',profile'), param['best'].keys()))
+            C = sorted([c.split(',')[0] for c in C])
+        else:
+            C = [comp]
+        allr = {c:[] for c in C}
+        for p in allP:
+            tmp = halfLightRadiusFromParam(p)
+            for c in C:
+                allr[c].append(tmp[c])
+
+        res = {'best':{c:np.mean(allr[c]) for c in C},
+               'uncer':{c:np.std(allr[c]) for c in C},
+               }
+        res['covd'] = {}
+        res['cord'] = {}
+        res['cov'] = np.zeros((len(C), len(C)))
+        res['cor'] = np.zeros((len(C), len(C)))
+        res['fitOnly'] = C
+
+        for i1,c1 in enumerate(C):
+            res['covd'][c1] = {}
+            res['cord'][c1] = {}
+            for i2,c2 in enumerate(C):
+                tmp = np.cov(allr[c1], allr[c2])
+                res['covd'][c1][c1] = tmp[0,0]
+                res['covd'][c1][c2] = tmp[0,1]
+                res['cord'][c1][c1] = 1
+                res['cord'][c1][c2] = tmp[0,1]/np.sqrt(tmp[0,0]*tmp[1,1])
+                res['cov'][i1,i1] = res['covd'][c1][c1]
+                res['cov'][i1,i2] = res['covd'][c1][c2]
+                res['cor'][i1,i1] = res['cord'][c1][c1]
+                res['cor'][i1,i2] = res['cord'][c1][c2]
+        if verbose:
+            ns = max([len(c) for c in C])
+            print('Half-Light Radii from best fit:')
+            for c in C:
+                n = int(2-np.log10(res['uncer'][c]))
+                f = ' %'+str(ns)+'s: %.'+str(n)+'f +- '+'%.'+str(n)+'f (mas)'
+                print(f%(c,res['best'][c], res['uncer'][c]))
+            print()
+            dpfit.dispCor(res)
+        res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
+        return res
+    else:
+        param = computeLambdaParams(param)
+
+    if comp is None:
+        C = filter(lambda x: x.endswith(',profile'), param.keys())
+        return {c.split(',')[0]:halfLightRadiusFromParam(param, c.split(',')[0]) for c in C}
+    if comp+',diam' in param:
+        diamout = param[comp+',diam']
+    if comp+',diamout' in param:
+        diamout = param[comp+',diamout']
+    if comp+',diamin' in param:
+        diamin = param[comp+',diamin']
+    if comp+',thick' in param:
+        diamin = diamout*(1-param[comp+',thick'])
+    _r = np.linspace(diamin/2, diamout/2, 100)
+    if not comp+',profile' in param:
+        _p = np.ones(len(_r))
+    elif param[comp+',profile'] == 'doughnut':
+        _p = 1-4*((_r-_r.mean())/_r.ptp())**2
+    elif param[comp+',profile'] == 'uniform':
+        _p = np.ones(len(_r))
+    else:
+        _p = eval(param[comp+',profile'].replace('$R', '_r'))
+    _cf = np.array([np.trapz((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
+    _cf /= _cf.max()
+    rh = np.interp(0.5, _cf, _r)
+    if not fig is None:
+        plt.close(fig)
+        plt.figure(fig)
+        plt.plot(_r, _p)
+    return rh
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                   combParam={}, sigmaClipping=4.5, showChi2=False):
