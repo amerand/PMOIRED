@@ -574,6 +574,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         res['MODEL'] = {}
     res['MODEL']['totalflux'] = f
     res['MODEL']['negativity'] = negativity # 0 is image is >=0, 0<p<=1 otherwise
+    if _dwl!=0:
+        # -- offset
+        res['WL'] -= _dwl
     return res
 
 def VfromImageOI(oi):
@@ -1990,10 +1993,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         allWLc.extend(list(m['WL'][m['WL mask']]))
                     else:
                         allWLc.extend(list(m['WL']))
-
             models.append(m)
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
+
+        print('allWLc', allWLc)
+        print('allWLs', allWLs)
 
         if showIm or not imFov is None:
             im = 1
@@ -3055,13 +3060,12 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
                 res['cor'][i1,i2] = res['cord'][c1][c2]
         if verbose:
             ns = max([len(c) for c in C])
-            print('Half-Light Radii from best fit:')
+            print('# == Half-Light Radii from best fit:')
             for c in C:
                 n = int(2-np.log10(res['uncer'][c]))
-                f = ' %'+str(ns)+'s: %.'+str(n)+'f +- '+'%.'+str(n)+'f (mas)'
+                f = '#  %'+str(ns)+'s: %.'+str(n)+'f +- '+'%.'+str(n)+'f (mas)'
                 print(f%(c,res['best'][c], res['uncer'][c]))
-            print()
-            dpfit.dispCor(res)
+            dpfit.dispCor(res, pre='#  ')
         res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
@@ -3094,6 +3098,79 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
         plt.close(fig)
         plt.figure(fig)
         plt.plot(_r, _p)
+    return rh
+
+def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=None):
+    """
+    un-inclined half-light radius.
+
+    oi: from PMOIRED.oi. Need to have "oi.show" ran with imFov set
+    icube: i-th cube in model
+    incl: key to inclination of the rim in model's param
+    projang: key to inclination of the rim in model's param
+    x0, y0: keys to the center of rim (optional, wil assume 0,0 otherwise)
+    """
+    # -- interpret parameters
+    param = pmoired.oimodels.computeLambdaParams(oi._model['MODEL']['param'])
+    incl = param[incl]
+    projang = param[projang]
+    if not x0 is None:
+        x0 = param[x0]
+    else:
+        x0 = 0
+    if not y0 is None:
+        y0 = param[y0]
+    else:
+        y0 = 0
+
+    # -- re-rotate model according to I and PA:
+    cpa, spa = np.cos(projang*np.pi/180), np.sin(projang*np.pi/180)
+    ci = np.cos(incl*np.pi/180)
+    # -- coordinates of the center of the rim:
+    _X = ((oi._model['MODEL']['X']-x0)*cpa - (oi._model['MODEL']['Y']-y0)*spa)/ci + x0
+    _Y = (oi._model['MODEL']['X']-x0)*spa + (oi._model['MODEL']['Y']-y0)*cpa
+
+    R = np.sqrt(_X**2+_Y**2)
+    I = oi._model['MODEL']['cube'][icube,:,:]
+    # -- remove extended component as the "background"
+    I -= I.min()
+
+    # -- order by distance to to the center
+    P = I.flatten()[np.argsort(R.flatten())]
+    # -- remove (unresolved) star as brightest pixel
+    P[np.argmax(P)] = 0
+    R = R.flatten()[np.argsort(R.flatten())]
+
+    # -- radius
+    r = np.linspace(R.min(), R.max(), 100)
+    # -- cumulative flux
+    cF = np.array([np.trapz(P[R<x]*R[R<x], R[R<x]) for x in r])
+    cF /= cF.max()
+    # -- half ligh radius:
+    rh = np.interp(0.5, cF, r)
+
+    if not fig is None:
+        plt.close(fig); plt.figure(fig, figsize=(9, 5))
+        ax = plt.subplot(121, aspect='equal')
+        plt.pcolormesh(_X, _Y, I, vmax=np.percentile(I, 99.5), shading='auto')
+        plt.title('de-rotated model')
+        t = np.linspace(0, 2*np.pi, 100)[:-1]
+        plt.plot(rh*np.cos(t), rh*np.sin(t), ':y', alpha=0.5, label='half light radius')
+        plt.legend()
+
+        ax = plt.subplot(222)
+        # -- radial flux,
+        plt.plot(R, P/P.max())
+        plt.ylabel('radial profile (arb. unit)')
+
+        plt.subplot(224, sharex=ax)
+        plt.plot(r, cF)
+        plt.hlines(0.5, 0, r.max(), linestyle='dotted')
+        plt.vlines(rh, 0, 1, linestyle='dotted')
+
+        plt.ylabel('cumulative flux')
+        plt.xlabel('radius (mas)')
+        plt.tight_layout()
     return rh
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,

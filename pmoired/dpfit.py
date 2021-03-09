@@ -867,13 +867,13 @@ def _ellParam(sA2, sB2, sAB):
 
     return sMa, sma, a
 
-def dispCor(fit, ndigit=2):
+def dispCor(fit, ndigit=2, pre=''):
     # -- parameters names:
     nmax = np.max([len(x) for x in fit['fitOnly']])
     fmt = '%%%ds'%nmax
     fmt = '%3d:'+fmt
     fmtd = '%'+'%d'%(ndigit+3)+'.'+'%d'%ndigit+'f'
-    print('Correlations ', end=' ')
+    print(pre+'Correlations ', end=' ')
     print('\033[45m>=.9\033[0m', end=' ')
     print('\033[41m>=.8\033[0m', end=' ')
     print('\033[43m>=.7\033[0m', end=' ')
@@ -881,12 +881,12 @@ def dispCor(fit, ndigit=2):
     print('\033[0m>=.2\033[0m', end=' ')
     print('\033[37m<.2\033[0m')
 
-    print(' '*(2+ndigit+nmax), end=' ')
+    print(pre+' '*(2+ndigit+nmax), end=' ')
     for i in range(len(fit['fitOnly'])):
         print('%3d'%i+' '*(ndigit-1), end=' ')
-    print('')
+    print(pre+'')
     for i,p in enumerate(fit['fitOnly']):
-        print(fmt%(i,p), end=' ')
+        print(pre+fmt%(i,p), end=' ')
         for j, x in enumerate(fit['cor'][i,:]):
             if i==j:
                 c = '\033[2m'
