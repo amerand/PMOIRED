@@ -196,7 +196,7 @@ class OI:
         return
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
-             showFlagged=False, spectro=None, showUV=True, perSetup=True,
+             showFlagged=False, spectro=None, showUV=True, perSetup=False,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0):
@@ -241,7 +241,7 @@ class OI:
             N = [len(d['WL']) for d in self.data]
             spectro = max(N)>20
 
-        if perSetup:
+        if perSetup or allInOne:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
         else:
             data = self.data
@@ -260,7 +260,41 @@ class OI:
             print('no model to show...')
             model = None
 
-        if not perSetup or allInOne:
+        if perSetup:
+            if perSetup is True:
+                # -- try to guess the groupings by "ins_wl_resolution"
+                R = lambda wl, dwl: np.round(np.mean(wl/dwl), 1-int(np.log10(np.mean(wl/dwl))))
+                setups = [d['insname'].split('_')[0]+' %.1fum R%.0f'%(d['WL'].mean(), R(d['WL'], d['dWL'])) for d in data]
+                perSetup = list(set(setups))
+                #print('setups:', setups)
+                #print('perSetup:', perSetup)
+            else:
+                setups = [d['insname'] for d in data]
+
+            # -- group
+            group = []
+            for i,d in enumerate(data):
+                for s in perSetup:
+                    if s in setups[i]:
+                        group.append(s)
+                        continue
+            for j,g in enumerate(sorted(set(group))):
+                oimodels.showOI([d for i,d in enumerate(data) if group[i]==g],
+                        param=model, fig=self.fig, obs=obs, logV=logV,
+                        logB=logB, showFlagged=showFlagged,
+                        spectro=spectro, showUV=showUV, allInOne=allInOne,
+                        imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
+                        checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
+                        cmap=cmap, imX=imX, imY=imY)
+                self.fig+=1
+                if imFov is None:
+                    plt.suptitle(g)
+                else:
+                    plt.figure(self.fig)
+                    plt.suptitle(g)
+                    self.fig+=1
+            return
+        elif allInOne:
             # -- figure out the list of obs, could be heteregenous
             if not obs is None:
                 obs = list(obs)

@@ -874,16 +874,16 @@ def dispCor(fit, ndigit=2, pre=''):
     fmt = '%3d:'+fmt
     fmtd = '%'+'%d'%(ndigit+3)+'.'+'%d'%ndigit+'f'
     print(pre+'Correlations ', end=' ')
-    print('\033[45m>=.9\033[0m', end=' ')
-    print('\033[41m>=.8\033[0m', end=' ')
-    print('\033[43m>=.7\033[0m', end=' ')
-    print('\033[46m>=.5\033[0m', end=' ')
-    print('\033[0m>=.2\033[0m', end=' ')
-    print('\033[37m<.2\033[0m')
+    print('\033[45m>=90\033[0m', end=' ')
+    print('\033[41m>=80\033[0m', end=' ')
+    print('\033[43m>=70\033[0m', end=' ')
+    print('\033[46m>=50\033[0m', end=' ')
+    print('\033[0m>=20\033[0m', end=' ')
+    print('\033[37m<20%\033[0m')
 
     print(pre+' '*(2+ndigit+nmax), end=' ')
     for i in range(len(fit['fitOnly'])):
-        print('%3d'%i+' '*(ndigit-1), end=' ')
+        print('%3d'%i+' '*(ndigit-2), end=' ')
     print(pre+'')
     for i,p in enumerate(fit['fitOnly']):
         print(pre+fmt%(i,p), end=' ')
@@ -907,11 +907,16 @@ def dispCor(fit, ndigit=2, pre=''):
                     col = ''
             else:
                 col = ''
-            tmp = fmtd%x
-            tmp = tmp.replace('0.', '.')
-            tmp = tmp.replace('1.'+'0'*ndigit, '1.')
+            # tmp = fmtd%x
+            # tmp = tmp.replace('0.', '.')
+            # tmp = tmp.replace('1.'+'0'*ndigit, '1.')
+            # if i==j:
+            #     tmp = '#'*(2+ndigit)
+            # print(c+col+tmp+'\033[0m', end=' ')
             if i==j:
-                tmp = '#'*(2+ndigit)
+                tmp = '#'*(1+ndigit)
+            else:
+                tmp = '%3d'%int(round(100*x, 0))
             print(c+col+tmp+'\033[0m', end=' ')
         print('')
 

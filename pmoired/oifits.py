@@ -108,6 +108,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
             res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
+            res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
+
 
     #res['n_lab'] = n_JHK(res['WL'].astype(np.float64))#, 273.15+T, P, H)
 
@@ -404,7 +406,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     return res
 
-def mergeOI(OI, collapse=False, verbose=True, debug=False):
+def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     """
     takes OI, a list of oifits files readouts (from loadOI), and merge them into
     a smaller number of entities based with same spectral coverage
@@ -412,11 +414,12 @@ def mergeOI(OI, collapse=False, verbose=True, debug=False):
     collapse=True -> all telescope / baseline / triangle in a single dict for
         faster computation
 
+    groups=[...] list sub-strings for grouping insnames
+
     TODO: how polarisation in handled?
     """
     # -- create unique identifier for each setups
     setups = [oi['insname']+str(oi['WL']) for oi in OI]
-
     merged = [] # list of unique setup which have been merged so far
     master = [] # same length as OI, True if element hold merged data for the setup
     res = [] # result

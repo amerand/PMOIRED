@@ -1997,8 +1997,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
 
-        print('allWLc', allWLc)
-        print('allWLs', allWLs)
+        #print('allWLc', allWLc)
+        #print('allWLs', allWLs)
 
         if showIm or not imFov is None:
             im = 1
@@ -2039,7 +2039,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1mcB = {'i':0} # initialize global marker/color for baselines
             ai1mcT = {'i':0} # initialize global marker/color for triangles
             ai1ax = {} # initialise global list of axes
-        return m
+        #return m
+        return
 
     #print('->', computeLambdaParams(param))
 
@@ -3082,6 +3083,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
         diamin = param[comp+',diamin']
     if comp+',thick' in param:
         diamin = diamout*(1-param[comp+',thick'])
+
     _r = np.linspace(diamin/2, diamout/2, 100)
     if not comp+',profile' in param:
         _p = np.ones(len(_r))
