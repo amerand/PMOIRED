@@ -2016,7 +2016,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 im+=1
                 fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                                 tmp['MODEL'].keys() if k.endswith(',flux')}
-                print('debug: computing fluxes dict')
+                #print('debug: computing fluxes dict')
                 m['fluxes'] = fluxes
                 m['fluxes WL'] = allWLc
             if len(allWLs):
@@ -2029,7 +2029,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                               figWidth=figWidth)
                 fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                                 tmp['MODEL'].keys() if k.endswith(',flux')}
-                print('debug: computing fluxes dict')
+                #print('debug: computing fluxes dict')
                 m['spectra'] = fluxes
                 m['specral WL'] = allWLs
         if allInOne:

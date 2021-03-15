@@ -44,6 +44,9 @@ class OI:
         self.candidFits = None
         # -- current figure
         self.fig = 0
+        # -- modeled quantities:
+        self.fluxes = {}
+        self.spectra = {}
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
                 withHeader=False, medFilt=False, tellurics=None):
@@ -347,14 +350,60 @@ class OI:
             print('no best fit model to compute half light radii!')
         return
 
-    # def getSpectrum(self, comp, model='best'):
-    #     if model=='best' and not self.bestfit is None:
-    #         model = self.bestfit['best']
-    #     assert type(model) is dict, "model must be a dictionnary"
-    #     kz = filter(lambda k: k.startswith(comp+','), model.keys())
-    #     #return {m['insname']:(m['WL'], oimodels[])}
-    #     pass
+    def computeModelSpectrum(self, model='best'):
+        if model=='best' and not self.bestfit is None:
+            model = self.bestfit['best']
+        assert type(model) is dict, "model must be a dictionnary"
 
+        allWLc = [] # -- continuum -> absolute flux
+        allWLs = [] # -- with spectral lines -> normalized flux
+
+        for i,o in enumerate(self.data):
+            if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
+                if 'WL mask' in o:
+                    allWLs.extend(list(o['WL'][o['WL mask']]))
+                else:
+                    allWLs.extend(list(o['WL']))
+            else:
+                if 'WL mask' in o:
+                    allWLc.extend(list(o['WL'][o['WL mask']]))
+                else:
+                    allWLc.extend(list(o['WL']))
+        allWLc = np.array(sorted(list(set(allWLc))))
+        allWLs = np.array(sorted(list(set(allWLs))))
+        M = {}
+        if len(allWLc):
+            allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
+            tmp = oimodels.VmodelOI(allWL, model)
+            try:
+                fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
+                          tmp['MODEL'].keys() if k.endswith(',flux')}
+            except:
+                fluxes = {'total': tmp['MODEL']['totalflux']}
+            M['flux WL'] = allWLc
+            M['flux COMP'] = fluxes
+            M['flux TOTAL'] = tmp['MODEL']['totalflux']
+        else:
+            M['flux WL'] = np.array([])
+            M['flux COMP'] = {}
+            M['flux TOTAL'] = np.array([])
+
+        if len(allWLs):
+            allWL = {'WL':allWLs, 'fit':{'obs':[]}} # minimum required
+            tmp = oimodels.VmodelOI(allWL, model)
+            print(type(tmp), tmp.keys())
+            fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
+                      tmp['MODEL'].keys() if k.endswith(',flux')}
+            #print('normalised spectra computed for each components in dict ".spectra"')
+            M['normalised spectrum WL'] = allWLs
+            M['normalised spectrum COMP'] = fluxes
+            M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
+        else:
+            M['normalised spectrum WL'] = np.array([])
+            M['normalised spectrum COMP'] = {}
+            M['normalised spectrum TOTAL'] = np.array([])
+
+        return M
 
 def _checkObs(data, obs):
     """
