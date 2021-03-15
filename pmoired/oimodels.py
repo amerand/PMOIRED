@@ -774,6 +774,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 res['MODEL'][c.split('&dwl')[0]+',negativity'] = res['MODEL']['negativity']
 
             # -- total complex visibility
+            res['MODEL']['WL'] = res['WL']
             res['MOD_VIS'] = {}
             for k in res['OI_VIS'].keys(): # for each baseline
                 res['MOD_VIS'][k] = res['MODEL']['totalflux'][None,:]*\
@@ -1947,6 +1948,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     global ai1ax, ai1mcB, ai1mcT
 
     if type(oi)==list:
+        # -- multiple data sets
         models = []
         if allInOne:
             ai1mcB = {'i':0} # initialize global marker/color for baselines
@@ -1954,8 +1956,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1ax = {} # initialise global list of axes
         if fig is None:
             fig = 0
-        allWLc = []
-        allWLs = []
+        allWLc = [] # -- continuum -> absolute flux
+        allWLs = [] # -- with spectral lines -> normalized flux
         if obs is None and allInOne:
             _obs = []
             for o in oi:
@@ -1971,6 +1973,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 f = fig
             else:
                 f = fig+i
+            # -- m is the model based in parameters
             m = showOI(o, param=param, fig=f, obs=obs,
                    imFov=imFov, imPix=imPix, imX=imX, imY=imY, imMax=imMax,
                    imWl0=imWl0, imPow=imPow, checkImVis=checkImVis,
@@ -2001,23 +2004,34 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         #print('allWLs', allWLs)
 
         if showIm or not imFov is None:
+            fluxes = {}
+            spectra = {}
             im = 1
             if len(allWLc):
                 allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
-                showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
-                          figWidth=None,
-                          imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                          imWl0=imWl0, imMax=imMax)
+                tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
+                              imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                              imWl0=imWl0, imMax=imMax,
+                              figWidth=figWidth)
                 im+=1
+                fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
+                                tmp['MODEL'].keys() if k.endswith(',flux')}
+                print('debug: computing fluxes dict')
+                m['fluxes'] = fluxes
+                m['fluxes WL'] = allWLc
             if len(allWLs):
                 allWL = {'WL':allWLs, # minimum required
                         'fit':{'obs':['NFLUX']} # force computation of continuum
                           }
-                showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
-                      figWidth=None,
-                      imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                      imWl0=imWl0, imMax=imMax)
-
+                tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
+                              imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                              imWl0=imWl0, imMax=imMax,
+                              figWidth=figWidth)
+                fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
+                                tmp['MODEL'].keys() if k.endswith(',flux')}
+                print('debug: computing fluxes dict')
+                m['spectra'] = fluxes
+                m['specral WL'] = allWLs
         if allInOne:
             title = []
             for o in oi:
@@ -2039,8 +2053,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1mcB = {'i':0} # initialize global marker/color for baselines
             ai1mcT = {'i':0} # initialize global marker/color for triangles
             ai1ax = {} # initialise global list of axes
-        #return m
-        return
+        return m
 
     #print('->', computeLambdaParams(param))
 

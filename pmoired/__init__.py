@@ -263,7 +263,8 @@ class OI:
         if perSetup:
             if perSetup is True:
                 # -- try to guess the groupings by "ins_wl_resolution"
-                R = lambda wl, dwl: np.round(np.mean(wl/dwl), 1-int(np.log10(np.mean(wl/dwl))))
+                R = lambda wl, dwl: 5*np.round(np.mean(wl/dwl)/5,
+                            1-int(np.log10(np.mean(wl/dwl)/5)))
                 setups = [d['insname'].split('_')[0]+' %.1fum R%.0f'%(d['WL'].mean(), R(d['WL'], d['dWL'])) for d in data]
                 perSetup = list(set(setups))
                 #print('setups:', setups)
@@ -282,7 +283,7 @@ class OI:
                 oimodels.showOI([d for i,d in enumerate(data) if group[i]==g],
                         param=model, fig=self.fig, obs=obs, logV=logV,
                         logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV, allInOne=allInOne,
+                        spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
                         cmap=cmap, imX=imX, imY=imY)
@@ -346,13 +347,13 @@ class OI:
             print('no best fit model to compute half light radii!')
         return
 
-    def getSpectrum(self, comp, model='best'):
-        if model=='best' and not self.bestfit is None:
-            model = self.bestfit['best']
-        assert type(model) is dict, "model must be a dictionnary"
-        kz = filter(lambda k: k.startswith(comp+','), model.keys())
-        #return {m['insname']:(m['WL'], oimodels[])}
-        pass
+    # def getSpectrum(self, comp, model='best'):
+    #     if model=='best' and not self.bestfit is None:
+    #         model = self.bestfit['best']
+    #     assert type(model) is dict, "model must be a dictionnary"
+    #     kz = filter(lambda k: k.startswith(comp+','), model.keys())
+    #     #return {m['insname']:(m['WL'], oimodels[])}
+    #     pass
 
 
 def _checkObs(data, obs):
