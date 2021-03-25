@@ -426,7 +426,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         # -- assumes err matrix is co-covariance
         r = y - model
         chi2 = np.dot(np.dot(np.transpose(r), np.linalg.inv(err)), r)
-        reducedChi2 = chi2/(len(y)-len(pfit))
+        ndof = len(y)-len(pfit)+1
+        reducedChi2 = chi2/ndof
     else:
         tmp = _fitFunc(plsq, fitOnly, x, y, err, func, pfix)
         try:
@@ -436,8 +437,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             for x in tmp:
                 chi2+=np.sum(x**2)
 
-        reducedChi2 = chi2/float(np.sum([1 if np.isscalar(i) else
-                                         len(i) for i in tmp])-len(pfit))
+        ndof = np.sum([1 if np.isscalar(i) else len(i) for i in tmp])-len(pfit)+1
+        reducedChi2 = chi2/ndof
         if not np.isscalar(reducedChi2):
             reducedChi2 = np.mean(reducedChi2)
 
@@ -468,7 +469,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         maxLength = np.max(np.array([len(k) for k in tmp]))
         format_ = "'%s':"
         # -- write each parameter and its best fit, as well as error
-        # -- writes directly a dictionnary
+        # -- writes directly a dictionary
         if len(tmp)<100 or type(verbose)==int and verbose>1:
             #print('') # leave some space to the eye
             #print('{ # -- chi2=%.4f'%chi2)
@@ -508,15 +509,14 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                'chi2':reducedChi2, 'model':model,
                'cov':cov, 'fitOnly':fitOnly,
                'epsfcn':epsfcn, 'ftol':ftol,
-               'info':info, 'cor':cor, 'x':x, 'y':y,
+               'info':info, 'cor':cor, 'x':x, 'y':y, 'ndof':ndof,
                'doNotFit':doNotFit,
                'covd':{ki:{kj:cov[i,j] for j,kj in enumerate(fitOnly)}
                          for i,ki in enumerate(fitOnly)},
                'cord':{ki:{kj:cor[i,j] for j,kj in enumerate(fitOnly)}
                          for i,ki in enumerate(fitOnly)},
                'normalized uncertainties':normalizedUncer,
-               'maxfev':maxfev,
-               'firstGuess':params,
+               'maxfev':maxfev, 'firstGuess':params,
         }
         if type(verbose)==int and verbose>1 and np.size(cor)>1:
             dispCor(pfix)
@@ -867,42 +867,123 @@ def _ellParam(sA2, sB2, sAB):
 
     return sMa, sma, a
 
-def dispCor(fit, ndigit=2, pre=''):
+def dispBest(fit, pre='', asStr=False, asDict=True):
+    tmp = sorted(fit['best'].keys())
+    uncer = fit['uncer']
+    pfix = fit['best']
+
+    res = ''
+
+    maxLength = np.max(np.array([len(k) for k in tmp]))
+    if asDict:
+        format_ = "'%s':"
+    else:
+        format_ = "%s"
+    # -- write each parameter and its best fit, as well as error
+    # -- writes directly a dictionary
+    for ik,k in enumerate(tmp):
+        padding = ' '*(maxLength-len(k))
+        formatS = format_+padding
+        if ik==0 and asDict:
+            formatS = pre+'{'+formatS
+        else:
+            formatS = pre+formatS
+        if uncer[k]>0:
+            ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+            if asDict:
+                fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+            else:
+                fmt = '%.'+str(ndigit)+'f +/- %.'+str(ndigit)+'f'
+            res += formatS%k+fmt%(pfix[k], uncer[k])+'\n'
+            #print(formatS%k, fmt%(pfix[k], uncer[k]))
+        elif uncer[k]==0:
+            if isinstance(pfix[k], str):
+                #print(formatS%k , "'"+pfix[k]+"'", ',')
+                res += formatS%k+"'"+pfix[k]+"'"+',\n'
+            else:
+                #print(formatS%k , pfix[k], ',')
+                res += formatS%k+str(pfix[k])+',\n'
+        else:
+            #print(formatS%k , pfix[k], end='')
+            res += formatS%k+pfix[k]
+
+            if asDict:
+                #print(', # +/-', uncer[k])
+                res += '# +/- '+str(uncer[k])+'\n'
+            else:
+                #print('+/-', uncer[k])
+                res += '+/- '+str(uncer[k])+'\n'
+    if asDict:
+        #print(pre+'}') # end of the dictionnary
+        res += pre+'}\n'
+    if asStr:
+        return res
+    else:
+        print(res)
+        return
+
+def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
     # -- parameters names:
     nmax = np.max([len(x) for x in fit['fitOnly']])
     fmt = '%%%ds'%nmax
     fmt = '%3d:'+fmt
     fmtd = '%'+'%d'%(ndigit+3)+'.'+'%d'%ndigit+'f'
-    print(pre+'Correlations ', end=' ')
-    print('\033[45m>=90\033[0m', end=' ')
-    print('\033[41m>=80\033[0m', end=' ')
-    print('\033[43m>=70\033[0m', end=' ')
-    print('\033[46m>=50\033[0m', end=' ')
-    print('\033[0m>=20\033[0m', end=' ')
-    print('\033[37m<20%\033[0m')
+    if not asStr:
+        print(pre+'Correlations ', end=' ')
+        print('\033[45m>=90\033[0m', end=' ')
+        print('\033[41m>=80\033[0m', end=' ')
+        print('\033[43m>=70\033[0m', end=' ')
+        print('\033[46m>=50\033[0m', end=' ')
+        print('\033[0m>=20\033[0m', end=' ')
+        print('\033[37m<20%\033[0m')
+        print(pre+' '*(2+ndigit+nmax), end=' ')
+        for i in range(len(fit['fitOnly'])):
+            print('%3d'%i+' '*(ndigit-2), end=' ')
+        print(pre+'')
+    else:
+        if html:
+            res = '<table style="width:100%" border="1">\n'
+            res += '<tr>'
+            res += '<th>'+pre+' '*(2+ndigit+nmax)+' </th>'
+            for i in range(len(fit['fitOnly'])):
+                res += '<th>'+'%3d'%i+' '*(ndigit-1)+'</th>'
+            res += '</tr>\n'
+        else:
+            res = pre+' '*(2+ndigit+nmax)+' '
+            for i in range(len(fit['fitOnly'])):
+                res += '%3d'%i+' '*(ndigit-1)
+            res += '\n'
 
-    print(pre+' '*(2+ndigit+nmax), end=' ')
-    for i in range(len(fit['fitOnly'])):
-        print('%3d'%i+' '*(ndigit-2), end=' ')
-    print(pre+'')
     for i,p in enumerate(fit['fitOnly']):
-        print(pre+fmt%(i,p), end=' ')
+        if not asStr:
+            print(pre+fmt%(i,p), end=' ')
+        elif html:
+            res += '<tr>\n<td>'+pre+fmt%(i,p)+'</td >\n'
+        else:
+            res += pre+fmt%(i,p)+' '
+
         for j, x in enumerate(fit['cor'][i,:]):
             if i==j:
                 c = '\033[2m'
             else:
                 c = '\033[0m'
+            hcol = '#FFFFFF'
             if i!=j:
                 if abs(x)>=0.9:
                     col = '\033[45m'
+                    hcol= '#FF66FF'
                 elif abs(x)>=0.8:
                     col = '\033[41m'
+                    hcol = '#FF6666'
                 elif abs(x)>=0.7:
                     col = '\033[43m'
+                    hcol = '#FFEE66'
                 elif abs(x)>=0.5:
                     col = '\033[46m'
+                    hcol = '#CCCCCC'
                 elif abs(x)<0.2:
                     col = '\033[37m'
+                    hcol = '#FFFFFF'
                 else:
                     col = ''
             else:
@@ -917,8 +998,22 @@ def dispCor(fit, ndigit=2, pre=''):
                 tmp = '#'*(1+ndigit)
             else:
                 tmp = '%3d'%int(round(100*x, 0))
-            print(c+col+tmp+'\033[0m', end=' ')
-        print('')
+            if not asStr:
+                print(c+col+tmp+'\033[0m', end=' ')
+            elif html:
+                res += '<td bgcolor="%s">'%hcol+tmp+'</td>\n'
+            else:
+                res += tmp+' '
+        if not asStr:
+            print('')
+        elif html:
+            res += '</tr>\n'
+        else:
+            res += '\n'
+    if html:
+        res += '</table>\n'
+    if asStr:
+        return res
 
 def plotCovMatrix(fit, fig=0):
     if not fig is None:

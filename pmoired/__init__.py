@@ -56,7 +56,36 @@ class OI:
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics))
         return
+    def setSED(self, wl, sed, err=0.01):
+        """
+        force the SED in data to "sed" as function of "wl" (in um)
+        err is the relative error (default 0.01 == 1%)
 
+        will update/create OI_FLUX and interpolate the SED in "FLUX" for
+        each telescope.
+        """
+        for d in self.data:
+            if 'OI_FLUX' in d:
+                # -- replace flux
+                tmp = np.interp(d['WL'], wl, sed)
+                for k in d['OI_FLUX'].keys():
+                    s = tmp[None,:] + 0*d['OI_FLUX'][k]['MJD'][:,None]
+                    d['OI_FLUX'][k]['FLUX'] = s
+                    d['OI_FLUX'][k]['RFLUX'] = s
+                    d['OI_FLUX'][k]['EFLUX'] = err*s
+                    d['OI_FLUX'][k]['FLAG'] *= False
+            else:
+                # -- add oi_flux
+                flux = {}
+                for mjd in d['configurations per MJD']:
+                    d['configurations per MJD'][mjd].extend(d['telescopes'])
+
+                mjd = np.array(sorted(list(d['configurations per MJD'])))
+                s = np.interp(d['WL'], wl, sed)[None,:] + mjd[:,None]
+                for t in d['telescopes']:
+                    flux[t] = {'FLUX':s, 'RFLUX':s, 'EFLUX':err*s, 'FLAG':s==0, 'MJD':mjd}
+                d['OI_FLUX'] = flux
+        return
     def setupFit(self, fit, update=False, debug=False):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length

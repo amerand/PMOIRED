@@ -2401,7 +2401,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 if allInOne:
                     # -- keep track of windows
                     ai1ax[kax] = ax
-                    if not spectro and not param is None:
+                    if not spectro and not param is None and not 'FLUX' in l:
                         ai1ax['r'+kax] = axr
 
             if not ('UV' in obs and 'FLUX' in l):
@@ -2585,14 +2585,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                     '--', alpha=0.7, color=col,
                                     linewidth=2)
                         # -- residuals
-                        if 'PHI' in l:
-                            axr.plot(X(m,j)[maskc2],
-                                    ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2],
-                                    mark, color=col, markersize=4, alpha=0.4)
-                        else:
-                            axr.plot(X(m,j)[maskc2],
-                                    (y[maskc2]-ym[maskc2])/err[maskc2],
-                                    mark, color=col, markersize=4, alpha=0.4)
+                        if not 'FLUX' in l:
+                            if 'PHI' in l:
+                                axr.plot(X(m,j)[maskc2],
+                                        ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2],
+                                        mark, color=col, markersize=4, alpha=0.4)
+                            else:
+                                axr.plot(X(m,j)[maskc2],
+                                        (y[maskc2]-ym[maskc2])/err[maskc2],
+                                        mark, color=col, markersize=4, alpha=0.4)
                     else:
                         ax.step(X(m,j)[maskc2], ym[maskc2]+yoffset*i,
                                 '-', alpha=0.4 if not test else 0.2,
@@ -2699,7 +2700,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     else:
                         ax.set_ylim(0,1)
             if i==N-1:
-                if not spectro and not param is None:
+                if not spectro and not param is None and not 'FLUX' in l:
                     axr.set_xlabel(Xlabel)
                 else:
                     ax.set_xlabel(Xlabel)
@@ -3080,7 +3081,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
                 f = '#  %'+str(ns)+'s: %.'+str(n)+'f +- '+'%.'+str(n)+'f (mas)'
                 print(f%(c,res['best'][c], res['uncer'][c]))
             dpfit.dispCor(res, pre='#  ')
-        res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
+        #res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
         param = computeLambdaParams(param)
