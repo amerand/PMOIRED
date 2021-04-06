@@ -400,20 +400,31 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             mesg, ier = result.message, None
 
     if verbose:
-        print('[dpfit]', mesg)
-        print('[dpfit] ier:', ier)
+        print('[dpfit]', mesg.replace('\n', ''))
+        #print('[dpfit] ier:', ier)
         print('[dpfit] number of function call:', info['nfev'])
         if cov is None:
-            print('[dpfit] WARNING: singular covariance matrix!!')
-            print('       ', info['fjac'].shape)
+            print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
+            print('uncertainties cannot be computed\033[0m')
+            #print('       ', info['fjac'].shape)
+            # -- try to figure out what is going on!
+            delta = np.array(pfit)-np.array(plsq)
+            for i,k in enumerate(fitOnly):
+                if 'fjac' in info:
+                    test = max(info['fjac'][i,:])==0
+                else:
+                    test = delta[i]<=epsfcn
+                if test:
+                    print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
+                    print('IT SHOULD NOT BE FITTED\033[0m')
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
         print('[dpfit] time per function call:', round(t, n), '(ms)')
 
-        #print('[dpfit]', info)
 
     if cov is None:
         cov = np.zeros((len(fitOnly), len(fitOnly)))
+
 
     # -- best fit -> agregate to pfix
     for i,k in enumerate(fitOnly):
@@ -672,7 +683,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
 
     if verbose and time.time()>(verboseTime+5):
         verboseTime = time.time()
-        print('[dpfit]', time.asctime(), '%5d'%Ncalls,end=' ')
+        print('[dpfit]', time.asctime(), '%03d/%03d'%(Ncalls, int(Ncalls/len(pfit))), end=' ')
         try:
             chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
             print('CHI2: %6.4e'%chi2,end=' ')
