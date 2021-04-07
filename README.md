@@ -36,6 +36,9 @@ xargs rm -rf < files.txt
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
 - [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
+- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) demonstrates how to do a companion search using a grid of positions, inspired from [CANDID](https://github.com/amerand/CANDID).
+
+Below is a skeleton documentation (more to come!). The best is to go through examples, as most of the syntax is covered.
 
 ## Loading data
 
@@ -100,7 +103,7 @@ If nothing is specified, flux is assume equal to 1 at all wavelengths. Flux can 
 
 You can define several lines by using `line_2_...`, `line_3_...` etc. or even be more explicit and use `line_H_...`, `line_Fe_...` etc.
 
-Note that using lines defined this way will allow for fitting differential quantities such as `NFLUX` (flux normalised to the continuum) or `DPHI` (differential phase, with respect to continuum). The continuum is automatically determined using the lines' parameters. 
+Note that using lines defined this way will allow for fitting differential quantities such as `NFLUX` (flux normalised to the continuum) or `DPHI` (differential phase, with respect to continuum). The continuum is automatically determined using the lines' parameters.
 
 Arbitrary chromatic variations can be achieved using the `spectrum` parameter, very much like the `profile` parameter for rings. Note that the spectrum will be added to any over spectral information present in the parameters:
 ```
@@ -141,4 +144,4 @@ Once your model is defined, you can fit it to the data.
 
 ### Fitting
 
-`self.fit`
+`self.doFit`
