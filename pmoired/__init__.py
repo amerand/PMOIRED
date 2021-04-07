@@ -12,7 +12,7 @@ print('https://github.com/amerand/PMOIRED')
 
 class OI:
     def __init__(self, filenames, insname=None, targname=None, verbose=True,
-               withHeader=True, medFilt=False, tellurics=None):
+               withHeader=True, medFilt=False, tellurics=None, debug=False):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str).
@@ -32,6 +32,7 @@ class OI:
         """
         # -- load data
         self.data = []
+        self.debug = debug
         self.addData(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics)
@@ -54,7 +55,7 @@ class OI:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                        tellurics=tellurics))
+                        tellurics=tellurics, debug=self.debug))
         return
     def setSED(self, wl, sed, err=0.01):
         """

@@ -4,7 +4,7 @@ import scipy.signal
 import copy
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
-           withHeader=False, medFilt=False, tellurics=None):
+           withHeader=False, medFilt=False, tellurics=None, debug=False):
     """
     load OIFITS "filename" and return a dict:
 
@@ -31,12 +31,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     instrument, of list of dictionnary).
 
     """
+    if debug:
+        print('DEBUG: loadOI', filename)
     if type(filename)!=str:
         res = []
         for f in filename:
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
                          medFilt=medFilt, tellurics=tellurics, targname=targname,
-                         verbose=verbose)
+                         verbose=verbose, debug=debug)
             if type(tmp)==list:
                 res.extend(tmp)
             elif type(tmp)==dict:
@@ -103,12 +105,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     except:
         pass
 
-
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
             res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
+            if debug:
+                print('DEBUG: OI_WAVELENGTH')
+                print(' | WL', res['WL'])
+                print(' | dWL', res['dWL'])
 
 
     #res['n_lab'] = n_JHK(res['WL'].astype(np.float64))#, 273.15+T, P, H)
@@ -143,17 +148,26 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'FLAG':hdu.data['FLAG'][w,:],
                                         'MJD':hdu.data['MJD'][w],
                                          }
-
-                res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
-                                                          ~np.isfinite(res['OI_FLUX'][k]['FLUX']))
-                res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
-                                                          ~np.isfinite(res['OI_FLUX'][k]['EFLUX']))
+                if any(w):
+                    res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
+                                                              ~np.isfinite(res['OI_FLUX'][k]['FLUX']))
+                    res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
+                                                              ~np.isfinite(res['OI_FLUX'][k]['EFLUX']))
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
+            w = hdu.data['TARGET_ID']==targets[targname]
+            if not any(w):
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 for target=%s/target_id=%d'%(
+                            targname, targets[targname]))
+                continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            if debug:
+                print('DEBUG: loading OI_VIS2', set(sta2))
             for k in set(sta2):
                 w = (np.array(sta2)==k)*(hdu.data['TARGET_ID']==targets[targname])
-                if k in res['OI_VIS2']:
+                if debug:
+                    print(' | ', k, w)
+                if k in res['OI_VIS2'] and any(w):
                     for k1, k2 in [('V2', 'VIS2DATA'), ('EV2', 'VIS2ERR'), ('FLAG', 'FLAG')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
                                                           hdu.data[k2][w,:], axis=0)
@@ -170,7 +184,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['EV2']))
-                else:
+                elif any(w):
                     res['OI_VIS2'][k] = {'V2':hdu.data['VIS2DATA'][w,:],
                                          'EV2':hdu.data['VIS2ERR'][w,:],
                                          'u':hdu.data['UCOORD'][w],
@@ -186,19 +200,30 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['EV2']))
-
-                res['OI_VIS2'][k]['B/wl'] = np.sqrt(res['OI_VIS2'][k]['u/wl']**2+
-                                                    res['OI_VIS2'][k]['v/wl']**2)
-                res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
-                                                   1j*res['OI_VIS2'][k]['u/wl'], deg=True)
+                if any(w):
+                    res['OI_VIS2'][k]['B/wl'] = np.sqrt(res['OI_VIS2'][k]['u/wl']**2+
+                                                        res['OI_VIS2'][k]['v/wl']**2)
+                    res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
+                                                       1j*res['OI_VIS2'][k]['u/wl'], deg=True)
 
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
                     hdu.header['INSNAME']==insname:
+            w = hdu.data['TARGET_ID']==targets[targname]
+            if not any(w):
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS for target=%s/target_id=%d'%(
+                            targname, targets[targname]))
+                continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            if debug:
+                print('DEBUG: loading OI_VIS', set(sta2))
+                #print(' | ', targets[targname], hdu.data['TARGET_ID'])
+
             for k in set(sta2):
                 w = (np.array(sta2)==k)*(hdu.data['TARGET_ID']==targets[targname])
-                if k in res['OI_VIS']:
+                if debug:
+                    print(' | ', k, any(w))
+                if k in res['OI_VIS'] and any(w):
                     for k1, k2 in [('|V|', 'VIS2AMP'), ('E|V|', 'VISAMPERR'),
                                     ('PHI', 'VISPHI'), ('EPHI', 'VISPHIERR'),
                                     ('FLAG', 'FLAG')]:
@@ -216,7 +241,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
                                                              ~np.isfinite(res['OI_VIS'][k]['E|V|']))
 
-                else:
+                elif any(w):
                     res['OI_VIS'][k] = {'|V|':hdu.data['VISAMP'][w,:],
                                         'E|V|':hdu.data['VISAMPERR'][w,:],
                                         'PHI':hdu.data['VISPHI'][w,:],
@@ -230,19 +255,31 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                res['WL'][None,:],
                                         'FLAG':hdu.data['FLAG'][w,:]
                                         }
-                res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
-                                                    res['OI_VIS'][k]['v/wl']**2)
-                res['OI_VIS'][k]['PA'] = np.angle(res['OI_VIS'][k]['v/wl']+
-                                                  1j*res['OI_VIS'][k]['u/wl'], deg=True)
+                if any(w):
+                    res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
+                                                        res['OI_VIS'][k]['v/wl']**2)
+                    res['OI_VIS'][k]['PA'] = np.angle(res['OI_VIS'][k]['v/wl']+
+                                                      1j*res['OI_VIS'][k]['u/wl'], deg=True)
 
-                res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                         ~np.isfinite(res['OI_VIS'][k]['|V|']))
-                res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                          ~np.isfinite(res['OI_VIS'][k]['E|V|']))
+                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
+                                                             ~np.isfinite(res['OI_VIS'][k]['|V|']))
+                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
+                                                              ~np.isfinite(res['OI_VIS'][k]['E|V|']))
+
+        elif debug and 'EXTNAME' in hdu.header:
+            print('DEBUG:', hdu.header['EXTNAME'])
+        elif debug:
+            print('DEBUG: skipping HDU')
+
 
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
                     hdu.header['INSNAME']==insname:
+            w = hdu.data['TARGET_ID']==targets[targname]
+            if not any(w):
+                print('  > \033[33mWARNING\033[0m: no data in OI_T3 for target=%s/target_id=%d'%(
+                            targname, targets[targname]))
+                continue
             # -- T3 baselines == telescopes pairs
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
@@ -275,7 +312,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     t.append(k[:n]+k[2*n:3*n])
                     s.append(-1)
 
-                if k in res['OI_T3']:
+                if k in res['OI_T3'] and any(w):
                     for k1, k2 in [('T3AMP', 'T3AMP'), ('ET3AMP', 'T3AMPERR'),
                                     ('T3PHI', 'T3PHI'), ('ET3PHI', 'T3PHIERR'),
                                     ('FLAG', 'FLAG')]:
@@ -290,7 +327,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                             ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                     res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                                                             ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
-                else:
+                elif any(w):
                     res['OI_T3'][k] = {'T3AMP':hdu.data['T3AMP'][w,:],
                                        'ET3AMP':hdu.data['T3AMPERR'][w,:],
                                        'T3PHI':hdu.data['T3PHI'][w,:],
@@ -303,24 +340,25 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                        'formula': (s, t),
                                        'FLAG':hdu.data['FLAG'][w,:]
                                         }
-                res['OI_T3'][k]['B1'] = np.sqrt(res['OI_T3'][k]['u1']**2+
-                                                res['OI_T3'][k]['v1']**2)
-                res['OI_T3'][k]['B2'] = np.sqrt(res['OI_T3'][k]['u2']**2+
-                                                res['OI_T3'][k]['v2']**2)
-                res['OI_T3'][k]['B3'] = np.sqrt((res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2'])**2+
-                                                (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
-                bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
-                bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
-                bavg = np.sqrt(res['OI_T3'][k]['B1']**2 +
-                               res['OI_T3'][k]['B2']**2 +
-                               res['OI_T3'][k]['B3']**2)
-                res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
-                res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
+                if any(w):
+                    res['OI_T3'][k]['B1'] = np.sqrt(res['OI_T3'][k]['u1']**2+
+                                                    res['OI_T3'][k]['v1']**2)
+                    res['OI_T3'][k]['B2'] = np.sqrt(res['OI_T3'][k]['u2']**2+
+                                                    res['OI_T3'][k]['v2']**2)
+                    res['OI_T3'][k]['B3'] = np.sqrt((res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2'])**2+
+                                                    (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
+                    bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
+                    bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
+                    bavg = np.sqrt(res['OI_T3'][k]['B1']**2 +
+                                   res['OI_T3'][k]['B2']**2 +
+                                   res['OI_T3'][k]['B3']**2)
+                    res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
+                    res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
 
-                res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                        ~np.isfinite(res['OI_T3'][k]['T3AMP']))
-                res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                        ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
+                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                                                            ~np.isfinite(res['OI_T3'][k]['T3AMP']))
+                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                                                            ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
 
     key = 'OI_VIS'
     if res['OI_VIS']=={}:
@@ -337,6 +375,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         for k in res['OI_T3'].keys():
             s, t = res['OI_T3'][k]['formula']
             w0, w1, w2 = [], [], []
+            if debug:
+                print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
+                for _t in t:
+                    print(' | ', _t, key, res[key][_t])
             for mjd in res['OI_T3'][k]['MJD']:
                 w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
                 w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
@@ -393,10 +435,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             if e in res.keys():
                 for k in res[e].keys():
                     mjd.extend(list(res[e][k]['MJD']))
-        print('  > MJD:', sorted(set(mjd)))
+        mjd = np.array(mjd)
+        #print('  > MJD:', sorted(set(mjd)))
+        print('  > MJD:', mjd.shape, '[', min(mjd), '..', max(mjd), ']')
         print('  >', '-'.join(res['telescopes']), end=' | ')
-        print('WL:', res['WL'].shape, round(np.min(res['WL']), 3), 'to',
-              round(np.max(res['WL']), 3), 'um', end=' | ')
+        print('WL:', res['WL'].shape, '[', round(np.min(res['WL']), 3), '..',
+              round(np.max(res['WL']), 3), '] um', end=' | ')
         print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
                 end=' | ')
         print('TELLURICS:', res['TELLURICS'].min()<1)
