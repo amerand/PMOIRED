@@ -10,7 +10,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import multiprocessing
 
 try:
-    from moire import oimodels
+    from pmoired import oimodels
 except:
     import oimodels
 

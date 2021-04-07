@@ -411,9 +411,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             delta = np.array(pfit)-np.array(plsq)
             for i,k in enumerate(fitOnly):
                 if 'fjac' in info:
-                    test = max(info['fjac'][i,:])==0
+                    test = max(np.abs(info['fjac'][i,:]))==0
                 else:
-                    test = delta[i]<=epsfcn
+                    test = np.abs(delta[i])<=epsfcn
                 if test:
                     print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
                     print('IT SHOULD NOT BE FITTED\033[0m')
@@ -515,8 +515,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         cor = cor[:,None]*cor[None,:]
         cor[cor==0] = 1e-6
         cor = cov/cor
-        pfix= {#'func':func,
-                'best':pfix, 'uncer':uncer,
+        pfix= {'func':func,
+               'best':pfix, 'uncer':uncer,
                'chi2':reducedChi2, 'model':model,
                'cov':cov, 'fitOnly':fitOnly,
                'epsfcn':epsfcn, 'ftol':ftol,
@@ -940,7 +940,7 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
     fmt = '%3d:'+fmt
     fmtd = '%'+'%d'%(ndigit+3)+'.'+'%d'%ndigit+'f'
     if not asStr:
-        print(pre+'Correlations ', end=' ')
+        print(pre+'Correlations (%) ', end=' ')
         print('\033[45m>=90\033[0m', end=' ')
         print('\033[41m>=80\033[0m', end=' ')
         print('\033[43m>=70\033[0m', end=' ')
