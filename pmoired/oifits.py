@@ -66,7 +66,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             insname = instruments[0]
         else:
             h.close()
-            print('WARNING: insname not specified, using results for %s'%str(instruments))
+            print('insname not specified, loading %s'%str(instruments))
             # -- return list: one dict for each insname
             return [loadOI(filename, insname=ins, withHeader=withHeader, medFilt=medFilt) for ins in instruments]
 
@@ -76,10 +76,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['insname'] = insname
     res['filename'] = filename
     res['targname'] = targname
+
+    # -- for now, only catching ESO pipelines, in the future we can add more
     if 'ESO PRO REC1 PIPE ID' in h[0].header:
         res['pipeline'] = h[0].header['ESO PRO REC1 PIPE ID']
     else:
         res['pipeline'] = ''
+
     if withHeader:
         res['header'] = h[0].header
 
@@ -108,13 +111,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
+            # -- OIFITS in m, here we want um
             res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
             if debug:
                 print('DEBUG: OI_WAVELENGTH')
                 print(' | WL', res['WL'])
                 print(' | dWL', res['dWL'])
-
+    assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
     #res['n_lab'] = n_JHK(res['WL'].astype(np.float64))#, 273.15+T, P, H)
 
@@ -126,12 +130,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['OI_VIS'] = {}
     res['OI_T3'] = {}
     res['OI_FLUX'] = {}
-    for hdu in h:
+    for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS' and\
                     len(hdu.data['TELL_TRANS'])==len(res['WL']):
             res['TELLURICS'] = hdu.data['TELL_TRANS']
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_FLUX' and\
                     hdu.header['INSNAME']==insname:
+            w = hdu.data['TARGET_ID']==targets[targname]
+            if not any(w):
+                print('  > \033[33mWARNING\033[0m: no data in OI_FLUX [HDU #%d]  for target="%s"/target_id=%d'%(
+                      ih, targname, targets[targname]))
+                continue
+
             sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
                 w = (np.array(sta1)==k)*(hdu.data['TARGET_ID']==targets[targname])
@@ -157,8 +167,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     hdu.header['INSNAME']==insname:
             w = hdu.data['TARGET_ID']==targets[targname]
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 for target=%s/target_id=%d'%(
-                            targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 [HDU #%d]  for target="%s"/target_id=%d'%(
+                            ih, targname, targets[targname]))
                 continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
@@ -211,8 +221,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     hdu.header['INSNAME']==insname:
             w = hdu.data['TARGET_ID']==targets[targname]
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_VIS for target=%s/target_id=%d'%(
-                            targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS [HDU #%d]  for target="%s"/target_id=%d'%(
+                            ih, targname, targets[targname]))
                 continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
@@ -272,13 +282,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             print('DEBUG: skipping HDU')
 
 
-    for hdu in h:
+    for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
                     hdu.header['INSNAME']==insname:
             w = hdu.data['TARGET_ID']==targets[targname]
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_T3 for target=%s/target_id=%d'%(
-                            targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_T3 [HDU #%d]  for target="%s"/target_id=%d'%(
+                            ih, targname, targets[targname]))
                 continue
             # -- T3 baselines == telescopes pairs
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]

@@ -2568,12 +2568,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     maskc2 = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
                     err[err<=0] = 1
                     if 'PHI' in l:
-                        _resi = ((y-ym+180)%360-180)/err
+                        _resi = ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2]
                     else:
-                        _resi = (y-ym)/err
+                        _resi = (y[maskc2]-ym[maskc2])/err[maskc2]
 
                     # -- build residuals array
-                    resi = np.append(resi, _resi[maskc2].flatten())
+                    resi = np.append(resi, _resi.flatten())
                     # -- show predictions from model
                     if not spectro:
                         ax.plot(X(m,j)[maskc2], ym[maskc2],
