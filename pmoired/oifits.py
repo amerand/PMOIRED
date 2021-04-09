@@ -175,6 +175,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['EFLUX']))
                     if not binning is None:
+                        # -- Note the binning of flux is not weighted, because
+                        # -- it would make the tellurics correction incorrect
+                        # -- overwise
                         res['OI_FLUX'][k]['FLUX'] = binOI(res['WL'], _WL,
                                                            res['OI_FLUX'][k]['FLUX'],
                                                            res['OI_FLUX'][k]['FLAG'],
@@ -243,12 +246,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_VIS2'][k]['V2'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS2'][k]['V2'],
                                                          res['OI_VIS2'][k]['FLAG'],
+                                                         res['OI_VIS2'][k]['EV2'],
                                                          medFilt=medFilt)
 
                         # -- KLUDGE!
                         res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS2'][k]['EV2'],
                                                          res['OI_VIS2'][k]['FLAG'],
+                                                         res['OI_VIS2'][k]['EV2'],
                                                          medFilt=medFilt)
                         res['OI_VIS2'][k]['FLAG'] = res['OI_VIS2'][k]['V2']<0
 
@@ -318,20 +323,24 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_VIS'][k]['|V|'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['|V|'],
                                                          res['OI_VIS'][k]['FLAG'],
+                                                         res['OI_VIS'][k]['E|V|'],
                                                          medFilt=medFilt)
                         res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['PHI'],
                                                          res['OI_VIS'][k]['FLAG'],
+                                                         res['OI_VIS'][k]['EPHI'],
                                                          medFilt=medFilt)
 
                         # -- KLUDGE!
                         res['OI_VIS'][k]['E|V|'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['E|V|'],
                                                          res['OI_VIS'][k]['FLAG'],
+                                                         res['OI_VIS'][k]['E|V|'],
                                                          medFilt=medFilt)
                         res['OI_VIS'][k]['EPHI'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['EPHI'],
                                                          res['OI_VIS'][k]['FLAG'],
+                                                         res['OI_VIS'][k]['EPHI'],
                                                          medFilt=medFilt)
                         res['OI_VIS'][k]['FLAG'] = res['OI_VIS'][k]['|V|']<0
 
@@ -434,20 +443,24 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_T3'][k]['T3AMP'] = binOI(res['WL'], _WL,
                                                           res['OI_T3'][k]['T3AMP'],
                                                           res['OI_T3'][k]['FLAG'],
+                                                          res['OI_T3'][k]['ET3AMP'],
                                                           medFilt=medFilt)
                         res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
                                                           res['OI_T3'][k]['T3PHI'],
                                                           res['OI_T3'][k]['FLAG'],
+                                                          res['OI_T3'][k]['ET3PHI'],
                                                           medFilt=medFilt)
 
                         # -- KLUDGE!
                         res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
                                                            res['OI_T3'][k]['ET3AMP'],
                                                            res['OI_T3'][k]['FLAG'],
+                                                           res['OI_T3'][k]['ET3AMP'],
                                                            medFilt=medFilt)
                         res['OI_T3'][k]['ET3PHI'] = binOI(res['WL'], _WL,
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            res['OI_T3'][k]['FLAG'],
+                                                           res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
                         res['OI_T3'][k]['FLAG'] = ~np.isfinite(res['OI_T3'][k]['T3PHI'])
 
@@ -495,6 +508,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if not tellurics is None:
         # -- forcing tellurics to given vector
         res['TELLURICS'] = tellurics
+        if not binning is None and len(tellurics)==len(_WL):
+            res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
+
     if 'OI_FLUX' in res.keys():
         for k in res['OI_FLUX'].keys():
             # -- raw flux
@@ -531,17 +547,19 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         print('  > MJD:', mjd.shape, '[', min(mjd), '..', max(mjd), ']')
         print('  >', '-'.join(res['telescopes']), end=' | ')
         print('WL:', res['WL'].shape, '[', round(np.min(res['WL']), 3), '..',
-              round(np.max(res['WL']), 3), '] um', end=' | ')
+              round(np.max(res['WL']), 3), '] um', end=' ')
+        if not binning is None:
+            print('(binned by x%d)'%binning, end=' ')
         print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
                 end=' | ')
-        print('TELLURICS:', res['TELLURICS'].min()<1)
+        print('| TELLURICS:', res['TELLURICS'].min()<1)
         # print('  >', 'telescopes:', res['telescopes'],
         #       'baselines:', res['baselines'],
         #       'triangles:', res['triangles'])
 
     return res
 
-def binOI(_wl, WL, T, F, medFilt=None):
+def binOI(_wl, WL, T, F, E=None, medFilt=None):
     """
     _wl: new WL vector
     WL: actual WL vector
@@ -551,22 +569,28 @@ def binOI(_wl, WL, T, F, medFilt=None):
     res = np.zeros((T.shape[0], len(_wl)))
     for i in range(T.shape[0]):
         w = ~F[i,:]
-        res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
+        if E is None:
+            res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
+        else:
+            res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt)
     return res
 
-def _binVec(x, X, Y, medFilt=None):
+def _binVec(x, X, Y, E=None, medFilt=None):
     """
-    bin Y(X) with new x
+    bin Y(X) with new x. E is optional error bars (wor weighting)
     """
-    dx = np.mean(np.diff(x))
-    dX = np.mean(np.diff(X))
-    # -- kernel
-    k = np.exp(-(X-np.mean(X))**2/(dx/2)**2)
+    dx = np.median(np.diff(x))
+    # -- kernel of FWHM dx
+    k = np.exp(-(X-np.mean(X))**2/(0.6*dx)**2)
     k /= np.sum(k)
+    if E is None:
+        E = np.ones(len(Y))
+    W = np.convolve(1/E, k, 'same')
+
     if not medFilt is None:
-        return np.interp(x, X, np.convolve(scipy.signal.medfilt(Y, kernel_size=medFilt), k, 'same'))
+        return np.interp(x, X, np.convolve(scipy.signal.medfilt(Y/E, kernel_size=medFilt), k, 'same')/W)
     else:
-        return np.interp(x, X, np.convolve(Y, k, "same"))
+        return np.interp(x, X, np.convolve(Y/E, k, "same")/W)
 
 def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     """
