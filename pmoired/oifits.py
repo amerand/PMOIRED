@@ -4,7 +4,8 @@ import scipy.signal
 import copy
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
-           withHeader=False, medFilt=False, tellurics=None, debug=False):
+           withHeader=False, medFilt=None, tellurics=None, debug=False,
+           binning=None):
     """
     load OIFITS "filename" and return a dict:
 
@@ -38,7 +39,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         for f in filename:
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
                          medFilt=medFilt, tellurics=tellurics, targname=targname,
-                         verbose=verbose, debug=debug)
+                         verbose=verbose, debug=debug, binning=binning)
             if type(tmp)==list:
                 res.extend(tmp)
             elif type(tmp)==dict:
@@ -114,13 +115,21 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             # -- OIFITS in m, here we want um
             res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
+            if not binning is None:
+                # -- keep track of true wavelength
+                _WL = res['WL']*1.0
+                _dWL = res['dWL']*1.0
+                # -- binned
+                res['WL'] = np.linspace(res['WL'][binning:].min(),
+                                        res['WL'][:-binning].max(),
+                                        len(res['WL'])//binning)
+                res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
+
             if debug:
                 print('DEBUG: OI_WAVELENGTH')
                 print(' | WL', res['WL'])
                 print(' | dWL', res['dWL'])
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
-
-    #res['n_lab'] = n_JHK(res['WL'].astype(np.float64))#, 273.15+T, P, H)
 
     oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
                    np.char.strip(h['OI_ARRAY'].data['STA_NAME'])))
@@ -152,17 +161,32 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'FLAG':hdu.data['FLAG'][w,:],
                                         'MJD':hdu.data['MJD'][w],
                                          }
+
                 except:
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUXDATA'][w,:],
                                         'EFLUX':hdu.data['FLUXERR'][w,:],
                                         'FLAG':hdu.data['FLAG'][w,:],
                                         'MJD':hdu.data['MJD'][w],
                                          }
+
                 if any(w):
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['FLUX']))
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['EFLUX']))
+                    if not binning is None:
+                        res['OI_FLUX'][k]['FLUX'] = binOI(res['WL'], _WL,
+                                                           res['OI_FLUX'][k]['FLUX'],
+                                                           res['OI_FLUX'][k]['FLAG'],
+                                                           medFilt=medFilt)
+                        # -- KLUDGE!
+                        res['OI_FLUX'][k]['EFLUX'] = binOI(res['WL'], _WL,
+                                                           res['OI_FLUX'][k]['EFLUX'],
+                                                           res['OI_FLUX'][k]['FLAG'],
+                                                           medFilt=medFilt)
+                        res['OI_FLUX'][k]['FLAG'] = res['OI_FLUX'][k]['FLUX']<=0
+
+
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
             w = hdu.data['TARGET_ID']==targets[targname]
@@ -215,6 +239,19 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                         res['OI_VIS2'][k]['v/wl']**2)
                     res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
                                                        1j*res['OI_VIS2'][k]['u/wl'], deg=True)
+                    if not binning is None:
+                        res['OI_VIS2'][k]['V2'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS2'][k]['V2'],
+                                                         res['OI_VIS2'][k]['FLAG'],
+                                                         medFilt=medFilt)
+
+                        # -- KLUDGE!
+                        res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS2'][k]['EV2'],
+                                                         res['OI_VIS2'][k]['FLAG'],
+                                                         medFilt=medFilt)
+                        res['OI_VIS2'][k]['FLAG'] = res['OI_VIS2'][k]['V2']<0
+
 
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
@@ -275,6 +312,29 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                              ~np.isfinite(res['OI_VIS'][k]['|V|']))
                     res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS'][k]['E|V|']))
+
+                    if not binning is None:
+                        _w = ~res['OI_VIS'][k]['FLAG']
+                        res['OI_VIS'][k]['|V|'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS'][k]['|V|'],
+                                                         res['OI_VIS'][k]['FLAG'],
+                                                         medFilt=medFilt)
+                        res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS'][k]['PHI'],
+                                                         res['OI_VIS'][k]['FLAG'],
+                                                         medFilt=medFilt)
+
+                        # -- KLUDGE!
+                        res['OI_VIS'][k]['E|V|'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS'][k]['E|V|'],
+                                                         res['OI_VIS'][k]['FLAG'],
+                                                         medFilt=medFilt)
+                        res['OI_VIS'][k]['EPHI'] = binOI(res['WL'], _WL,
+                                                         res['OI_VIS'][k]['EPHI'],
+                                                         res['OI_VIS'][k]['FLAG'],
+                                                         medFilt=medFilt)
+                        res['OI_VIS'][k]['FLAG'] = res['OI_VIS'][k]['|V|']<0
+
 
         elif debug and 'EXTNAME' in hdu.header:
             print('DEBUG:', hdu.header['EXTNAME'])
@@ -369,6 +429,27 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                             ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                     res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                                                             ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
+                    if not binning is None:
+                        _w = ~res['OI_T3'][k]['FLAG']
+                        res['OI_T3'][k]['T3AMP'] = binOI(res['WL'], _WL,
+                                                          res['OI_T3'][k]['T3AMP'],
+                                                          res['OI_T3'][k]['FLAG'],
+                                                          medFilt=medFilt)
+                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
+                                                          res['OI_T3'][k]['T3PHI'],
+                                                          res['OI_T3'][k]['FLAG'],
+                                                          medFilt=medFilt)
+
+                        # -- KLUDGE!
+                        res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
+                                                           res['OI_T3'][k]['ET3AMP'],
+                                                           res['OI_T3'][k]['FLAG'],
+                                                           medFilt=medFilt)
+                        res['OI_T3'][k]['ET3PHI'] = binOI(res['WL'], _WL,
+                                                           res['OI_T3'][k]['ET3PHI'],
+                                                           res['OI_T3'][k]['FLAG'],
+                                                           medFilt=medFilt)
+                        res['OI_T3'][k]['FLAG'] = ~np.isfinite(res['OI_T3'][k]['T3PHI'])
 
     key = 'OI_VIS'
     if res['OI_VIS']=={}:
@@ -421,7 +502,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             # -- corrected from tellurics
             res['OI_FLUX'][k]['FLUX'] /= res['TELLURICS'][None,:]
 
-    if medFilt:
+    if not medFilt is None:
         if type(medFilt) == int:
             kernel_size = 2*(medFilt//2)+1
         else:
@@ -459,6 +540,33 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #       'triangles:', res['triangles'])
 
     return res
+
+def binOI(_wl, WL, T, F, medFilt=None):
+    """
+    _wl: new WL vector
+    WL: actual WL vector
+    T: data table (2D)
+    F: flag table (2D)
+    """
+    res = np.zeros((T.shape[0], len(_wl)))
+    for i in range(T.shape[0]):
+        w = ~F[i,:]
+        res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
+    return res
+
+def _binVec(x, X, Y, medFilt=None):
+    """
+    bin Y(X) with new x
+    """
+    dx = np.mean(np.diff(x))
+    dX = np.mean(np.diff(X))
+    # -- kernel
+    k = np.exp(-(X-np.mean(X))**2/(dx/2)**2)
+    k /= np.sum(k)
+    if not medFilt is None:
+        return np.interp(x, X, np.convolve(scipy.signal.medfilt(Y, kernel_size=medFilt), k, 'same'))
+    else:
+        return np.interp(x, X, np.convolve(Y, k, "same"))
 
 def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     """

@@ -12,7 +12,8 @@ print('https://github.com/amerand/PMOIRED')
 
 class OI:
     def __init__(self, filenames, insname=None, targname=None, verbose=True,
-               withHeader=True, medFilt=False, tellurics=None, debug=False):
+               withHeader=True, medFilt=None, tellurics=None, debug=False,
+               binning=None):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str).
@@ -24,7 +25,7 @@ class OI:
 
         with_header: will load full header (default=False)
 
-        medfilt: apply median filter of width 'medfilt'. Default no filter
+        medFilt: apply median filter of width 'medFilt'. Default no filter
 
         tellurics: pass a telluric correction vector, or a list of vectors,
             one per file. If nothing given, will use the tellurics in the OIFITS
@@ -35,7 +36,7 @@ class OI:
         self.debug = debug
         self.addData(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                        tellurics=tellurics)
+                        tellurics=tellurics, binning=binning)
 
         # -- last fit to the data
         self.bestfit = None
@@ -50,12 +51,12 @@ class OI:
         self.spectra = {}
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
-                withHeader=False, medFilt=False, tellurics=None):
+                withHeader=False, medFilt=None, tellurics=None, binning=None):
         if not type(filenames)==list:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                        tellurics=tellurics, debug=self.debug))
+                        tellurics=tellurics, debug=self.debug, binning=binning))
         return
     def setSED(self, wl, sed, err=0.01):
         """
@@ -438,14 +439,15 @@ class OI:
 def _checkObs(data, obs):
     """
     data: OI dict
-    obs: list of observable in ['|V|', 'V2', 'DPHI', 'T3PHI', 'FLUX']
+    obs: list of observable in ['|V|', 'V2', 'DPHI', 'T3PHI', 'FLUX', 'NFLUX']
 
     returns list of obs actually in data
     """
     ext = {'|V|':'OI_VIS', 'DPHI':'OI_VIS', 'PHI':'OI_VIS',
            'V2':'OI_VIS2',
            'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
-           'FLUX':'OI_FLUX'
+           'FLUX':'OI_FLUX',
+           'NFLUX':'OI_FLUX',
            }
     return [o for o in obs if o in ext and ext[o] in data]
 
