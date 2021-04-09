@@ -1,7 +1,9 @@
 try:
-    from pmoired import oimodels, oifits, oicandid, oifake
+    from pmoired import oimodels, oifits, oicandid#, oifake
 except:
-    import oimodels, oifits, oicandid, oifake
+    import oimodels, oifits, oicandid #, oifake
+
+
 import time
 
 import numpy as np
@@ -27,7 +29,7 @@ class OI:
 
         medFilt: apply median filter of width 'medFilt'. Default no filter
 
-        binning: bin data by this factor (integer). default no binning 
+        binning: bin data by this factor (integer). default no binning
 
         tellurics: pass a telluric correction vector, or a list of vectors,
             one per file. If nothing given, will use the tellurics in the OIFITS
