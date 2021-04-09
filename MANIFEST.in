@@ -1,2 +1,3 @@
 include README.md
 include pmoired/*.fits
+include pmoired/newVltiHzn_obsDoors.txt
