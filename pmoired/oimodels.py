@@ -25,7 +25,6 @@ from astropy import constants
 
 _c = np.pi**2/180/3600/1000*1e6
 
-
 def Ssingle(oi, param, noLambda=False):
     """
     build spectrum fo Vsingle
@@ -1640,6 +1639,8 @@ def get_processor_info():
         return subprocess.check_output(command, shell=True).strip().decode()
     return "unknown processor"
 
+
+
 def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
                    ftol=1e-6, sigmaClipping=4.5, multi=True, prior=None):
     """
@@ -1654,7 +1655,7 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
                 'T3AMP':'OI_T3',
                 'T3PHI':'OI_T3',
                 'NFLUX':'NFLUX', # flux normalized to continuum
-                'FLUX':'OI_FLUX' # flux, corrected from tellurics
+                'FLUX':'OI_FLUX' # flux corrected from tellurics
                 }
         if type(oi)==dict:
             oi = [oi]
@@ -2956,7 +2957,9 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
             else:
                 y = 0.0
             plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
-                    markersize=8)
+                     markersize=8)
+            plt.plot(x, y, '.w', markersize=8, alpha=0.5)
+
             if i==0:
                 plt.legend(fontsize=5, ncol=2)
         axs[-1].tick_params(axis='x', labelsize=6)

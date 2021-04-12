@@ -9,6 +9,12 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
+import multiprocessing
+try:
+    multiprocessing.set_start_method('spawn')
+except:
+    pass
+
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
