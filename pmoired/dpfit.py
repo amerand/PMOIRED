@@ -473,8 +473,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
     if verbose:
         #print('-'*30)
-        print('# --         CHI2=', chi2)
-        print('# -- REDUCED CHI2=', reducedChi2)
+        print('# --     CHI2=', chi2)
+        print('# -- red CHI2=', reducedChi2)
+        print('# --     NDOF=', int(chi2/reducedChi2))
         #print('-'*30)
         tmp = list(pfix.keys()); tmp.sort()
         maxLength = np.max(np.array([len(k) for k in tmp]))
@@ -708,7 +709,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
             print('')
         else:
             _follow = list(filter(lambda x: x in params.keys() and
-                                        type(params[x])==float, follow))
+                            type(params[x]) in [float, np.double], follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
     return res
 
