@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import multiprocessing
 try:
+    # -- see https://stackoverflow.com/questions/64174552
     multiprocessing.set_start_method('spawn')
 except:
     pass

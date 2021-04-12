@@ -1009,10 +1009,20 @@ def computeDiffPhiOI(oi, param=None, order='auto'):
         fit.update(oi['fit'])
         oi['fit'] = fit.copy()
 
+    #w = np.zeros(oi['WL'].shape)
+    #for WR in oi['fit']['wl ranges']:
+    #    w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+    #oi['WL mask'] = np.bool_(w)
+
     w = np.zeros(oi['WL'].shape)
+    closest = []
     for WR in oi['fit']['wl ranges']:
         w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+        closest.append(np.argmin(np.abs(oi['WL']-0.5*(WR[0]+WR[1]))))
     oi['WL mask'] = np.bool_(w)
+    if not any(oi['WL mask']):
+        for clo in closest:
+            oi['WL mask'][clo] = True
 
     # -- user defined continuum
     if 'fit' in oi and 'cont ranges' in oi['fit']:
@@ -1025,6 +1035,7 @@ def computeDiffPhiOI(oi, param=None, order='auto'):
     if not _param is None:
         for k in _param.keys():
             if 'line_' in k and 'wl0' in k:
+                dwl = 0
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.2*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in _param.keys():
@@ -1042,7 +1053,7 @@ def computeDiffPhiOI(oi, param=None, order='auto'):
         order = max(order, 1)
 
     if np.sum(oi['WL cont'])<order+1:
-        print('ERROR: not enough WL to compute continuum!')
+        print('WARNING: not enough WL to compute continuum!')
         return oi
 
     oi['DPHI'] = {}
@@ -1096,9 +1107,17 @@ def computeNormFluxOI(oi, param=None, order='auto'):
     w = oi['WL']>0
     if 'fit' in oi and 'wl ranges' in oi['fit']:
         w = np.zeros(oi['WL'].shape)
+#        for WR in oi['fit']['wl ranges']:
+#            w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+        closest = []
         for WR in oi['fit']['wl ranges']:
             w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
-    oi['WL mask'] = np.bool_(w)
+            closest.append(np.argmin(np.abs(oi['WL']-0.5*(WR[0]+WR[1]))))
+        w = np.bool_(w)
+        if not any(w):
+            for clo in closest:
+                w[clo] = True
+    oi['WL mask'] = np.bool_(w).copy()
 
     # -- user defined continuum
     if 'fit' in oi and 'cont ranges' in oi['fit']:
@@ -1111,6 +1130,7 @@ def computeNormFluxOI(oi, param=None, order='auto'):
     if not _param is None:
         for k in _param.keys():
             if 'line_' in k and 'wl0' in k:
+                dwl = 0.
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.2*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in _param.keys():
@@ -1399,8 +1419,17 @@ def residualsOI(oi, param, timeit=False):
 
     if 'wl ranges' in fit:
         w = np.zeros(oi['WL'].shape)
+        #for WR in oi['fit']['wl ranges']:
+        #    w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+        closest = []
         for WR in oi['fit']['wl ranges']:
             w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+            closest.append(np.argmin(np.abs(oi['WL']-0.5*(WR[0]+WR[1]))))
+        w = np.bool_(w)
+        if not any(w):
+            for clo in closest:
+                w[clo] = True
+
     w = np.bool_(w)
     t0 = time.time()
     for f in fit['obs']:
@@ -1817,11 +1846,20 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
 
     w = oi['WL']>0
     # -- user-defined wavelength ranges
-    if 'fit' in oi and 'wl ranges' in oi['fit']:
-        w = np.zeros(oi['WL'].shape)
-        for WR in oi['fit']['wl ranges']:
-            w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+    # if 'fit' in oi and 'wl ranges' in oi['fit']:
+    #     w = np.zeros(oi['WL'].shape)
+    #     for WR in oi['fit']['wl ranges']:
+    #         w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+    # oi['WL mask'] = np.bool_(w)
+
+    closest = []
+    for WR in oi['fit']['wl ranges']:
+        w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+        closest.append(np.argmin(np.abs(oi['WL']-0.5*(WR[0]+WR[1]))))
     oi['WL mask'] = np.bool_(w)
+    if not any(oi['WL mask']):
+        for clo in closest:
+            oi['WL mask'][clo] = True
 
     # -- user defined continuum
     if 'fit' in oi and 'cont ranges' in oi['fit']:
@@ -1834,6 +1872,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
     if not param is None:
         for k in param.keys():
             if 'line_' in k and 'wl0' in k:
+                dwl = 0
                 if k.replace('wl0', 'gaussian') in param.keys():
                     dwl = 1.2*param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in param.keys():
@@ -2098,9 +2137,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         ignoreBaseline = '**'
 
     w = np.zeros(oi['WL'].shape)
+    closest = []
     for WR in oi['fit']['wl ranges']:
         w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+        closest.append(np.argmin(np.abs(oi['WL']-0.5*(WR[0]+WR[1]))))
     oi['WL mask'] = np.bool_(w)
+    if not any(oi['WL mask']):
+        for clo in closest:
+            oi['WL mask'][clo] = True
 
     if not 'obs' in oi['fit'] and obs is None:
             obs = []
@@ -2122,8 +2166,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         oi.pop('WL cont')
     if 'DPHI' in obs:
         oi = computeDiffPhiOI(oi, param)
+    #print(oi['WL mask'], oi['WL'][oi['WL mask']])
     if 'NFLUX' in obs:
         oi = computeNormFluxOI(oi, param)
+    #print(oi['WL mask'], oi['WL'][oi['WL mask']])
+
     if wlMin is None:
         wlMin = min(oi['WL'][oi['WL mask']])
     if wlMax is None:
@@ -2679,10 +2726,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 maskp = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
                 if setylim:
                     yamp = ymax-ymin
-                    ax.set_ylim(ymin - 0.2*yamp-i*yoffset, ymax + 0.2*yamp)
+                    if yamp>0:
+                        ax.set_ylim(ymin - 0.2*yamp-i*yoffset, ymax + 0.2*yamp)
                 if 'UV' in obs and 'FLUX' in l and i==0:
                     yoffset = yamp
-                ax.set_xlim(wlMin, wlMax)
+                if wlMin<wlMax:
+                    ax.set_xlim(wlMin, wlMax)
                 if k in mcB:
                     mark, col = mcB[k]
                 else:
