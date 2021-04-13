@@ -3,6 +3,7 @@ import numpy as np
 from numpy import linalg
 import time
 from matplotlib import pyplot as plt
+from functools import reduce
 
 """
 IDEA: fit Y = F(X,A) where A is a dictionnary describing the
@@ -22,8 +23,6 @@ http://www.rhinocerus.net/forum/lang-idl-pvwave/355826-generalized-least-squares
 """
 
 verboseTime=time.time()
-Ncalls=0
-
 def polyN(x, params):
     """
     Polynomial function. e.g. params={'A0':1.0, 'A2':2.0} returns
@@ -252,6 +251,7 @@ def iterable(obj):
 
 Ncalls=0
 Tcalls=0
+trackP={}
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
@@ -297,7 +297,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     'cov': covariance matrix (normalized if normalizedUncer)
     'fitOnly': names of the columns of 'cov'
     """
-    global Ncalls, pfitKeys, pfix, _func, data_errors
+    global Ncalls, pfitKeys, pfix, _func, data_errors, trackP
     # -- fit all parameters by default
     if fitOnly is None:
         if len(doNotFit)>0:
@@ -342,6 +342,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
     # -- actual fit
     Ncalls=0
+    trackP={}
     t0=time.time()
 
     if np.iterable(err) and len(np.array(err).shape)==2:
@@ -516,6 +517,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         cor = cor[:,None]*cor[None,:]
         cor[cor==0] = 1e-6
         cor = cov/cor
+        for k in trackP.keys():
+            trackP[k] = np.array(trackP[k])
+
         pfix= {'func':func,
                'best':pfix, 'uncer':uncer,
                'chi2':reducedChi2, 'model':model,
@@ -529,6 +533,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                          for i,ki in enumerate(fitOnly)},
                'normalized uncertainties':normalizedUncer,
                'maxfev':maxfev, 'firstGuess':params,
+               'track':trackP,
         }
         if type(verbose)==int and verbose>1 and np.size(cor)>1:
             dispCor(pfix)
@@ -646,7 +651,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
              [ 0, err2**2, 0, .., 0],
              [0, .., 0, errN**2]]) is the equivalent of 1D errors
     """
-    global verboseTime, Ncalls
+    global verboseTime, Ncalls, trackP
     Ncalls+=1
 
     params = {}
@@ -682,35 +687,44 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
             except:
                 res.append(df)
 
+    try:
+        chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
+    except:
+        # list of elements
+        chi2 = 0
+        N = 0
+        #res2 = []
+        for r in res:
+            if np.isscalar(r):
+                chi2 += r**2
+                N+=1
+                r#es2.append(r)
+            else:
+                chi2 += np.sum(np.array(r)**2)
+                N+=len(r)
+                #res2.extend(list(r))
+        chi2 /= N-len(pfit)+1.0
+
     if verbose and time.time()>(verboseTime+5):
         verboseTime = time.time()
         print('[dpfit]', time.asctime(), '%03d/%03d'%(Ncalls, int(Ncalls/len(pfit))), end=' ')
-        try:
-            chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
-            print('CHI2: %6.4e'%chi2,end=' ')
-        except:
-            # list of elements
-            chi2 = 0
-            N = 0
-            res2 = []
-            for r in res:
-                if np.isscalar(r):
-                    chi2 += r**2
-                    N+=1
-                    res2.append(r)
-                else:
-                    chi2 += np.sum(np.array(r)**2)
-                    N+=len(r)
-                    res2.extend(list(r))
-
-            res = res2
-            print('CHI2: %6.4e'%(chi2/float(N-len(pfit)+1)), end='|')
+        print('CHI2: %6.4e'%chi2,end='|')
         if follow is None:
             print('')
         else:
             _follow = list(filter(lambda x: x in params.keys() and
                             type(params[x]) in [float, np.double], follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
+    for i,k in enumerate(pfitKeys):
+        if not k in trackP:
+            trackP[k] = [pfit[i]]
+        else:
+            trackP[k].append(pfit[i])
+    if not 'reduced chi2' in trackP:
+        trackP['reduced chi2'] = [chi2]
+    else:
+        trackP['reduced chi2'].append(chi2)
+
     return res
 
 def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False, follow=None):
@@ -728,7 +742,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
              [ 0, err2**2, 0, .., 0],
              [0, .., 0, errN**2]]) is the equivalent of 1D errors
     """
-    global verboseTime, Ncalls
+    global verboseTime, Ncalls, trackP
     Ncalls+=1
 
     params = {}
@@ -1115,4 +1129,99 @@ def plotCovMatrix(fit, fig=0):
                     item.set_fontsize(8)
             except:
                 pass
+    return
+
+def factors(n):
+    """
+    returns the factirs for integer n
+    """
+    return list(set(reduce(list.__add__, ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0))))
+
+def subp(N, imax=None):
+    """
+    gives the dimensions of a gird of plots for N plots, allow up to imax empty plots to have a squarish grid
+    """
+    if imax is None:
+        imax = max(2, N//5)
+    S = {}
+    for i in range(imax+1):
+        F = np.array(factors(N+i))
+        S[N+i] = sorted(F[np.argsort(np.abs(F-np.sqrt(N)))][:2])
+    # -- get the one with most squarish aspect ratio
+    K = list(S.keys())
+    R = [S[k][1]/S[k][0] for k in K]
+    k = K[np.argmin(R)]
+    if k==int(np.sqrt(k))**2:
+        return [int(np.sqrt(k)), int(np.sqrt(k))]
+    else:
+        return S[K[np.argmin(R)]]
+
+def _callbackAxes(ax):
+    """
+    make sure y ranges follows the data, after x range has been adjusted
+    """
+    global AX, T
+    xlim = ax.get_xlim()
+    x = np.arange(len(T['reduced chi2']))
+    w = (x>=xlim[0])*(x<=xlim[1])
+    for k in AX.keys():
+        if k=='reduced chi2' and np.max(T[k][w])/np.min(T[k][w])>100:
+            AX[k].set_yscale('log')
+            AX[k].set_ylim(0.9*np.min(T[k][w]),
+                           1.1*np.max(T[k][w]))
+        else:
+            AX[k].set_yscale('linear')
+            AX[k].set_ylim(np.min(T[k][w])-0.1*np.ptp(T[k][w]),
+                           np.max(T[k][w])+0.1*np.ptp(T[k][w]))
+    return
+
+def exploreFit(fit, fig=99):
+    """
+    plot the evolution of the fitted parameters as function of iteration, as well as chi2
+    """
+    global AX, T
+    plt.close(fig)
+    plt.figure(fig, figsize=(8, 5))
+    S = subp(len(fit['track']))
+    #print(len(fit['track']), S)
+    fontsize = min(max(12/np.sqrt(S[1]), 5), 10)
+
+    # -- plot chi2
+    k = 'reduced chi2'
+    AX = {k:plt.subplot(S[1], S[0], 1)}
+    T = fit['track']
+    plt.plot(fit['track'][k], '.-g')
+    #plt.ylabel(k, fontsize=fontsize)
+    plt.title(k, fontsize=fontsize, x=0.02, y=0.95, ha='left', va='top',
+            bbox={'color':'w', 'alpha':0.1})
+    if fit['track'][k][0]/fit['track'][k][1] >10:
+        plt.yscale('log')
+    if S[0]>1:
+        AX[k].xaxis.set_visible(False)
+    plt.yticks(fontsize=fontsize)
+    plt.hlines(fit['chi2'], 0, len(fit['track'][k])-1, alpha=0.5, color='orange')
+    if fit['track'][k][0]/fit['track'][k][-1]>100:
+        AX[k].set_yscale('log')
+
+    # -- plot all parameters:
+    for i, k in enumerate(sorted(filter(lambda x: x!='reduced chi2', fit['track'].keys()))):
+        AX[k] = plt.subplot(S[1], S[0], i+2, sharex=AX['reduced chi2'])
+        plt.plot(fit['track'][k], '.-')
+        #plt.ylabel(k, fontsize=fontsize)
+        plt.title(k, fontsize=fontsize, x=0.05, y=0.95, ha='left', va='top')
+
+        plt.yticks(fontsize=fontsize)
+        if i+2<len(fit['track'])-S[0]+1:
+            AX[k].xaxis.set_visible(False)
+        else:
+            plt.xticks(fontsize=fontsize)
+        plt.fill_between([0, len(fit['track'][k])-1],
+                         fit['best'][k]-fit['uncer'][k],
+                         fit['best'][k]+fit['uncer'][k],
+                        color='orange', alpha=0.2)
+        plt.hlines(fit['best'][k], 0, len(fit['track'][k])-1, alpha=0.5, color='orange')
+    for k in AX.keys():
+        AX[k].callbacks.connect('xlim_changed', _callbackAxes)
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0)
     return

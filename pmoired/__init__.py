@@ -192,6 +192,11 @@ class OI:
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         return
+    def showFit(self):
+        if not self.bestfit is None:
+            self.fig += 1
+            oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
+        return
 
     def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
                     firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
