@@ -1,7 +1,7 @@
 try:
-    from pmoired import oimodels, oifits, oicandid#, oifake
+    from pmoired import oimodels, oifits, oicandid, oifake
 except:
-    import oimodels, oifits, oicandid #, oifake
+    import oimodels, oifits, oicandid , oifake
 
 
 import time
@@ -304,10 +304,10 @@ class OI:
 
         if model=='best' and type(self.bestfit) is dict and \
                     'best' in self.bestfit:
-            print('showing best fit model')
+            #print('showing best fit model')
             model = self.bestfit['best']
         elif not type(model) is dict:
-            print('no model to show...')
+            #print('no model to show...')
             model = None
 
         if perSetup:

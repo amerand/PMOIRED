@@ -122,7 +122,7 @@ def Ssingle(oi, param, noLambda=False):
     return f
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
-              timeit=False, indent=0, _ffrac=1.0, _dwl=0.0):
+              timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
     """
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
     with param
@@ -188,8 +188,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     """
     t0 = time.time()
+
+    # -- compute self-referenced parameters
     _param = computeLambdaParams(param)
     res = {}
+
     # -- what do we inherit from original data:
     for k in ['WL', 'header', 'fit']:
         if k in oi.keys():
@@ -269,8 +272,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         x, y = _param['x'], _param['y']
     else:
         x, y = 0.0, 0.0
-    if type(x)==dict:
-        print('oops', x.keys())
 
     # -- 'slant' i.e. linear variation of flux
     if 'slant' in list(_param.keys()) and 'slant projang' in list(_param.keys()):
@@ -334,6 +335,13 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl']/cwl*x + (z['v/wl']/cwl+dv/res['WL'])*y))
 
     # -- guess which visibility function
+    if 'Rin' in _param and 'Rout' in _param and 'Vin' in _param:
+        tmp = Vkepler([0], [0], res['WL'], _param, fullOutput=True)
+        f = tmp[1]
+        if not I is None:
+            pass
+             # TODO: use tmp[2] which is a collection of
+
     if 'ud' in _param.keys(): # == uniform disk ================================
         Rout = _param['ud']/2
         Vf = lambda z: 2*scipy.special.j1(_c*_param['ud']*_Bwl(z) + 1e-12)/(_c*_param['ud']*_Bwl(z)+ 1e-12)
@@ -515,7 +523,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             else:
                 tmp[l] = oi[key][k][l]
 
-        if not imFov is None:
+        if fullOutput or not imFov is None:
             # -- slow down the code!
             for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                 if '/wl' in l and cwl!=1:
@@ -539,7 +547,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                     tmp[l] = oi['OI_VIS2'][k][l]
 
             tmp['V2'] = np.abs(V)**2
-            if not imFov is None:
+            if fullOutput or not imFov is None:
                 # -- slow down the code!
                 for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                     if '/wl' in l and cwl!=1:
@@ -577,6 +585,238 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         # -- offset
         res['WL'] -= _dwl
     return res
+
+def Vkepler(u, v, wl, param, plot=False, fudge=1, fullOutput=False, _p=2,
+            imFov=None, imPix=None, imX=0, imY=0):
+    """
+    complex visibility of keplerian disk:
+    u, v: 1D-ndarray spatial frequency (m). u and v must have same length N
+    wl: 1D-ndarray wavelength (um). can have a different length from u and v
+
+    param: parameters of disk:
+        Geometry:
+            Rin, Rout: inner and outer radii (mas)
+            Vin: velocity at Rin (km/s)
+            incl: disk inclination (degrees, 0 is face-on)
+            projang: projection angle (degrees, 0 is N and 90 is E)
+            x, y: position in the field (mas, optional: default is 0,0)
+
+        spectral lines (i can be anything)
+            Ain_i: amplitude at Rin (>0 for emission, <0 for absorbtion)
+            Apow_i: power low variation of continuum (R/Rin). Should be <=0. default is 0
+            wl0_i: central wavelength of line (um)
+            gauss_i: Gaussian width in (nm)
+                or
+            loren_i: Lorentzian width in (nm)
+
+        continuum flux (optional):
+            Cin: continuum level at Rin
+            Cpow: power low variation of continuum (R/Rin). Should be <=0
+            Cspx: spectral index of continuum (in [wl/min(wl)]**Cspx)
+
+    returns:
+    nd.array of shape (N,M) of complex visibilities
+    """
+    t0 = time.time()
+    u = np.array(u)
+    v = np.array(v)
+    wl = np.array(wl)
+
+    # -- wavelength resolution
+    obs_dwl = np.median(np.diff(wl))
+
+    P = [] # -- points in the disk
+
+    # -- smallest angular resolution
+    reso = np.min(1e-6*wl[None,:]/np.sqrt(u**2+v**2)[:,None])*180*3600*1000/np.pi
+    #print('reso', reso, 'mas')
+    # -- list of lines: enough point at Rin to cover +- Vin
+    As = list(filter(lambda x: x.startswith('wl0_'), param.keys()))
+    # delta wl corresponding to max velocity / max(line width, spectral resolution)
+    tmp = []
+    for a in As:
+        if a.replace('wl0', 'gauss') in param:
+            tmp.append(param[a]*np.abs(param['Vin'])/2.998e5/
+                       max(param[a.replace('wl0', 'gauss')]/1000, obs_dwl))
+        if a.replace('wl0', 'loren') in param:
+            tmp.append(0.5*param[a]*np.abs(param['Vin'])/2.998e5/
+                       max(param[a.replace('wl0', 'loren')]/1000, obs_dwl))
+    # -- step size, in mas, as inner radius
+    drin = min(reso, 2*np.pi*param['Rin']/8)
+    if tmp!=[]:
+        drin = min(2*np.pi*param['Rin']/max(tmp), drin)
+
+    # -- safety margin
+    drin /= fudge
+
+    # -- cos and sin values for rotations
+    ci, si = np.cos(param['incl']*np.pi/180), np.sin(param['incl']*np.pi/180)
+    cp, sp = np.cos(param['projang']*np.pi/180), np.sin(param['projang']*np.pi/180)
+
+    # -- non uniform coverage in "r" (more points at inner radius, where range of velocity is widest)
+    R = np.linspace(param['Rin']**(1/_p), param['Rout']**(1/_p),
+                    int((param['Rout']-param['Rin'])/drin))**_p
+    dR = np.gradient(R)
+    R = np.linspace(param['Rin']**(1/_p), param['Rout']**(1/_p),
+                    int(dR[0]/drin*(param['Rout']-param['Rin'])/drin))**_p
+    dR = np.gradient(R)
+    print('drin:', dR[0], drin, _p)
+
+    # -- TODO: this nested 'for' loop can be improved for speed!
+    for i,r in enumerate(R):
+        drt = dR[i] # step along the circle
+        # -- PA angle (rad)
+        T = np.linspace(0, 2*np.pi, int(2*np.pi*r/drt+1))[:-1]
+        T += (i%4)*np.pi/2 # avoid alignement of points
+        # -- surface element
+        dS = dR[i]*r*np.sin(T[1]-T[0]) # should make flux independent of grid density
+        for t in T:
+            # -- x, y, z, vx, vy, vz, rmin/r, PA, surf
+            # -- 0  1  2  3   4   5   6       7   8
+            # -- include rotation in x (inclination)
+            P.append([r*np.sin(t),
+                      r*np.cos(t)*ci,
+                      r*np.cos(t)*si,
+                      param['Vin']*np.sqrt(param['Rin']/r)*np.cos(t),
+                      param['Vin']*np.sqrt(param['Rin']/r)*np.sin(t)*ci,
+                      param['Vin']*np.sqrt(param['Rin']/r)*np.sin(t)*si,
+                      r/param['Rin'], t, dS])
+            # -- rotation around z axis (projang)
+            P[-1] = [P[-1][0]*cp+P[-1][1]*sp, -P[-1][0]*sp+P[-1][1]*cp, P[-1][2],
+                     P[-1][3]*cp+P[-1][4]*sp, -P[-1][3]*sp+P[-1][4]*cp, P[-1][5],
+                     P[-1][6], P[-1][7], P[-1][8]]
+    P = np.array(P)
+    t1 = time.time()
+    c = np.pi/180/3600/1000/1e-6 # mas*m.um -> radians
+    Vpoints = np.exp(-2j*np.pi*c*(u[:,None,None]*P[:,0][None,None,:]+
+                                  v[:,None,None]*P[:,1][None,None,:])/wl[None,:,None])
+    #print(P.shape, Vpoints.shape)
+    flux = np.zeros((len(wl), P.shape[0]))
+    # -- continuum
+    if 'Cin' in param:
+        if 'Cpow' in param:
+            Cpow = param['Cpow']
+        else:
+            Cpow = 0.0
+        if 'Cspx' in param:
+            Cspx = param['Cspx']
+        else:
+            Cspx = 0.0
+        cont = param['Cin']*P[:,6][None,:]**(Cpow)*(wl/min(wl))[:,None]**Cspx
+
+        # -- test flux integral
+        if False:
+            r = np.linspace(param['Rin'], param['Rout'], 100)
+            I = param['Cin']*(r/param['Rin'])**param['Cpow']
+            Cflux = np.trapz(2*np.pi*r*I, r)
+            print('total flux should be:', Cflux)
+            # -- integrate flux in polar 2D
+            tmp = []
+            for rminr in sorted(set(P[:,6])):
+                w = np.where(P[:,6]==rminr)
+                tmp.append(np.trapz(cont[0,:][w], P[:,7][w]))
+            print(np.shape(tmp), R.shape)
+            Ctot = np.trapz(np.array(tmp)*R, R)
+            #Ctot = sum(cont[0,:]*P[:,8])
+            print('  it is', Ctot,
+                  'error:', 100*(Ctot-Cflux)/Cflux, '%')
+        #print('cont:', cont.shape, 'wl:', wl.shape)
+    else:
+        # -- no continuum
+        cont = np.zeros((len(wl), P.shape[0]))
+
+    flux = 1.*cont
+
+    # -- lines profiles:
+    loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/max(dwl/1000, obs_dwl/2)**2)
+    gauss = lambda x, wl0, dwl: np.exp(-4*np.log(2)*(x-wl0)**2/max(dwl/1000, obs_dwl)**2)
+
+    for a in As: # for each spectral lines
+        # -- radial power law variation of the amplitude
+        if a.replace('wl0', 'Apow') in param:
+            Pin = param[a.replace('wl0', 'Apow')]
+        else:
+            Pin = 0.0
+        amp = param[a.replace('wl0', 'Ain')]*P[:,6]**(Pin)
+        if a.replace('wl0', 'gauss') in param:
+            flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
+                                      param[a], param[a.replace('wl0', 'gauss')])
+        if a.replace('wl0', 'loren') in param:
+            flux += amp[None,:]*loren(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
+                                      param[a], param[a.replace('wl0', 'loren')])
+
+    # -- surface area of each point on disk -> not sure why it is not required...
+    #flux *= P[:,8][None,:]
+
+    flx = []
+    vis = []
+    # -- integrate each ring along PA
+    for rminr in sorted(set(P[:,6])):
+        w = np.where(P[:,6]==rminr)
+        flx.append(np.trapz(flux[:,w[0]], P[:,7][w][None,:], axis=1))
+        vis.append(np.trapz(flux[:,w[0]][None,:,:]*Vpoints[:,:,w[0]], P[:,7][w][None,None,:], axis=2))
+    # -- integrate along radial dimension
+    flx = np.trapz(np.array(flx)*R[:,None], R[:,None], axis=0)
+    vis = np.trapz(np.array(vis)*R[:,None,None], R[:,None,None], axis=0)
+    vis /= flx
+
+    if 'x' in param and 'y' in param:
+        x, y = param['x'], param['y']
+    else:
+        x, y = 0, 0
+
+    vis *= np.exp(-2j*c*(u[:,None]/wl[None,:]*x +
+                         v[:,None]/wl[None,:]*y))
+
+    # -- debuging stuff:
+    print('_p=', _p, 'fugde=', fudge, 'len(P)=', len(P),
+            '%.0fms'%(1000*(t1-t0)), ' + %.0fms'%(1000*(time.time()-t1)) )
+
+    if plot:
+        plt.close(0); plt.figure(0)
+        ax = plt.subplot(211, aspect='equal')
+        # -- show disk' dots on sky, with color is the velocit
+        plt.scatter(P[:,0], P[:,1], marker='.',
+                    #s=10*P[:,8]/min(P[:,8])*cont[0,:],
+                    c=P[:,5], cmap='jet')
+        plt.colorbar(label='velocity (km/s)')
+        plt.xlabel('<- E (mas)'); plt.ylabel('-> N (mas)')
+        ax.invert_xaxis()
+
+        ax = plt.subplot(212, aspect='equal')
+        # -- show disk' dots on sky, with color is the continuum flux
+        plt.scatter(P[:,0], P[:,1], marker='.',
+                    #s=10*P[:,8]/min(P[:,8])*cont[0,:],
+                    c=np.sum(cont, axis=0), cmap='bone_r')
+        plt.colorbar(label='continuum flux (avg over $\lambda$)')
+        plt.xlabel('<- E (mas)'); plt.ylabel('-> N (mas)')
+        ax.invert_xaxis()
+
+    _X, _Y, cube = None, None, None
+    if not imFov is None:
+        # -- compute cube
+        X = np.linspace(imX-imFov/2-x, imX+imFov/2-x, int(imFov/imPix))
+        Y = np.linspace(imY-imFov/2-y, imY+imFov/2-y, int(imFov/imPix))
+        _X, _Y = np.meshgrid(X, Y)
+        # -- deprojected coordinates
+        _Xp, _Yp = cp*_X - sp*_Y, (sp*_X + cp*_Y)/ci
+        R2 = _Xp**2+_Yp**2
+        cube = np.zeros((len(wl), len(X), len(Y)))
+        # -- interpolate for each WL: this is VERY slow!
+        for i in range(len(wl)):
+            cube[i,:,:] = scipy.interpolate.Rbf([p[0] for p in P],
+                                                [p[1] for p in P],
+                                                flux[i,:],
+                                                function='linear',
+                                                smooth=0)(_X, _Y)
+            cube[i,:,:] *= (R2>=param['Rin']**2)*(R2<=param['Rout']**2)
+        print(cube.shape, flux.shape, cont.shape)
+
+    if fullOutput:
+        return vis, flx, _X, _Y,cube, P
+    else:
+        # -- only (complex) visibility
+        return vis
 
 def VfromImageOI(oi):
     """
@@ -628,20 +868,20 @@ def VfromImageOI(oi):
 
 SMEA = 7
 def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, indent=0,
-             v2smear=True):
+             v2smear=True, fullOutput=False):
     global SMEA
     param = computeLambdaParams(p)
     if type(oi) == list:
         # -- iteration on "oi" if a list
         return [VmodelOI(o, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                        timeit=timeit, indent=indent) for o in oi]
+                        timeit=timeit, indent=indent, fullOutput=fullOutput) for o in oi]
 
     # -- split in components if needed
     comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x])
     if len(comp)==0:
         # -- assumes single component
         return VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                         timeit=timeit, indent=indent+1)
+                         timeit=timeit, indent=indent+1, fullOutput=fullOutput)
 
     tinit = time.time()
     res = {} # -- contains result
@@ -751,7 +991,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             # -- initialise
             res = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                             timeit=timeit, indent=indent+1, noT3=True,
-                            _dwl=_dwl, _ffrac=_ffrac)
+                            _dwl=_dwl, _ffrac=_ffrac, fullOutput=fullOutput)
             if 'image' in res['MODEL'].keys():
                 # -- for this component
                 res['MODEL'][c+',image'] = res['MODEL']['image']
@@ -1557,6 +1797,10 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
     fit['prior'] = prior
     return fit
 
+def _chi2(oi, param):
+    res2 = residualsOI(oi, param)**2
+    return np.mean(res2)
+
 def randomiseData2(oi, verbose=False):
     """
     based on "configurations per MJD". Basically draw data from MJDs and/or
@@ -2199,7 +2443,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
             'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
             'DPHI':{'ext':'DPHI', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-            'PHI':{'ext':'OI_VIS', 'var':'PHI', 'X':'B/wl', 'C':'PA'},
+            'PHI':{'ext':'OI_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
             '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
             'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA'},
             }
@@ -2211,7 +2455,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
              'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
              'DPHI':{'ext':'IM_VIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-             'PHI':{'ext':'IM_VIS', 'var':'PHI', 'X':'B/wl', 'C':'PA'},
+             'PHI':{'ext':'IM_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
              '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
              }
@@ -2424,6 +2668,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             else:
                                 ax = plt.subplot(n_flux+1, ncol, ncol*(i_flux)+1,
                                                 sharex=ax0)
+                        ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+
                 else:
                     if not spectro:
                         # -- as function of baseline/wl
@@ -2458,7 +2704,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if not 'UV' in l and not vLambda0 is None and i==0:
                 axv = ax.secondary_xaxis('top', functions=(um2kms, kms2um),
                                          color='0.6')
-                axv.tick_params(axis='x', labelsize=8,
+                axv.tick_params(axis='x', labelsize=5,
                                 labelbottom=True,
                                 labeltop=False,)
             else:
@@ -2749,6 +2995,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         ax.set_yscale('log')
                     else:
                         ax.set_ylim(0,1)
+
             if i==N-1:
                 if not spectro and not param is None and not 'FLUX' in l:
                     axr.set_xlabel(Xlabel)
@@ -2780,7 +3027,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     title += ' (%s)'%data[l]['unit']
                 ax.set_title(title)
                 if not vLambda0 is None:
-                    axv.set_xlabel('velocity (km/s)')
+                    axv.set_xlabel('velocity (km/s)', fontsize=6)
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
@@ -3283,7 +3530,6 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
         print('analyse')
         boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping)
         print('done')
-
 
     if figWidth is None:
         figWidth = min(9.5, 1+2*len(boot['fitOnly']))

@@ -1046,3 +1046,6 @@ def n_JHK(wl, T=None, P=None, H=None):
         #print('mathar:', i, ciref, ci)
         n += ci*(nu - nuref)**i
     return n+1.0
+
+def OI2FITS(oi, fitsfile):
+    pass

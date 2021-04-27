@@ -6,6 +6,8 @@ import sys, os
 
 import scipy.special
 
+import oimodels
+
 # -- generate fake VLTI data
 
 # -- some problems found by G. Duvert in the 'A0' terms (last col):
@@ -851,7 +853,7 @@ def fluxCube(cube, wl):
     return np.interp(wl, cube['wl'], tmp)
 
 def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
-            diam=None, cube=None, noise=None):
+            diam=None, cube=None, noise=None, param=None):
     """
     t = list of stations
     targe = name of target, or (ra, dec) in (in hours, degs)
@@ -868,10 +870,12 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
     if noise == 0:
         noise = {k:0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
     if noise is None:
+        # -- typical
         noise = {'V2': 0.01, '|V|':0.01, 'PHI':1., 'FLUX':0.01,
                 'T3PHI':1., 'T3AMP':0.01}
-        noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
-                 'T3PHI':.1, 'T3AMP':0.001}
+        # -- high precision
+        #noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
+        #         'T3PHI':.1, 'T3AMP':0.001}
 
     tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
@@ -1052,5 +1056,33 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             for m in tmp['MJD']:
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
+
+
+    if not param is None:
+        res['fit'] = {'obs':['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
+        res = oimodels.VmodelOI(res, param, fullOutput=True)
+        # -- add noise
+        def addnoise(e, k, o):
+             res[e][k][o] += np.random.randn(res[e][k][o].shape[0],
+                                             res[e][k][o].shape[1])*\
+                                         res[e][k]['E'+o]
+
+        for k in res['OI_FLUX'].keys():
+            res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*res['OI_FLUX'][k]['FLUX']
+            addnoise('OI_FLUX', k, 'FLUX')
+        for k in res['OI_VIS'].keys():
+            res['OI_VIS'][k]['E|V|'] = noise['|V|']*res['OI_VIS'][k]['|V|']
+            res['OI_VIS'][k]['EPHI'] = noise['PHI'] + 0.0*res['OI_VIS'][k]['PHI']
+            res['OI_VIS2'][k]['EV2'] = noise['V2']*res['OI_VIS2'][k]['V2']
+            addnoise('OI_VIS', k, '|V|')
+            addnoise('OI_VIS', k, 'PHI')
+            addnoise('OI_VIS2', k, 'V2')
+
+        for k in res['OI_T3'].keys():
+            res['OI_T3'][k]['ET3AMP'] = noise['T3AMP']*res['OI_T3'][k]['T3AMP']
+            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI'] + 0.0*res['OI_T3'][k]['T3PHI']
+            addnoise('OI_T3', k, 'T3AMP')
+            addnoise('OI_T3', k, 'T3PHI')
+
     res['configurations per MJD'] = conf
     return res

@@ -1147,14 +1147,13 @@ def subp(N, imax=None):
     for i in range(imax+1):
         F = np.array(factors(N+i))
         S[N+i] = sorted(F[np.argsort(np.abs(F-np.sqrt(N)))][:2])
+        if N+i==int(np.sqrt(N+i))**2:
+            return [int(np.sqrt(N+i)), int(np.sqrt(N+i))]
     # -- get the one with most squarish aspect ratio
     K = list(S.keys())
     R = [S[k][1]/S[k][0] for k in K]
     k = K[np.argmin(R)]
-    if k==int(np.sqrt(k))**2:
-        return [int(np.sqrt(k)), int(np.sqrt(k))]
-    else:
-        return S[K[np.argmin(R)]]
+    return S[K[np.argmin(R)]]
 
 def _callbackAxes(ax):
     """
@@ -1192,7 +1191,7 @@ def exploreFit(fit, fig=99):
     T = fit['track']
     plt.plot(fit['track'][k], '.-g')
     #plt.ylabel(k, fontsize=fontsize)
-    plt.title(k, fontsize=fontsize, x=0.02, y=0.95, ha='left', va='top',
+    plt.title(k, fontsize=fontsize, x=0.02, y=0.9, ha='left', va='top',
             bbox={'color':'w', 'alpha':0.1})
     if fit['track'][k][0]/fit['track'][k][1] >10:
         plt.yscale('log')
@@ -1208,7 +1207,7 @@ def exploreFit(fit, fig=99):
         AX[k] = plt.subplot(S[1], S[0], i+2, sharex=AX['reduced chi2'])
         plt.plot(fit['track'][k], '.-')
         #plt.ylabel(k, fontsize=fontsize)
-        plt.title(k, fontsize=fontsize, x=0.05, y=0.95, ha='left', va='top')
+        plt.title(k, fontsize=fontsize, x=0.05, y=0.9, ha='left', va='top')
 
         plt.yticks(fontsize=fontsize)
         if i+2<len(fit['track'])-S[0]+1:
