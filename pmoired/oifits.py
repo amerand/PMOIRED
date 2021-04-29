@@ -57,6 +57,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_TARGET':
             targets = {hdu.data['TARGET'][i].strip():hdu.data['TARGET_ID'][i] for
                         i in range(len(hdu.data['TARGET']))}
+            # -- weird case when targets is defined multiple times
+            targets = {}
+            for i in range(len(hdu.data['TARGET'])):
+                k = hdu.data['TARGET'][i].strip()
+                if not k in targets:
+                    targets[k] = hdu.data['TARGET_ID'][i]
+                else:
+                    if type(targets[k])!=list:
+                        targets[k] = [targets[k], hdu.data['TARGET_ID'][i]]
+                    else:
+                        targets[k].append(hdu.data['TARGET_ID'][i])
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
     assert targname in targets.keys(), 'unknown target "'+str(targname)+'", '+\
@@ -145,15 +156,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             res['TELLURICS'] = hdu.data['TELL_TRANS']
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_FLUX' and\
                     hdu.header['INSNAME']==insname:
-            w = hdu.data['TARGET_ID']==targets[targname]
+            w = wTarg(hdu, targname, targets)
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_FLUX [HDU #%d]  for target="%s"/target_id=%d'%(
-                      ih, targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_FLUX [HDU #%d]  for target="%s"/target_id='%(
+                      ih, targname), targets[targname])
                 continue
 
             sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
-                w = (np.array(sta1)==k)*(hdu.data['TARGET_ID']==targets[targname])
+                w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
                 try:
                     # GRAVITY Data have non-standard naming :(
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUX'][w,:],
@@ -192,16 +203,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
-            w = hdu.data['TARGET_ID']==targets[targname]
+            #w = hdu.data['TARGET_ID']==targets[targname]
+            w = wTarg(hdu, targname, targets)
+
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 [HDU #%d]  for target="%s"/target_id=%d'%(
-                            ih, targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 [HDU #%d]  for target="%s"/target_id='%(
+                            ih, targname), targets[targname])
                 continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
                 print('DEBUG: loading OI_VIS2', set(sta2))
             for k in set(sta2):
-                w = (np.array(sta2)==k)*(hdu.data['TARGET_ID']==targets[targname])
+                w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
                 if debug:
                     print(' | ', k, w)
                 if k in res['OI_VIS2'] and any(w):
@@ -261,10 +274,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
                     hdu.header['INSNAME']==insname:
-            w = hdu.data['TARGET_ID']==targets[targname]
+            #w = hdu.data['TARGET_ID']==targets[targname]
+            w = wTarg(hdu, targname, targets)
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_VIS [HDU #%d]  for target="%s"/target_id=%d'%(
-                            ih, targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_VIS [HDU #%d]  for target="%s"/target_id='%(
+                            ih, targname), targets[targname])
                 continue
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
@@ -272,7 +286,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 #print(' | ', targets[targname], hdu.data['TARGET_ID'])
 
             for k in set(sta2):
-                w = (np.array(sta2)==k)*(hdu.data['TARGET_ID']==targets[targname])
+                w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
                 if debug:
                     print(' | ', k, any(w))
                 if k in res['OI_VIS'] and any(w):
@@ -354,17 +368,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
                     hdu.header['INSNAME']==insname:
-            w = hdu.data['TARGET_ID']==targets[targname]
+            #w = hdu.data['TARGET_ID']==targets[targname]
+            w = wTarg(hdu, targname, targets)
             if not any(w):
-                print('  > \033[33mWARNING\033[0m: no data in OI_T3 [HDU #%d]  for target="%s"/target_id=%d'%(
-                            ih, targname, targets[targname]))
+                print('  > \033[33mWARNING\033[0m: no data in OI_T3 [HDU #%d]  for target="%s"/target_id='%(
+                            ih, targname), targets[targname])
                 continue
             # -- T3 baselines == telescopes pairs
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
             for k in set(sta3):
-                w = (np.array(sta3)==k)*(hdu.data['TARGET_ID']==targets[targname])
+                w = (np.array(sta3)==k)*wTarg(hdu, targname, targets)
                 # -- find triangles
                 t, s = [], []
                 # -- first baseline
@@ -559,6 +574,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     return res
 
+def wTarg(hdu, targname, targets):
+    if type(targets[targname]) == list:
+        return np.array([x in targets[targname] for x in hdu.data['TARGET_ID']])
+    else:
+        return hdu.data['TARGET_ID']==targets[targname]
+
+
 def binOI(_wl, WL, T, F, E=None, medFilt=None):
     """
     _wl: new WL vector
@@ -572,7 +594,10 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None):
         if E is None:
             res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
         else:
-            res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt)
+            try:
+                res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt)
+            except:
+                res[i,:] = np.nan
     return res
 
 def _binVec(x, X, Y, E=None, medFilt=None):
