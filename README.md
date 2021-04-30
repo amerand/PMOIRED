@@ -38,7 +38,6 @@ xargs rm -rf < files.txt
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
 - [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
-- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) demonstrates how to do a companion search using a grid of positions, inspired from [CANDID](https://github.com/amerand/CANDID).
 
 Below is a skeleton documentation (more to come!). The best is to go through examples, as most of the syntax is covered.
 
