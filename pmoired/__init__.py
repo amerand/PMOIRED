@@ -197,7 +197,7 @@ class OI:
     def showFit(self):
         if not self.bestfit is None:
             self.fig += 1
-            oimodels.dpfit.t(self.bestfit, fig=self.fig)
+            oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
         return
 
     def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
@@ -215,11 +215,11 @@ class OI:
         self.bestfit = self.candidFits[0]
         return
 
-    def gridFit(self, expl, N=None, param=None, fitOnly=None, doNotFit=None,
+    def gridFit(self, expl, Nfits=None, param=None, fitOnly=None, doNotFit=None,
                      maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
         """
-        perform "N" fit on data, starting from "param" (default last best fit),
-        with grid / randomised parameters. N can be determined from "expl" if
+        perform "Nfits" fit on data, starting from "param" (default last best fit),
+        with grid / randomised parameters. Nfits can be determined from "expl" if
         "grid" param are defined.
 
         expl = {'grid':{'p1':(0,1,0.1), 'p2':(-1,1,0.5), ...},
@@ -233,17 +233,29 @@ class OI:
         parameters should only appear once in either grid, rand or randn
 
         if "grid" are defined, they will define N as:
-        N = prod_i((max_i-min_i)/step_i + 1)
+        Nfits = prod_i (max_i-min_i)/step_i + 1
         """
         if param is None and not self.bestfit is None:
-            param = self.bestfit
+            param = self.bestfit['best']
+            if doNotFit is None:
+                doNotFit = self.bestfit['doNotFit']
+            if fitOnly is None:
+                fiitOnly = self.bestfit['fitOnly']
         assert not param is None, 'first guess should be provided: param={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        self.grid = oimodels.gridFitOI(self._merged, param, expl, N,
+        self.grid = oimodels.gridFitOI(self._merged, param, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
+        return
+
+    def showGrid(self, px, py, color='chi2', aspect=None,
+                vmin=None, vmax=None, cmap='spring'):
+        assert not self.grid is None, 'You should run gridFit first!'
+        self.fig += 1
+        oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
+                    vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap)
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
@@ -259,8 +271,7 @@ class OI:
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, fig=None, combParam={},
-                        showChi2=False):
+    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -269,9 +280,7 @@ class OI:
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
                                 sigmaClipping=sigmaClipping, verbose=0)
-        if not fig is None:
-            self.fig += 1
-            self.fig = fig
+        self.fig += 1
         oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig,
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                showChi2=showChi2)

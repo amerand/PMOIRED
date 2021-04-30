@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.cm
 
 import scipy.special
 import scipy.interpolate
@@ -1961,7 +1962,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 tmp[k] = expl['randn'][k][0] + np.random.randn()*expl['randn'][k][1]
         #print(i, tmp)
         PARAM.append(tmp)
-
+    #print('PARAM:', PARAM)
     # -- run all fits
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
@@ -2006,8 +2007,6 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         res.append(fitOI(oi, PARAM[0], **kwargs))
         print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
         print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
-
-
         for i in range(N-1):
             kwargs['iter'] = i
             if i%10==0:
@@ -2023,36 +2022,94 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
 def analyseGrid(fits, debug=False, verbose=1):
     res = []
+    bad = []
     # -- remove bad fit (no uncertainties)
     for f in fits:
         if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
             res.append(f)
+            res[-1]['bad'] = False
+        else:
+            bad.append(f)
+            bad[-1]['bad'] = True
+
+
     if debug or verbose:
         print('fit converged:', len(res), '/', len(fits))
     # -- unique fits:
     tmp = []
     ignore = []
     chi2 = np.array([r['chi2'] for r in res])
+    map = {}
     for i,f in enumerate(res):
         if i in ignore:
             continue
         d = [np.sum([(f['best'][k]-g['best'][k])**2/(f['uncer'][k]**2+g['uncer'][k]**2)
-            for k in f['fitOnly']]) for g in res]
+             for k in f['fitOnly']]) for g in res]
         w = np.array(d)<1
         if debug:
             print(i, np.round(d, 2), w)
             print(list(np.arange(len(res))[w]))
         tmp.append(res[np.arange(len(res))[w][np.argmin(chi2[w])]])
+        tmp[-1]['index'] = i
+        # -- which minima should be considered
+        map[i] = list(np.arange(len(res))[w])
         ignore.extend(list(np.arange(len(res))[w]))
+
     if debug or verbose:
         print('unique minima:', len(tmp), '/', len(res))
+
+    # -- keep track of all initial values leading to the local minimum
+    for i,t in enumerate(tmp):
+        t['firstGuess'] = [res[j]['firstGuess'] for j in map[t['index']]]
+
     res = tmp
     res = sorted(res, key=lambda r: r['chi2'])
+
+    # -- add bad fits:
+    for b in bad:
+        res.append(b)
+        res[-1]['firstGuess'] = [res[-1]['firstGuess']]
+        res[-1]['bad'] = True
+
     print('-'*12)
     print('best fit: chi2=', res[0]['chi2'])
     dpfit.dispBest(res[0])
     dpfit.dispCor(res[0])
     return res
+
+def showGrid(res, px, py, color='chi2',
+            fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
+    plt.close(fig)
+    plt.figure(fig)
+
+    if not aspect is None:
+        ax = plt.subplot(111, aspect=aspect)
+    # -- local minima
+    if not color=='chi2':
+        c = [r['best'][color] for r in res if ~r['bad']]
+    else:
+        c = [r[color] for r in res if ~r['bad']]
+        
+    x = [r['best'][px] for r in res if ~r['bad']]
+    y = [r['best'][py] for r in res if ~r['bad']]
+
+    for r in res:
+        for f in r['firstGuess']:
+            if r['bad']:
+                plt.plot(f[px], f[py], 'x', color='0.5')
+            else:
+                plt.plot(f[px], f[py], '+', color='k')
+                plt.plot([f[px], r['best'][px]],
+                         [f[py], r['best'][py]], '-k', alpha=0.1)
+    plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap)
+    plt.colorbar(label=color)
+    # -- global minimum
+    plt.plot(x[0], y[0], marker=r'$\bigodot$',
+             color=matplotlib.cm.get_cmap(cmap)(0),
+             markersize=20, alpha=0.5)
+    plt.xlabel(px)
+    plt.ylabel(py)
+    return
 
 def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
                    ftol=1e-6, sigmaClipping=4.5, multi=True, prior=None):
