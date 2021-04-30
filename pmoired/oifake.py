@@ -7,7 +7,7 @@ import sys, os
 import scipy.special
 
 try:
-    import pmoired.oimodels as oimodels
+    from pmoired import oimodels
 except:
     import oimodels
 
