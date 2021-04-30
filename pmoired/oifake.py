@@ -6,7 +6,10 @@ import sys, os
 
 import scipy.special
 
-import oimodels
+try:
+    import pmoired.oimodels as oimodels
+except:
+    import oimodels
 
 # -- generate fake VLTI data
 

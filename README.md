@@ -4,7 +4,7 @@
 
 `PMOIRED` is a Python3 module which allows to model astronomical spectro-interferometric data stored in the OIFITS format ([Duvert et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A...8D/abstract)). Parametric modeling is used to describe the observed scene as blocks such as disks, rings and Gaussians which can be combined and their parameters linked. It includes plotting, least-square fitting and bootstrapping estimation of uncertainties. For spectroscopic instruments (such as GRAVITY), tools are provided to model spectral lines and correct spectra for telluric lines.
 
-The modeling of data is based on several principles:
+The modelling of data is based on several principles:
 - The model is composed of a combination of basic building blocks
 - Simple building blocks include uniform disks, uniform rings, Gaussians.
 - Building blocks can be deformed (analytically), including stretched in one preferred direction, or slanted. This can efficiently simulate inclined components.
@@ -16,7 +16,7 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 - `PMOIRED` extends the modelling in the spectral dimension. For this reason, it contains a module to do basic telluric correction (only for GRAVITY at the moment)
 - Models' parameters can be expressed a function of each others, which allows to build complex geometrical shapes: astronomical realistic models can be build this way, without compromising on execution speed.
 - Uncertainties can be estimated using bootstrapping (data resampling by date+telescope) to mitigate the effects of correlations between data.
-- The values of parameters can be explore using grid and or random search.
+- The values of parameters can be explored using grid and or random search.
 
 ## Install
 
