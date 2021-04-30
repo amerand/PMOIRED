@@ -49,10 +49,12 @@ class OI:
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, binning=binning)
 
-        # -- last fit to the data
+        # -- last best fit to the data
         self.bestfit = None
         # -- bootstrap results:
         self.boot = None
+        # -- grid / random fits:
+        self.grid = None
         # -- CANDID results:
         self.candidFits = None
         # -- current figure
@@ -195,7 +197,7 @@ class OI:
     def showFit(self):
         if not self.bestfit is None:
             self.fig += 1
-            oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
+            oimodels.dpfit.t(self.bestfit, fig=self.fig)
         return
 
     def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
@@ -211,6 +213,37 @@ class OI:
                                           doNotFit=doNotFit, logchi2=logchi2,
                                           multi=multi)
         self.bestfit = self.candidFits[0]
+        return
+
+    def gridFit(self, expl, N=None, param=None, fitOnly=None, doNotFit=None,
+                     maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
+        """
+        perform "N" fit on data, starting from "param" (default last best fit),
+        with grid / randomised parameters. N can be determined from "expl" if
+        "grid" param are defined.
+
+        expl = {'grid':{'p1':(0,1,0.1), 'p2':(-1,1,0.5), ...},
+                'rand':{'p3':(0,1), 'p4':(-np.pi, np.pi), ...},
+                'randn':{'p5':(0, 1), 'p6':(np.pi/2, np.pi), ...}}
+
+        grid=(min, max, step): explore all values for "min" to "max" with "step"
+        rand=(min, max): uniform randomized parameter
+        randn=(mean, std): normaly distributed parameter
+
+        parameters should only appear once in either grid, rand or randn
+
+        if "grid" are defined, they will define N as:
+        N = prod_i((max_i-min_i)/step_i + 1)
+        """
+        if param is None and not self.bestfit is None:
+            param = self.bestfit
+        assert not param is None, 'first guess should be provided: param={...}'
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self.grid = oimodels.gridFitOI(self._merged, param, expl, N,
+                                       fitOnly=fitOnly, doNotFit=doNotFit,
+                                       maxfev=maxfev, ftol=ftol, multi=multi,
+                                       epsfcn=epsfcn)
+        self.bestfit = self.grid[0]
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
@@ -476,7 +509,8 @@ def _checkSetupFit(fit):
             'mult error':dict,
             'obs':list, 'wl ranges':list,
             'Nr':int, 'spec res pix':float,
-            'cont ranges':list}
+            'cont ranges':list,
+            'ignore negative flux':bool}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():

@@ -1912,7 +1912,147 @@ def get_processor_info():
         return subprocess.check_output(command, shell=True).strip().decode()
     return "unknown processor"
 
+def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
+                 maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
+    """
+    perform "N" fit on "oi", starting from "param", with grid / randomised
+    parameters. N can be determined from "expl" if
 
+    expl = {'grid':{'p1':(0,1,0.1), 'p2':(-1,1,0.5), ...},
+             'rand':{'p3':(0,1), 'p4':(-np.pi, np.pi), ...},
+             'randn':{'p5':(0, 1), 'p6':(np.pi/2, np.pi), ...}}
+
+    grid=(min, max, step): explore all values for "min" to "max" with "step"
+    rand=(min, max): uniform randomized parameter
+    randn=(mean, std): normaly distributed parameter
+    parameters can only appear once in either grid, rand or randn
+
+    if "grid" are defined, they will define N as:
+    N = prod_i((max_i-min_i)/step_i + 1)
+
+    """
+    assert type(expl)==dict, "expl must be a dict"
+    assert 'grid' in expl or 'rand' in expl or 'randn' in expl
+    # -- compute N and vectors for grid parameters
+    if 'grid' in expl:
+        N = 1
+        R = {k:np.array([0]) for k in expl['grid']}
+        for k in expl['grid']:
+            n = int((expl['grid'][k][1]-expl['grid'][k][0])/expl['grid'][k][2] + 1)
+            N *= n
+            for l in expl['grid']:
+                R[l] = R[l][:,None]+(k==l)*np.linspace(expl['grid'][k][0], expl['grid'][k][1], n)[None,:]
+                R[l] = R[l].flatten()
+    assert not N is None, 'cannot assert N, must be explicitly given!'
+
+    # -- Prepare list of starting parameters' dict:
+    PARAM = []
+    for i in range(N):
+        tmp = param.copy()
+        if 'grid' in expl:
+            for k in expl['grid']:
+                tmp[k] = R[k][i]
+        if 'rand' in expl:
+            for k in expl['rand']:
+                tmp[k] = expl['rand'][k][0] + np.random.rand()*(expl['rand'][k][1]-
+                                                         expl['rand'][k][0])
+        if 'randn' in expl:
+            for k in expl['randn']:
+                tmp[k] = expl['randn'][k][0] + np.random.randn()*expl['randn'][k][1]
+        #print(i, tmp)
+        PARAM.append(tmp)
+
+    # -- run all fits
+    kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
+              'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
+              'iter':-1}
+    res = []
+    if multi:
+        if type(multi)!=int:
+            Np = min(multiprocessing.cpu_count(), N)
+        else:
+            Np = min(multi, N)
+        print(time.asctime()+': running', N, 'fits on', Np, 'processes')
+        # -- estimate fitting time by running 'Np' fit in parallel
+        t = time.time()
+        pool = multiprocessing.Pool(Np)
+        for i in range(min(Np, N)):
+            kwargs['iter'] = i
+            res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs))
+        pool.close()
+        pool.join()
+        res = [r.get(timeout=1) for r in res]
+        print('  one fit takes ~%.2fs'%(
+                (time.time()-t)/min(Np, N)), end=' ')
+        print('[~%.1f fit/minute]'%( 60*min(Np, N)/(time.time()-t)))
+        # -- run the remaining
+        if N>Np:
+            tmp = (N-Np)*(time.time()-t)/Np
+            print(time.asctime()+':', end=' ')
+            if tmp>60:
+                print('approx %.1fmin remaining'%(tmp/60))
+            else:
+                print('approx %.1fs remaining'%(tmp))
+            pool = multiprocessing.Pool(Np)
+            for i in range(max(N-Np, 0)):
+                kwargs['iter'] = Np+i
+                res.append(pool.apply_async(fitOI, (oi, PARAM[Np+i], ), kwargs))
+            pool.close()
+            pool.join()
+            res = res[:Np]+[r.get(timeout=1) for r in res[Np:]]
+    else:
+        Np = 1
+        t = time.time()
+        res.append(fitOI(oi, PARAM[0], **kwargs))
+        print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
+        print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
+
+
+        for i in range(N-1):
+            kwargs['iter'] = i
+            if i%10==0:
+                print('%s | grid fit %d/%d'%(time.asctime(), i, N-1))
+            res.append(fitOI(oi, PARAM[i+1], **kwargs))
+    print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
+                                                    (time.time()-t)/N),
+                                                    end=' ')
+    print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+
+    res = analyseGrid(res, verbose=1)
+    return res
+
+def analyseGrid(fits, debug=False, verbose=1):
+    res = []
+    # -- remove bad fit (no uncertainties)
+    for f in fits:
+        if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
+            res.append(f)
+    if debug or verbose:
+        print('fit converged:', len(res), '/', len(fits))
+    # -- unique fits:
+    tmp = []
+    ignore = []
+    chi2 = np.array([r['chi2'] for r in res])
+    for i,f in enumerate(res):
+        if i in ignore:
+            continue
+        d = [np.sum([(f['best'][k]-g['best'][k])**2/(f['uncer'][k]**2+g['uncer'][k]**2)
+            for k in f['fitOnly']]) for g in res]
+        w = np.array(d)<1
+        if debug:
+            print(i, np.round(d, 2), w)
+            print(list(np.arange(len(res))[w]))
+        tmp.append(res[np.arange(len(res))[w][np.argmin(chi2[w])]])
+        ignore.extend(list(np.arange(len(res))[w]))
+    if debug or verbose:
+        print('unique minima:', len(tmp), '/', len(res))
+    res = tmp
+    res = sorted(res, key=lambda r: r['chi2'])
+    print('-'*12)
+    print('best fit: chi2=', res[0]['chi2'])
+    dpfit.dispBest(res[0])
+    dpfit.dispCor(res[0])
+    return res
 
 def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
                    ftol=1e-6, sigmaClipping=4.5, multi=True, prior=None):
@@ -1957,7 +2097,8 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
             Np = min(multiprocessing.cpu_count(), N)
         else:
             Np = min(multi, N)
-        print('running', N, 'fits...')
+        print(time.asctime()+': running', N, 'fits on', Np, 'processes')
+
         # -- estimate fitting time by running 'Np' fit in parallel
         t = time.time()
         pool = multiprocessing.Pool(Np)
@@ -1967,11 +2108,19 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
-        print('one fit takes ~%.2fs using %d threads'%(
-                (time.time()-t)/min(Np, N), Np))
+        print('  one fit takes ~%.2fs'%(
+                (time.time()-t)/min(Np, N)), end=' ')
+        print('[~%.1f fit/minutes]'%( 60*min(Np, N)/(time.time()-t)))
 
         # -- run the remaining
         if N>Np:
+            tmp = (N-Np)*(time.time()-t)/Np
+            print(time.asctime()+':', end=' ')
+            if tmp>60:
+                print('approx %.1fmin remaining'%(tmp/60))
+            else:
+                print('approx %.1fs remaining'%(tmp))
+
             pool = multiprocessing.Pool(Np)
             for i in range(max(N-Np, 0)):
                 kwargs['iter'] = Np+i
@@ -1983,14 +2132,19 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
         Np = 1
         t = time.time()
         res.append(fitOI(oi, firstGuess, **kwargs))
-        print('one fit takes ~%.2fs'%(time.time()-t))
+        print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
+        print('[%.1f fit/minutes]'%( 60/(time.time()-t)))
+
         for i in range(N-1):
             kwargs['iter'] = i
             if i%10==0:
                 print('%s | bootstrap fit %d/%d'%(time.asctime(), i, N-1))
             res.append(fitOI(oi, firstGuess, **kwargs))
-    print('it took %.1fs, %.2fs per fit on average'%(time.time()-t,
-                                                    (time.time()-t)/N))
+    print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
+                                                    (time.time()-t)/N),
+                                                    end=' ')
+    print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+
     try:
         res = analyseBootstrap(res, sigmaClipping=sigmaClipping)
         res['fit to all data'] = fit
@@ -2545,8 +2699,13 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         MJDs = [m for m in allMJDs if m in onlyMJD]
                     for mjd in MJDs:
                         w = allMJDs==mjd
-                        bmax.append(np.sqrt(oi[e][k]['u'][w]**2+
-                                            oi[e][k]['v'][w]**2))
+                        b = np.sqrt(oi[e][k]['u'][w]**2+
+                                    oi[e][k]['v'][w]**2)
+                        try:
+                            tmp = len(b)
+                            bmax.extend(list(b))
+                        except:
+                            bmax.append(b)
                         ax.plot(oi[e][k]['u'][w], oi[e][k]['v'][w],
                                 color=col, marker=mark,
                                 label=k if showLabel else '',
@@ -2559,8 +2718,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             bmax = np.array(bmax)
             Bc = []
             for b in [10, 20, 50, 100, 150, 200, 250, 300]:
-                if any(b>bmax) and any(b<bmax):
-                    Bc.append(b)
+                try:
+                    if any(b>bmax) and any(b<bmax):
+                        Bc.append(b)
+                except:
+                    print('bmax:', bmax)
 
             if allInOne and not 'UV' in ai1ax:
                 ai1ax['UV'] = ax
@@ -2682,8 +2844,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 ax = plt.subplot(2, ncol, i_col+1)
                                 axr = plt.subplot(2, ncol, ncol+i_col+1, sharex=ax)
                                 axr.set_title('residuals ($\sigma$)',
-                                                color='0.5',
-                                                fontsize=8, x=.15, y=.9)
+                                              color='0.5', fontsize=8, x=.15, y=.9)
                                 ax.tick_params(axis='y', labelsize=8)
                                 axr.tick_params(axis='y', labelsize=8)
                     else:
@@ -2999,6 +3160,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if i==N-1:
                 if not spectro and not param is None and not 'FLUX' in l:
                     axr.set_xlabel(Xlabel)
+                    #axr.hlines(0, axr.get_xlim()[0], axr.get_xlim()[1],
+                    #            color='0.5', linewidth=1)
                 else:
                     ax.set_xlabel(Xlabel)
                 if Xscale=='log':

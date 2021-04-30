@@ -344,7 +344,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     Ncalls=0
     trackP={}
     t0=time.time()
-
+    mesg=''
     if np.iterable(err) and len(np.array(err).shape)==2:
         # -- assumes err matrix is co-covariance
         _func = func
@@ -363,6 +363,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                             full_output=True, epsfcn=epsfcn, ftol=ftol,
                             maxfev=maxfev)
             info['exec time'] = time.time() - t0
+            mesg = mesg.replace('\n', '')
         else:
             method = 'L-BFGS-B'
             #method = 'SLSQP'
@@ -401,12 +402,13 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             mesg, ier = result.message, None
 
     if verbose:
-        print('[dpfit]', mesg.replace('\n', ''))
+        print('[dpfit]', mesg)
         #print('[dpfit] ier:', ier)
         print('[dpfit] number of function call:', info['nfev'])
         if cov is None:
             print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
             print('uncertainties cannot be computed\033[0m')
+            mesg += '; singular covariance matrix'
             #print('       ', info['fjac'].shape)
             # -- try to figure out what is going on!
             delta = np.array(pfit)-np.array(plsq)
@@ -418,14 +420,13 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                 if test:
                     print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
                     print('IT SHOULD NOT BE FITTED\033[0m')
+                    mesg += '; parameter "'+k+'" does not change CHI2'
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
         print('[dpfit] time per function call:', round(t, n), '(ms)')
 
-
     if cov is None:
         cov = np.zeros((len(fitOnly), len(fitOnly)))
-
 
     # -- best fit -> agregate to pfix
     for i,k in enumerate(fitOnly):
@@ -533,7 +534,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                          for i,ki in enumerate(fitOnly)},
                'normalized uncertainties':normalizedUncer,
                'maxfev':maxfev, 'firstGuess':params,
-               'track':trackP,
+               'track':trackP, 'mesg':mesg,
         }
         if type(verbose)==int and verbose>1 and np.size(cor)>1:
             dispCor(pfix)
