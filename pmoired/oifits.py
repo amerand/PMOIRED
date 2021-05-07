@@ -167,16 +167,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
                 try:
                     # GRAVITY Data have non-standard naming :(
-                    res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUX'][w,:],
-                                        'EFLUX':hdu.data['FLUXERR'][w,:],
-                                        'FLAG':hdu.data['FLAG'][w,:],
+                    res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUX'][w].reshape(w.sum(), -1),
+                                        'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
+                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
                                          }
 
                 except:
-                    res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUXDATA'][w,:],
-                                        'EFLUX':hdu.data['FLUXERR'][w,:],
-                                        'FLAG':hdu.data['FLAG'][w,:],
+                    res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUXDATA'][w].reshape(w.sum(), -1),
+                                        'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
+                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
                                          }
 
@@ -220,7 +220,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 if k in res['OI_VIS2'] and any(w):
                     for k1, k2 in [('V2', 'VIS2DATA'), ('EV2', 'VIS2ERR'), ('FLAG', 'FLAG')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
-                                                          hdu.data[k2][w,:], axis=0)
+                                                          hdu.data[k2][w].reshape(w.sum(), -1), axis=0)
                     for k1, k2 in [('u', 'UCOORD'), ('v', 'VCOORD'), ('MJD','MJD')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
                                                           hdu.data[k2][w])
@@ -235,8 +235,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['EV2']))
                 elif any(w):
-                    res['OI_VIS2'][k] = {'V2':hdu.data['VIS2DATA'][w,:],
-                                         'EV2':hdu.data['VIS2ERR'][w,:],
+                    res['OI_VIS2'][k] = {'V2':hdu.data['VIS2DATA'][w].reshape(w.sum(), -1),
+                                         'EV2':hdu.data['VIS2ERR'][w].reshape(w.sum(), -1),
                                          'u':hdu.data['UCOORD'][w],
                                          'v':hdu.data['VCOORD'][w],
                                          'MJD':hdu.data['MJD'][w],
@@ -244,7 +244,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                 res['WL'][None,:],
                                          'v/wl': hdu.data['VCOORD'][w][:,None]/
                                                 res['WL'][None,:],
-                                         'FLAG':hdu.data['FLAG'][w,:]
+                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
@@ -294,7 +294,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                     ('PHI', 'VISPHI'), ('EPHI', 'VISPHIERR'),
                                     ('FLAG', 'FLAG')]:
                         res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],
-                                                         hdu.data[k2][w,:], axis=0)
+                                                         hdu.data[k2][w].reshape(w.sum(), -1), axis=0)
                     for k1, k2 in [('u', 'UCOORD'), ('v', 'VCOORD'), ('MJD', 'MJD')]:
                         res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],
                                                           hdu.data[k2][w])
@@ -308,10 +308,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                              ~np.isfinite(res['OI_VIS'][k]['E|V|']))
 
                 elif any(w):
-                    res['OI_VIS'][k] = {'|V|':hdu.data['VISAMP'][w,:],
-                                        'E|V|':hdu.data['VISAMPERR'][w,:],
-                                        'PHI':hdu.data['VISPHI'][w,:],
-                                        'EPHI':hdu.data['VISPHIERR'][w,:],
+                    res['OI_VIS'][k] = {'|V|':hdu.data['VISAMP'][w].reshape(w.sum(), -1),
+                                        'E|V|':hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
+                                        'PHI':hdu.data['VISPHI'][w].reshape(w.sum(), -1),
+                                        'EPHI':hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
                                         'u':hdu.data['UCOORD'][w],
                                         'v':hdu.data['VCOORD'][w],
@@ -319,7 +319,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                res['WL'][None,:],
                                         'v/wl': hdu.data['VCOORD'][w][:,None]/
                                                res['WL'][None,:],
-                                        'FLAG':hdu.data['FLAG'][w,:]
+                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
                 if any(w):
                     res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
@@ -411,7 +411,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                     ('T3PHI', 'T3PHI'), ('ET3PHI', 'T3PHIERR'),
                                     ('FLAG', 'FLAG')]:
                         res['OI_T3'][k][k1] = np.append(res['OI_T3'][k][k1],
-                                                        hdu.data[k2][w,:], axis=0)
+                                                        hdu.data[k2][w].reshape(w.sum(), -1), axis=0)
                     for k1, k2 in [('u1', 'U1COORD'), ('u2', 'U2COORD'),
                                    ('v1', 'V1COORD'), ('v2', 'V2COORD'),
                                    ('MJD', 'MJD')]:
@@ -422,17 +422,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                                                             ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
                 elif any(w):
-                    res['OI_T3'][k] = {'T3AMP':hdu.data['T3AMP'][w,:],
-                                       'ET3AMP':hdu.data['T3AMPERR'][w,:],
-                                       'T3PHI':hdu.data['T3PHI'][w,:],
-                                       'ET3PHI':hdu.data['T3PHIERR'][w,:],
+                    res['OI_T3'][k] = {'T3AMP':hdu.data['T3AMP'][w].reshape(w.sum(), -1),
+                                       'ET3AMP':hdu.data['T3AMPERR'][w].reshape(w.sum(), -1),
+                                       'T3PHI':hdu.data['T3PHI'][w].reshape(w.sum(), -1),
+                                       'ET3PHI':hdu.data['T3PHIERR'][w].reshape(w.sum(), -1),
                                        'MJD':hdu.data['MJD'][w],
                                        'u1':hdu.data['U1COORD'][w],
                                        'v1':hdu.data['V1COORD'][w],
                                        'u2':hdu.data['U2COORD'][w],
                                        'v2':hdu.data['V2COORD'][w],
                                        'formula': (s, t),
-                                       'FLAG':hdu.data['FLAG'][w,:]
+                                       'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
                 if any(w):
                     res['OI_T3'][k]['B1'] = np.sqrt(res['OI_T3'][k]['u1']**2+
