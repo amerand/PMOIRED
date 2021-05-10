@@ -80,7 +80,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             h.close()
             print('insname not specified, loading %s'%str(instruments))
             # -- return list: one dict for each insname
-            return [loadOI(filename, insname=ins, withHeader=withHeader, medFilt=medFilt) for ins in instruments]
+            return [loadOI(filename, insname=ins, withHeader=withHeader,
+                            medFilt=medFilt) for ins in instruments]
 
     assert insname in instruments, 'unknown instrument "'+insname+'", '+\
         'should be in ['+', '.join(['"'+t+'"' for t in instruments])+']'
@@ -796,10 +797,20 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
         if 'fit' in r:
             tmp = {}
             for k in r['fit'].keys():
-                if type(r['fit'][k]) is dict and 'DPHI' in r['fit'][k].keys():
-                    tmp[k] = {'DPHI':r['fit'][k]['DPHI']}
-            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'cont ranges'] if k in r['fit']}
+                # -- for differential quantities, this are globally defined
+                for p in ['DPHI', 'NFLUX']:
+                    if type(r['fit'][k]) is dict and p in r['fit'][k].keys():
+                        if k in tmp:
+                            if p in tmp[k] and tmp[k][p]!=r['fit'][k][p]:
+                                print('mergeOI: WARNING, merging cannot merge "'+
+                                      k+'" for "'+p+'"')
+                            tmp[k][p] = r['fit'][k][p]
+                        else:
+                            tmp[k] = {p:r['fit'][k][p]}
+            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'continuum ranges']
+                        if k in r['fit']}
             r['fit'].update(tmp)
+
     return res
 
 def _filtErr(t, ext, filt, debug=False):
@@ -811,12 +822,14 @@ def _filtErr(t, ext, filt, debug=False):
     # -- original errors:
     err = ext['E'+t].copy()
 
-    # -- this is a bit of a Kludge :S
-    if t=='FLUX' and 'min error' in filt.keys() and 'NFLUX' in filt['min error']:
-        filt['min error']['FLUX'] = filt['min error']['NFLUX']*ext['FLUX'].mean()
-    # -- this one is correct
-    if t=='FLUX' and 'mult error' in filt.keys() and 'NFLUX' in filt['mult error']:
-        filt['mult error']['FLUX'] = filt['mult error']['NFLUX']
+    # == this is now in oimodels.computeNormFluxOI
+    # -- this is a bit of a Kludge => impacts badly bootstrapping!!!
+    # if t=='FLUX' and 'min error' in filt.keys() and 'NFLUX' in filt['min error']:
+    #     filt['min error']['FLUX'] = filt['min error']['NFLUX']*np.median(ext['FLUX'])
+    #
+    # # -- this one is correct
+    # if t=='FLUX' and 'mult error' in filt.keys() and 'NFLUX' in filt['mult error']:
+    #     filt['mult error']['FLUX'] = filt['mult error']['NFLUX']
 
     if 'mult error' in filt.keys() and t in filt['mult error'].keys():
         if debug:

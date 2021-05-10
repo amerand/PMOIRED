@@ -405,27 +405,28 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         print('[dpfit]', mesg)
         #print('[dpfit] ier:', ier)
         print('[dpfit] number of function call:', info['nfev'])
-        if cov is None:
-            print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
-            print('uncertainties cannot be computed\033[0m')
-            mesg += '; singular covariance matrix'
-            #print('       ', info['fjac'].shape)
-            # -- try to figure out what is going on!
-            delta = np.array(pfit)-np.array(plsq)
-            for i,k in enumerate(fitOnly):
-                if 'fjac' in info:
-                    test = max(np.abs(info['fjac'][i,:]))==0
-                else:
-                    test = np.abs(delta[i])<=epsfcn
-                if test:
-                    print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
-                    print('IT SHOULD NOT BE FITTED\033[0m')
-                    mesg += '; parameter "'+k+'" does not change CHI2'
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
         print('[dpfit] time per function call:', round(t, n), '(ms)')
 
+    notsig = []
     if cov is None:
+        print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
+        print('uncertainties cannot be computed\033[0m')
+        mesg += '; singular covariance matrix'
+        #print('       ', info['fjac'].shape)
+        # -- try to figure out what is going on!
+        delta = np.array(pfit)-np.array(plsq)
+        for i,k in enumerate(fitOnly):
+            if 'fjac' in info:
+                test = max(np.abs(info['fjac'][i,:]))==0
+            else:
+                test = np.abs(delta[i])<=epsfcn
+            if test:
+                print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
+                print('IT SHOULD NOT BE FITTED\033[0m')
+                mesg += '; parameter "'+k+'" does not change CHI2'
+                notsig.append(k)
         cov = np.zeros((len(fitOnly), len(fitOnly)))
 
     # -- best fit -> agregate to pfix
@@ -535,6 +536,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                'normalized uncertainties':normalizedUncer,
                'maxfev':maxfev, 'firstGuess':params,
                'track':trackP, 'mesg':mesg,
+               'not significant':notsig,
         }
         if type(verbose)==int and verbose>1 and np.size(cor)>1:
             dispCor(pfix)

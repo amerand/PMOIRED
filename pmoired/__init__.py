@@ -193,6 +193,7 @@ class OI:
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
+        self.computeModelSpectrum()
         return
     def showFit(self):
         if not self.bestfit is None:
@@ -213,12 +214,13 @@ class OI:
                                           doNotFit=doNotFit, logchi2=logchi2,
                                           multi=multi)
         self.bestfit = self.candidFits[0]
+        self.computeModelSpectrum
         return
 
-    def gridFit(self, expl, Nfits=None, param=None, fitOnly=None, doNotFit=None,
-                     maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
+    def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
+                     maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8):
         """
-        perform "Nfits" fit on data, starting from "param" (default last best fit),
+        perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
         "grid" param are defined.
 
@@ -235,19 +237,20 @@ class OI:
         if "grid" are defined, they will define N as:
         Nfits = prod_i (max_i-min_i)/step_i + 1
         """
-        if param is None and not self.bestfit is None:
-            param = self.bestfit['best']
+        if model is None and not self.bestfit is None:
+            model = self.bestfit['best']
             if doNotFit is None:
                 doNotFit = self.bestfit['doNotFit']
             if fitOnly is None:
                 fiitOnly = self.bestfit['fitOnly']
-        assert not param is None, 'first guess should be provided: param={...}'
+        assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        self.grid = oimodels.gridFitOI(self._merged, param, expl, Nfits,
+        self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
+        self.computeModelSpectrum()
         return
 
     def showGrid(self, px, py, color='chi2', aspect=None,
@@ -264,9 +267,10 @@ class OI:
         by default Nfits is set to the number of data, and model to the last best
         fit. 'multi' sets the number of threads (default==all available).
         """
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        if self._merged is None:
+            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if model is None:
-            assert not self.bestfit is None, 'you should run a fit first'
+            assert not self.bestfit is None, 'you should run a fit first or give an explicit model'
             model = self.bestfit
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
@@ -429,12 +433,13 @@ class OI:
                 self.fig += 1
         if not imFov is None:
             self.fig += 1
-        print('done in %.2fs'%(time.time()-t0))
+        #print('done in %.2fs'%(time.time()-t0))
         return
 
-    def halfLightRadii(self):
+    def halfLightRadii(self, verbose=True):
         if not self.bestfit is None:
-            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit, verbose=1)
+            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit,
+                                                            verbose=verbose)
         else:
             print('no best fit model to compute half light radii!')
         return
@@ -480,10 +485,8 @@ class OI:
         if len(allWLs):
             allWL = {'WL':allWLs, 'fit':{'obs':[]}} # minimum required
             tmp = oimodels.VmodelOI(allWL, model)
-            print(type(tmp), tmp.keys())
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}
-            #print('normalised spectra computed for each components in dict ".spectra"')
             M['normalised spectrum WL'] = allWLs
             M['normalised spectrum COMP'] = fluxes
             M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
@@ -492,7 +495,8 @@ class OI:
             M['normalised spectrum COMP'] = {}
             M['normalised spectrum TOTAL'] = np.array([])
 
-        return M
+        self.spectra = M
+        return
 
 def _checkObs(data, obs):
     """
@@ -518,7 +522,7 @@ def _checkSetupFit(fit):
             'mult error':dict,
             'obs':list, 'wl ranges':list,
             'Nr':int, 'spec res pix':float,
-            'cont ranges':list,
+            'continuum ranges':list,
             'ignore negative flux':bool}
     ok = True
     for k in fit.keys():
