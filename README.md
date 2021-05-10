@@ -38,7 +38,6 @@ xargs rm -rf < files.txt
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
 - [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting a 2 chromatic components model.
-- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) demonstrates how to do a companion search using a grid of positions, inspired from [CANDID](https://github.com/amerand/CANDID).
 
 Below is a skeleton documentation (more to come!). The best is to go through examples, as most of the syntax is covered.
 
@@ -86,7 +85,7 @@ if none of these is given, the component will be fully resolved (V=0)
 
 Profiles can be arbitrary defined. To achieve this, you can define the profile as a string, as function of other parameters in the dictionary. There are also two special variables: `$R` and `$MU` where `R`=2*r/`diam`  and `MU`=sqrt(1-`R`^2). For example, to model a limb-darkened disk with a power law profile (in `MU`), one will define the model as:
 ```
-param = {'diam':1.0, 'profile':'$MU**$alpha', '$alpha':0.1}
+param = {'diam':1.0, 'profile':'$MU**$alpha', 'alpha':0.1}
 ```
 The parsing of `profile` is very basic, so do not create variable names with common name (e.g. `np` or `sqrt`).
 
