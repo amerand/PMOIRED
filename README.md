@@ -85,7 +85,7 @@ if none of these is given, the component will be fully resolved (V=0)
 
 Profiles can be arbitrary defined. To achieve this, you can define the profile as a string, as function of other parameters in the dictionary. There are also two special variables: `$R` and `$MU` where `R`=2*r/`diam`  and `MU`=sqrt(1-`R`^2). For example, to model a limb-darkened disk with a power law profile (in `MU`), one will define the model as:
 ```
-param = {'diam':1.0, 'profile':'$MU**$alpha', '$alpha':0.1}
+param = {'diam':1.0, 'profile':'$MU**$alpha', 'alpha':0.1}
 ```
 The parsing of `profile` is very basic, so do not create variable names with common name (e.g. `np` or `sqrt`).
 
