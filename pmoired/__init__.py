@@ -64,8 +64,8 @@ class OI:
         self.spectra = {}
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
-                withHeader=False, medFilt=None, tellurics=None, binning=None):
-        if not type(filenames)==list:
+                withHeader=True, medFilt=None, tellurics=None, binning=None):
+        if not type(filenames)==list or not type(filenames)==tuple:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
@@ -337,7 +337,7 @@ class OI:
             N = [len(d['WL']) for d in self.data]
             spectro = max(N)>20
 
-        if perSetup or allInOne:
+        if allInOne or perSetup:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
         else:
             data = self.data
@@ -356,39 +356,47 @@ class OI:
             #print('no model to show...')
             model = None
 
-        if perSetup:
-            if perSetup is True:
-                # -- try to guess the groupings by "ins_wl_resolution"
-                R = lambda wl, dwl: 5*np.round(np.mean(wl/dwl)/5,
-                            1-int(np.log10(np.mean(wl/dwl)/5)))
-                setups = [d['insname'].split('_')[0]+' %.1fum R%.0f'%(d['WL'].mean(), R(d['WL'], d['dWL'])) for d in data]
-                perSetup = list(set(setups))
-                #print('setups:', setups)
-                #print('perSetup:', perSetup)
-            else:
-                setups = [d['insname'] for d in data]
+        if not perSetup is False:
+            # # -- try to be clever about grouping
+            # R = []
+            # for d in data:
+            #     r = (np.mean(d['WL'])/np.abs(np.mean(np.diff(d['WL'])))//5)*5.0
+            #     if d['insname'].startswith('PIONIER'):
+            #         R.append('%s R%.0f'%(d['insname'].split('_')[0], r))
+            #     else:
+            #         R.append('%s R%.0f'%(d['insname'], r))
+            # group = []
+            # _obs = []
+            # for r in sorted(list(set(R))):
+            #     group.append(oifits.mergeOI([data[i] for i in range(len(data)) if R[i]==r], verbose=False))
+            #     tmp = []
+            #     for i,d in enumerate(data):
+            #         if R[i]==r and 'fit' in d and 'obs' in d['fit']:
+            #             tmp.extend(d['fit']['obs'])
+            #     _obs.append(list(set(tmp)))
+            # # -- group
+            # print(len(group))
 
-            # -- group
-            group = []
-            for i,d in enumerate(data):
-                for s in perSetup:
-                    if s in setups[i]:
-                        group.append(s)
-                        continue
-            for j,g in enumerate(sorted(set(group))):
-                oimodels.showOI([d for i,d in enumerate(data) if group[i]==g],
-                        param=model, fig=self.fig, obs=obs, logV=logV,
+            for j,g in enumerate(data):
+                if 'fit' in g and 'obs' in g['fit']:
+                    #print(j, g['fit'])
+                    _obs = g['fit']['obs']
+                else:
+                    _obs = obs
+                oimodels.showOI(g,
+                        param=model, fig=self.fig, obs=_obs, logV=logV,
                         logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV, allInOne=True,
+                        spectro=spectro, showUV=showUV, allInOne=False,
                         imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
                         cmap=cmap, imX=imX, imY=imY)
                 self.fig+=1
                 if imFov is None:
-                    plt.suptitle(g)
+                    #plt.suptitle(sorted(set(R))[j])
+                    pass
                 else:
-                    plt.figure(self.fig)
-                    plt.suptitle(g)
+                    #plt.figure(self.fig)
+                    #plt.suptitle(sorted(set(R))[j])
                     self.fig+=1
             return
         elif allInOne:

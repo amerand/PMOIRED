@@ -87,6 +87,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         'should be in ['+', '.join(['"'+t+'"' for t in instruments])+']'
 
     res['insname'] = insname
+    # -- spectral resolution
     res['filename'] = filename
     res['targname'] = targname
 

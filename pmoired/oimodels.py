@@ -198,12 +198,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     res = {}
 
     # -- what do we inherit from original data:
-    for k in ['WL', 'header', 'fit']:
+    for k in ['WL', 'fit']:
         if k in oi.keys():
             res[k] = oi[k].copy()
     for k in ['insname', 'filename']:
         if k in oi.keys():
             res[k] = oi[k]
+    if fullOutput:
+        for k in ['header']:
+            if k in oi.keys():
+                res[k] = oi[k].copy()
+
 
     # -- small shift in wavelength (for bandwith smearing)
     if _dwl!=0:
@@ -545,10 +550,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         if du: # -- for slanted
             V[:,wwl] = Vf(oi[key][k])
             # -- compute slant from derivative of visibility
-            dVdu = (Vfdu(oi[key][k]) - V)/du
-            dVdv = (Vfdv(oi[key][k]) - V)/dv
-            dVdu /= 2*_c/res['WL']
-            dVdv /= 2*_c/res['WL']
+            dVdu = (Vfdu(oi[key][k]) - V[:,wwl])/du
+            dVdv = (Vfdv(oi[key][k]) - V[:,wwl])/dv
+            dVdu /= 2*_c/res['WL'][wwl]
+            dVdv /= 2*_c/res['WL'][wwl]
             # -- see https://en.wikipedia.org/wiki/Fourier_transform#Tables_of_important_Fourier_transforms
             # -- relations 106 and 107
             V[:,wwl] = V[:,wwl]+1j*(np.sin(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdu +
@@ -557,6 +562,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         else:
             #print('!!', key, oi[key][k].keys())
             #print('!! x:', x, 'y', y)
+            #print(V[:,wwl].shape, Vf(oi[key][k]).shape, PHI(oi[key][k]).shape)
             V[:,wwl] = Vf(oi[key][k])*PHI(oi[key][k])
 
         tmp['|V|'] = np.abs(V)
@@ -580,7 +586,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
             tmp['EV'] = np.zeros(tmp['|V|'].shape)
             tmp['EPHI'] = np.zeros(tmp['PHI'].shape)
-
         res['OI_VIS'][k] = tmp
 
         if 'OI_VIS2' in oi.keys():
@@ -1604,6 +1609,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     return oi
 
 def computeLambdaParams(params):
+    if params is None:
+        return None
     paramsI = params.copy()
     paramsR = {}
     loop = True
