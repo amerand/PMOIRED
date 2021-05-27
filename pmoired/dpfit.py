@@ -313,7 +313,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         #if not (type(params[k])==float or type(params[k])==int):
         if not (np.isscalar(params[k]) and type(params[k])!=str):
             NaNs.append(k)
-    fitOnly = list(filter(lambda x: not x in NaNs, fitOnly))
+    fitOnly = sorted(list(filter(lambda x: not x in NaNs, fitOnly)))
 
     # -- build fitted parameters vector:
     pfit = [params[k] for k in fitOnly]
@@ -419,12 +419,14 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         delta = np.array(pfit)-np.array(plsq)
         for i,k in enumerate(fitOnly):
             if 'fjac' in info:
-                test = max(np.abs(info['fjac'][i,:]))==0
+                #test = max(np.abs(info['fjac'][i,:]))==0
+                _i = list(info['ipvt']).index(i+1)
+                test = max(np.abs(info['fjac'][_i,:]))==0
             else:
                 test = np.abs(delta[i])<=epsfcn
             if test:
                 print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
-                print('IT SHOULD NOT BE FITTED\033[0m')
+                print('IT CANNOT BE FITTED\033[0m')
                 mesg += '; parameter "'+k+'" does not change CHI2'
                 notsig.append(k)
         cov = np.zeros((len(fitOnly), len(fitOnly)))
@@ -708,7 +710,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
                 #res2.extend(list(r))
         chi2 /= N-len(pfit)+1.0
 
-    if verbose and time.time()>(verboseTime+5):
+    if verbose and time.time()>(verboseTime+10):
         verboseTime = time.time()
         print('[dpfit]', time.asctime(), '%03d/%03d'%(Ncalls, int(Ncalls/len(pfit))), end=' ')
         print('CHI2: %6.4e'%chi2,end='|')
@@ -797,7 +799,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         res = res2
         chi2 /= float(N-len(pfit)+1)
 
-    if verbose and time.time()>(verboseTime+5):
+    if verbose and time.time()>(verboseTime+10):
         verboseTime = time.time()
         print('[dpfit]', time.asctime(), '%5d'%Ncalls,end='')
         print('CHI2: %6.4e'%chi2,end='|')
@@ -825,7 +827,7 @@ def _fitFunc2(x, *pfit, verbose=True, follow=[], errs=None):
 
     res = _func(x, params)
 
-    if verbose and time.time()>(verboseTime+5):
+    if verbose and time.time()>(verboseTime+10):
         verboseTime = time.time()
         print('[dpfit]', time.asctime(), '%5d'%Ncalls,end='')
         try:
@@ -951,12 +953,26 @@ def dispBest(fit, pre='', asStr=False, asDict=True):
         print(res)
         return
 
-def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
+def dispCor(fit, ndigit=2, pre='', asStr=False, html=False, maxlen=140):
     # -- parameters names:
     nmax = np.max([len(x) for x in fit['fitOnly']])
+    # -- compact display if too wide
+    if not maxlen is None and nmax+(ndigit+2)*len(fit['fitOnly'])+4>maxlen:
+        ndigit=1
+    if not maxlen is None and nmax+(ndigit+2)*len(fit['fitOnly'])+4>maxlen:
+        ndigit=0
+
     fmt = '%%%ds'%nmax
-    fmt = '%3d:'+fmt
+    #fmt = '%2d:'+fmt
     fmtd = '%'+'%d'%(ndigit+3)+'.'+'%d'%ndigit+'f'
+
+    if len(fit['fitOnly'])>100:
+        # -- hexadecimal
+        count = lambda i: '%2s'%hex(i)[2:]
+    else:
+        # -- decimal
+        count = lambda i: '%2d'%i
+
     if not asStr:
         print(pre+'Correlations (%) ', end=' ')
         print('\033[45m>=90\033[0m', end=' ')
@@ -965,9 +981,14 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
         print('\033[46m>=50\033[0m', end=' ')
         print('\033[0m>=20\033[0m', end=' ')
         print('\033[37m<20%\033[0m')
-        print(pre+' '*(2+ndigit+nmax), end=' ')
+        print(pre+' '*(3+nmax), end=' ')
         for i in range(len(fit['fitOnly'])):
-            print('%3d'%i+' '*(ndigit-2), end=' ')
+            #print('%2d'%i+' '*(ndigit-1), end=' ')
+            if i%2 and ndigit<2:
+                c = '\033[47m'
+            else:
+                c = '\033[0m'
+            print(c+count(i)+'\033[0m'+' '*(ndigit), end='')
         print(pre+'')
     else:
         if html:
@@ -975,17 +996,22 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
             res += '<tr>'
             res += '<th>'+pre+' '*(2+ndigit+nmax)+' </th>'
             for i in range(len(fit['fitOnly'])):
-                res += '<th>'+'%3d'%i+' '*(ndigit-1)+'</th>'
+                res += '<th>'+'%2d'%i+' '*(ndigit)+'</th>'
             res += '</tr>\n'
         else:
-            res = pre+' '*(2+ndigit+nmax)+' '
+            res = pre+' '*(3+ndigit//2+nmax)+' '
             for i in range(len(fit['fitOnly'])):
-                res += '%3d'%i+' '*(ndigit-1)
+                #res += '%2d'%i+' '*(ndigit)
+                res += count(i)+' '*(ndigit)
             res += '\n'
 
     for i,p in enumerate(fit['fitOnly']):
+        if i%2 and ndigit<2:
+            c = '\033[47m'
+        else:
+            c = '\033[0m'
         if not asStr:
-            print(pre+fmt%(i,p), end=' ')
+            print(pre+c+count(i)+':'+fmt%(p)+'\033[0m', end=' ')
         elif html:
             res += '<tr>\n<td>'+pre+fmt%(i,p)+'</td >\n'
         else:
@@ -1015,8 +1041,10 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
                     hcol = '#FFFFFF'
                 else:
                     col = ''
+            elif i%2 and ndigit<2:
+                col = '\033[47m'
             else:
-                col = ''
+                col = '\033[0m'
             # tmp = fmtd%x
             # tmp = tmp.replace('0.', '.')
             # tmp = tmp.replace('1.'+'0'*ndigit, '1.')
@@ -1026,7 +1054,21 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False):
             if i==j:
                 tmp = '#'*(1+ndigit)
             else:
-                tmp = '%3d'%int(round(100*x, 0))
+                if ndigit==0:
+                    #tmp = '%2d'%int(round(10*x, 0))
+                    if x<0:
+                        tmp = '-'
+                    else:
+                        tmp = '+'
+                if ndigit==1:
+                    #tmp = '%2d'%int(round(10*x, 0))
+                    if x<0:
+                        tmp = '--'
+                    else:
+                        tmp = '++'
+                elif ndigit==2:
+                    tmp = '%3d'%int(round(100*x, 0))
+
             if not asStr:
                 print(c+col+tmp+'\033[0m', end=' ')
             elif html:
@@ -1207,9 +1249,16 @@ def exploreFit(fit, fig=99):
 
     # -- plot all parameters:
     for i, k in enumerate(sorted(filter(lambda x: x!='reduced chi2', fit['track'].keys()))):
+        r = np.arange(len(fit['track'][k]))
         AX[k] = plt.subplot(S[1], S[0], i+2, sharex=AX['reduced chi2'])
-        plt.plot(fit['track'][k], '.-')
-        #plt.ylabel(k, fontsize=fontsize)
+        plt.plot(r, fit['track'][k], '-', color=(0, 0.4, 0.8))
+        # -- when parameter converged within uncertainty
+        w = np.abs(fit['track'][k] - fit['best'][k])<=fit['uncer'][k]
+        # -- from the end of the sequence, when parameter was within error
+        r0 = r[w][::-1][np.argmax((np.diff(r[w])!=1)[::-1])]
+        #plt.plot(r[w], fit['track'][k][w], 'o', color=(0, 0.4, 0.8))
+
+        plt.plot(r[r>=r0], fit['track'][k][r>=r0], '.', color=(0, 0.4, 0.8))
         plt.title(k, fontsize=fontsize, x=0.05, y=0.9, ha='left', va='top')
 
         plt.yticks(fontsize=fontsize)
@@ -1222,6 +1271,7 @@ def exploreFit(fit, fig=99):
                          fit['best'][k]+fit['uncer'][k],
                         color='orange', alpha=0.2)
         plt.hlines(fit['best'][k], 0, len(fit['track'][k])-1, alpha=0.5, color='orange')
+        plt.vlines(r0, plt.ylim()[0], plt.ylim()[1])
     for k in AX.keys():
         AX[k].callbacks.connect('xlim_changed', _callbackAxes)
     plt.tight_layout()

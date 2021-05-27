@@ -500,12 +500,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
                 for _t in t:
                     print(' | ', _t, key, res[key][_t])
-            for mjd in res['OI_T3'][k]['MJD']:
-                w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
-                w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
-                w2.append(np.argmin(np.abs(res[key][t[2]]['MJD']-mjd)))
-            res['OI_T3'][k]['formula'] = [s, t, w0, w1, w2]
-
+            try:
+                for mjd in res['OI_T3'][k]['MJD']:
+                    w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
+                    w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
+                    w2.append(np.argmin(np.abs(res[key][t[2]]['MJD']-mjd)))
+                res['OI_T3'][k]['formula'] = [s, t, w0, w1, w2]
+            except:
+                print('warning! triplet', k,
+                      'has no formula in', res[key].keys())
+                res['OI_T3'][k]['formula'] = None
     if 'OI_FLUX' in res:
         res['telescopes'] = sorted(list(res['OI_FLUX'].keys()))
     else:

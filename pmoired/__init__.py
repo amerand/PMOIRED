@@ -96,7 +96,7 @@ class OI:
                     d['configurations per MJD'][mjd].extend(d['telescopes'])
 
                 mjd = np.array(sorted(list(d['configurations per MJD'])))
-                s = np.interp(d['WL'], wl, sed)[None,:] + mjd[:,None]
+                s = np.interp(d['WL'], wl, sed)[None,:] + 0*mjd[:,None]
                 for t in d['telescopes']:
                     flux[t] = {'FLUX':s, 'RFLUX':s, 'EFLUX':err*s, 'FLAG':s==0, 'MJD':mjd}
                 d['OI_FLUX'] = flux
@@ -251,14 +251,29 @@ class OI:
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
         self.computeModelSpectrum()
+        self._expl = expl
         return
 
-    def showGrid(self, px, py, color='chi2', aspect=None,
-                vmin=None, vmax=None, cmap='spring'):
+    def showGrid(self, px=None, py=None, color='chi2', aspect=None,
+                vmin=None, vmax=None, cmap='spring', logV=False):
         assert not self.grid is None, 'You should run gridFit first!'
         self.fig += 1
+        params = []
+        for k in self._expl:
+            for g in self._expl[k]:
+                params.append(g)
+        params = sorted(params)
+        if px is None:
+            px = params[0]
+        if py is None:
+            py = params[1]
+        if aspect is None and \
+                (px=='x' or px.endswith(',x')) and \
+                (py=='y' or px.endswith(',y')):
+            aspect='equal'
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
-                    vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap)
+                          vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
+                          logV=logV)
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
@@ -291,11 +306,11 @@ class OI:
         self.fig += 1
         return
 
-    def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
+    def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=False,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
-             imX=0, imY=0):
+             imX=0, imY=0, showChi2=False):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -356,7 +371,7 @@ class OI:
             #print('no model to show...')
             model = None
 
-        if not perSetup is False:
+        if perSetup:
             # # -- try to be clever about grouping
             # R = []
             # for d in data:
@@ -384,12 +399,12 @@ class OI:
                 else:
                     _obs = obs
                 oimodels.showOI(g,
-                        param=model, fig=self.fig, obs=_obs, logV=logV,
+                        param=model, fig=self.fig, obs=_obs, logV=logV, logS=logS,
                         logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, allInOne=False,
                         imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                        cmap=cmap, imX=imX, imY=imY)
+                        cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
                 self.fig+=1
                 if imFov is None:
                     #plt.suptitle(sorted(set(R))[j])
@@ -402,42 +417,48 @@ class OI:
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
             if not obs is None:
-                obs = list(obs)
+                _obs = list(obs)
             else:
-                obs = []
                 for d in data:
+                    _obs = []
                     if not 'fit' in d or not 'obs' in d['fit']:
                         if 'OI_T3' in d:
-                            obs.append('T3PHI')
+                            _obs.append('T3PHI')
                         if 'OI_VIS2' in d:
-                            obs.append('V2')
+                            _obs.append('V2')
                         if 'OI_VIS' in d:
-                            obs.append('|V|')
+                            _obs.append('|V|')
                         if 'OI_FLUX' in d:
-                            obs.append('FLUX')
-                    else:
-                        obs.extend(d['fit']['obs'])
-                obs = list(set(obs))
+                            _obs.append('FLUX')
+                        if not 'fit' in d:
+                            d['fit'] = {}
+                        d['fit']['obs'] = _obs
 
+            #print('_obs', _obs)
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
-                    obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
+                    obs=None, logV=logV, logB=logB, logS=logS, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                     checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                    cmap=cmap, imX=imX, imY=imY)
+                    cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
             if allInOne:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
         else:
             for i,d in enumerate(data):
+                if 'fit' in d and 'obs' in d['fit']:
+                    #print(j, g['fit'])
+                    _obs = d['fit']['obs']
+                else:
+                    _obs = None
                 self._model = oimodels.showOI([d], param=model, fig=self.fig,
-                        obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV,
+                        obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
+                        spectro=spectro, showUV=showUV, logS=logS,
                         imFov=imFov if i==(len(data)-1) else None,
                         imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY)
+                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
                 self.fig += 1
         if not imFov is None:
             self.fig += 1
