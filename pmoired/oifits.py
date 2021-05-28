@@ -191,16 +191,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         # -- Note the binning of flux is not weighted, because
                         # -- it would make the tellurics correction incorrect
                         # -- overwise
-                        res['OI_FLUX'][k]['FLUX'] = binOI(res['WL'], _WL,
+                        res['OI_FLUX'][k]['FLUX'], flag = \
+                                                    binOI(res['WL'], _WL,
                                                            res['OI_FLUX'][k]['FLUX'],
                                                            res['OI_FLUX'][k]['FLAG'],
-                                                           medFilt=medFilt)
+                                                           medFilt=medFilt, retFlag=True)
                         # -- KLUDGE!
                         res['OI_FLUX'][k]['EFLUX'] = binOI(res['WL'], _WL,
                                                            res['OI_FLUX'][k]['EFLUX'],
                                                            res['OI_FLUX'][k]['FLAG'],
                                                            medFilt=medFilt)
-                        res['OI_FLUX'][k]['FLAG'] = res['OI_FLUX'][k]['FLUX']<=0
+                        res['OI_FLUX'][k]['FLAG'] = flag
 
 
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
@@ -258,11 +259,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
                                                        1j*res['OI_VIS2'][k]['u/wl'], deg=True)
                     if not binning is None:
-                        res['OI_VIS2'][k]['V2'] = binOI(res['WL'], _WL,
+                        res['OI_VIS2'][k]['V2'], flag =\
+                                                   binOI(res['WL'], _WL,
                                                          res['OI_VIS2'][k]['V2'],
                                                          res['OI_VIS2'][k]['FLAG'],
                                                          res['OI_VIS2'][k]['EV2'],
-                                                         medFilt=medFilt)
+                                                         medFilt=medFilt,
+                                                         retFlag=True)
 
                         # -- KLUDGE!
                         res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
@@ -270,7 +273,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          res['OI_VIS2'][k]['FLAG'],
                                                          res['OI_VIS2'][k]['EV2'],
                                                          medFilt=medFilt)
-                        res['OI_VIS2'][k]['FLAG'] = res['OI_VIS2'][k]['V2']<0
+                        res['OI_VIS2'][k]['FLAG'] = flag
 
 
         # -- V baselines == telescopes pairs
@@ -336,11 +339,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                     if not binning is None:
                         _w = ~res['OI_VIS'][k]['FLAG']
-                        res['OI_VIS'][k]['|V|'] = binOI(res['WL'], _WL,
+                        res['OI_VIS'][k]['|V|'],  flag =\
+                                                   binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['|V|'],
                                                          res['OI_VIS'][k]['FLAG'],
                                                          res['OI_VIS'][k]['E|V|'],
-                                                         medFilt=medFilt)
+                                                         medFilt=medFilt,
+                                                         retFlag=True)
                         res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
                                                          res['OI_VIS'][k]['PHI'],
                                                          res['OI_VIS'][k]['FLAG'],
@@ -358,14 +363,23 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          res['OI_VIS'][k]['FLAG'],
                                                          res['OI_VIS'][k]['EPHI'],
                                                          medFilt=medFilt)
-                        res['OI_VIS'][k]['FLAG'] = res['OI_VIS'][k]['|V|']<0
-
+                        res['OI_VIS'][k]['FLAG'] = flag
 
         elif debug and 'EXTNAME' in hdu.header:
             print('DEBUG:', hdu.header['EXTNAME'])
         elif debug:
             print('DEBUG: skipping HDU')
 
+    # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
+    # if 'OI_VIS' in res and 'OI_VIS2' in res:
+    #     kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
+    #     for k in kz:
+    #         if not k in res['OI_VIS']:
+    #             print(k, 'missing from OI_VIS!')
+    #         elif not k in res['OI_VIS2']:
+    #             print(k, 'missing from OI_VIS2!')
+    #         elif sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
+    #             print(k, 'mismatched coverage VIS/VIS2!')
 
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
@@ -457,11 +471,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                             ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
                     if not binning is None:
                         _w = ~res['OI_T3'][k]['FLAG']
-                        res['OI_T3'][k]['T3AMP'] = binOI(res['WL'], _WL,
+                        res['OI_T3'][k]['T3AMP'], flag = \
+                                                    binOI(res['WL'], _WL,
                                                           res['OI_T3'][k]['T3AMP'],
                                                           res['OI_T3'][k]['FLAG'],
                                                           res['OI_T3'][k]['ET3AMP'],
-                                                          medFilt=medFilt)
+                                                          medFilt=medFilt,
+                                                          retFlag=True)
                         res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
                                                           res['OI_T3'][k]['T3PHI'],
                                                           res['OI_T3'][k]['FLAG'],
@@ -479,7 +495,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            res['OI_T3'][k]['FLAG'],
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
-                        res['OI_T3'][k]['FLAG'] = ~np.isfinite(res['OI_T3'][k]['T3PHI'])
+                        res['OI_T3'][k]['FLAG'] = flag
 
     key = 'OI_VIS'
     if res['OI_VIS']=={}:
@@ -571,8 +587,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
               round(np.max(res['WL']), 3), '] um', end=' ')
         if not binning is None:
             print('(binned by x%d)'%binning, end=' ')
-        print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
-                end=' | ')
+        #print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
+        #            end=' | ')
+        Kz = sorted(list(filter(lambda x: x.startswith('OI_'), res.keys())))
+        print(dict(zip(Kz, [len(res[k].keys()) for k in Kz])), end=' | ')
+
         print('| TELLURICS:', res['TELLURICS'].min()<1)
         # print('  >', 'telescopes:', res['telescopes'],
         #       'baselines:', res['baselines'],
@@ -587,7 +606,7 @@ def wTarg(hdu, targname, targets):
         return hdu.data['TARGET_ID']==targets[targname]
 
 
-def binOI(_wl, WL, T, F, E=None, medFilt=None):
+def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False):
     """
     _wl: new WL vector
     WL: actual WL vector
@@ -595,8 +614,10 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None):
     F: flag table (2D)
     """
     res = np.zeros((T.shape[0], len(_wl)))
+    flag = np.zeros((T.shape[0], len(_wl)), dtype=bool)
     for i in range(T.shape[0]):
         w = ~F[i,:]
+        flag[i,:] = _binVec(_wl, WL, F[i,:])==1
         if E is None:
             res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
         else:
@@ -604,6 +625,8 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None):
                 res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt)
             except:
                 res[i,:] = np.nan
+    if retFlag:
+        return res, flag
     return res
 
 def _binVec(x, X, Y, E=None, medFilt=None):
@@ -611,17 +634,29 @@ def _binVec(x, X, Y, E=None, medFilt=None):
     bin Y(X) with new x. E is optional error bars (wor weighting)
     """
     dx = np.median(np.diff(x))
-    # -- kernel of FWHM dx
-    k = np.exp(-(X-np.mean(X))**2/(0.6*dx)**2)
-    k /= np.sum(k)
     if E is None:
         E = np.ones(len(Y))
+
+    # -- X can be irregular...
+    y = np.zeros(len(x))
+    for i,x0 in enumerate(x):
+        k = np.exp(-(X-x0)**2/(0.6*dx)**2)
+        #print(k.shape, Y.shape, E.shape)
+        y[i] = np.sum(k*Y/E)/np.sum(k/E)
+    return y
+
+    # -- kernel of FWHM dx
+    k = np.exp(-(X-np.mean(X))**2/(0.6*dx)**2)
+    #k = np.float_(np.abs(X-np.mean(X))<=dx/2)
+    k /= np.sum(k)
     W = np.convolve(1/E, k, 'same')
+    s = np.argsort(X)
 
     if not medFilt is None:
-        return np.interp(x, X, np.convolve(scipy.signal.medfilt(Y/E, kernel_size=medFilt), k, 'same')/W)
+        return np.interp(x, X[s], np.convolve(scipy.signal.medfilt(Y/E,
+                                        kernel_size=medFilt)[s], k, 'same')/W[s])
     else:
-        return np.interp(x, X, np.convolve(Y/E, k, "same")/W)
+        return np.interp(x, X[s], np.convolve(Y/E, k, "same")[s]/W[s])
 
 def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     """
@@ -763,22 +798,104 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
         for k in ['telescopes', 'baselines', 'triangles']:
             if k in r:
                 r[k] = list(set(r[k]))
+
+    #-- make sure there is a 1-to-1 correspondance between VIS and VIS2:
+    for r in res:
+        if 'OI_VIS' in r and 'OI_VIS2' in r:
+            kz = list(set(list(r['OI_VIS'].keys())+list(r['OI_VIS2'].keys())))
+            print(kz)
+            for k in kz:
+                if not k in r['OI_VIS']:
+                    #print(k, 'missing from OI_VIS!')
+                    r['OI_VIS'][k]={}
+                    for x in ['MJD', 'u', 'v', 'u/wl', 'v/wl', 'B/wl', 'PA',
+                             'FLAG']:
+                        r['OI_VIS'][k][x] = r['OI_VIS2'][k][x].copy()
+                    r['OI_VIS'][k]['FLAG'] = np.logical_or(r['OI_VIS'][k]['FLAG'],
+                                                            True)
+                    r['OI_VIS'][k]['|V|'] = 1+0*r['OI_VIS2'][k]['V2']
+                    r['OI_VIS'][k]['E|V|'] = 1+0*r['OI_VIS2'][k]['V2']
+                    r['OI_VIS'][k]['PHI'] = 1+0*r['OI_VIS2'][k]['V2']
+                    r['OI_VIS'][k]['EPHI'] = 1+0*r['OI_VIS2'][k]['V2']
+                elif not k in r['OI_VIS2']: # -- NOT important...
+                    #print(k, 'missing from OI_VIS2!')
+                    r['OI_VIS2'][k]={}
+                    for x in ['MJD', 'u', 'v', 'u/wl', 'v/wl', 'B/wl', 'PA',
+                             'FLAG']:
+                        r['OI_VIS2'][k][x] = r['OI_VIS'][k][x].copy()
+                    #r['OI_VIS2'][k]['FLAG'] += True
+                    r['OI_VIS2'][k]['FLAG'] = np.logical_or(r['OI_VIS2'][k]['FLAG'],
+                                                            True)
+
+                    r['OI_VIS2'][k]['V2'] = 1+0*r['OI_VIS'][k]['|V|']
+                    r['OI_VIS2'][k]['EV2'] = 1+0*r['OI_VIS'][k]['|V|']
+                mjd = list(set(list(r['OI_VIS'][k]['MJD'])+list(r['OI_VIS2'][k]['MJD'])))
+                if len(r['OI_VIS'][k]['MJD']) < len(mjd):
+                    #print(k, 'VIS is missing data! (%d/%d)'%(len(r['OI_VIS'][k]['MJD']), len(mjd)))
+                    w = [x not in r['OI_VIS'][k]['MJD'] for x in r['OI_VIS2'][k]['MJD']]
+                    w = np.array(w)
+
+                    for x in ['MJD', 'u', 'v']:
+                        r['OI_VIS'][k][x] = np.append(r['OI_VIS'][k][x],
+                                                      r['OI_VIS2'][k][x][w])
+
+                    for x in ['u/wl', 'v/wl', 'B/wl', 'FLAG', 'PA',
+                              '|V|', 'E|V|', 'PHI', 'EPHI']:
+                        if x in r['OI_VIS2'][k]:
+                            r['OI_VIS'][k][x] = np.concatenate((r['OI_VIS'][k][x],
+                                                                r['OI_VIS2'][k][x][w,:]))
+                        else:
+                            r['OI_VIS'][k][x] = np.concatenate((r['OI_VIS'][k][x],
+                                                                1+0*r['OI_VIS2'][k]['V2'][w,:]))
+                    r['OI_VIS'][k]['FLAG'][-sum(w):,:] = np.logical_or(
+                                        r['OI_VIS'][k]['FLAG'][-sum(w):,:],True)
+
+                    # -- check:
+                    # for x in r['OI_VIS'][k]:
+                    #     print(x, r['OI_VIS'][k][x].shape, end=' ')
+                    #     if x in r['OI_VIS2'][k]:
+                    #         print(r['OI_VIS2'][k][x].shape)
+                    #     else:
+                    #         print(r['OI_VIS2'][k]['V2'].shape)
+
+
+
+                if len(r['OI_VIS2'][k]['MJD']) != len(mjd):
+                    print(k, 'VIS2 is missing data! (%d/%d)'%(len(mjd)-len(r['OI_VIS2'][k]['MJD']), len(mjd)))
+                    # -- TODO: copy what is above!
+
     # -- special case for T3 formulas
     # -- match MJDs for T3 computations:
     for r in res:
         if 'OI_T3' in r.keys():
-            if 'OI_VIS' in r.keys():
-                key = 'OI_VIS'
-            else:
-                key = 'OI_VIS2'
+            rmkey = []
             for k in r['OI_T3'].keys():
                 s, t, w0, w1, w2 = r['OI_T3'][k]['formula']
                 _w0, _w1, _w2 = [], [], []
-                for mjd in r['OI_T3'][k]['MJD']:
-                    _w0.append(np.argmin(np.abs(r[key][t[0]]['MJD']-mjd)))
-                    _w1.append(np.argmin(np.abs(r[key][t[1]]['MJD']-mjd)))
-                    _w2.append(np.argmin(np.abs(r[key][t[2]]['MJD']-mjd)))
-                r['OI_T3'][k]['formula'] = [s, t, _w0, _w1, _w2]
+                if 'OI_VIS' in r.keys() and t[0] in r['OI_VIS'] and \
+                        t[1] in r['OI_VIS'] and t[2] in r['OI_VIS']:
+                    key = 'OI_VIS'
+                elif 'OI_VIS2' in r.keys() and t[0] in r['OI_VIS2'] and \
+                        t[1] in r['OI_VIS2'] and t[2] in r['OI_VIS2']:
+                    key = 'OI_VIS2'
+                else:
+                    # I Should never arrive here!!!
+                    key = None
+
+                try:
+                    for mjd in r['OI_T3'][k]['MJD']:
+                        _w0.append(np.argmin(np.abs(r[key][t[0]]['MJD']-mjd)))
+                        _w1.append(np.argmin(np.abs(r[key][t[1]]['MJD']-mjd)))
+                        _w2.append(np.argmin(np.abs(r[key][t[2]]['MJD']-mjd)))
+                    r['OI_T3'][k]['formula'] = [s, t, _w0, _w1, _w2]
+                except:
+                    tmp = sorted(list(r[key].keys()))
+                    print('OOPS: cannot compute T3 formula!!!')
+                    print(k, t, t[0] in tmp, t[1] in tmp, t[2] in tmp, key, tmp)
+                    rmkey.append(k)
+                    r['OI_T3'][k]['formula'] = None
+            for k in rmkey:
+               r['OI_T3'].pop(k)
 
     # -- keep only master oi's, which contains merged data:
     if verbose:

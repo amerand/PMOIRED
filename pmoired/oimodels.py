@@ -1891,9 +1891,15 @@ def residualsOI(oi, param, timeit=False):
                         err = np.maximum(oi['fit']['min relative error'][f]*
                                          np.abs(oi[ext[f]][k][f]), err)
 
-                    tmp = rf(oi[ext[f]][k][f][mask] -
-                             m[ext[f]][k][f][mask])/err[mask]
-                    res = np.append(res, tmp.flatten())
+                    try:
+                        tmp = rf(oi[ext[f]][k][f][mask] -
+                                 m[ext[f]][k][f][mask])/err[mask]
+                        res = np.append(res, tmp.flatten())
+                    except:
+                        print('!!!', f, ext[f], k, f,
+                                len(oi[ext[f]][k][f]),
+                                len(m[ext[f]][k][f]),
+                                len(err) )
                 else:
                     pass
                     #print('ignoring', ext[f], k)
