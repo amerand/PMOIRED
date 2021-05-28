@@ -133,8 +133,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 _WL = res['WL']*1.0
                 _dWL = res['dWL']*1.0
                 # -- binned
-                res['WL'] = np.linspace(res['WL'][binning:].min(),
-                                        res['WL'][:-binning].max(),
+                res['WL'] = np.linspace(res['WL'].min(),
+                                        res['WL'].max(),
                                         len(res['WL'])//binning)
                 res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
 
@@ -617,7 +617,7 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False):
     flag = np.zeros((T.shape[0], len(_wl)), dtype=bool)
     for i in range(T.shape[0]):
         w = ~F[i,:]
-        flag[i,:] = _binVec(_wl, WL, F[i,:])==1
+        flag[i,:] = _binVec(_wl, WL, np.float_(F[i,:]))>0.5
         if E is None:
             res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
         else:
@@ -803,7 +803,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     for r in res:
         if 'OI_VIS' in r and 'OI_VIS2' in r:
             kz = list(set(list(r['OI_VIS'].keys())+list(r['OI_VIS2'].keys())))
-            print(kz)
+            #print(kz)
             for k in kz:
                 if not k in r['OI_VIS']:
                     #print(k, 'missing from OI_VIS!')
