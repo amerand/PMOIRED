@@ -490,6 +490,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Nr = oi['fit']['Nr']
         else:
             Nr = max(10, int(100*_param['thick'])) # -- arbitrary !!!
+            #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr)
 
         _r = np.linspace(diamin/2, diamout/2, Nr)
         _mu = np.sqrt(1-(2*_r/diamout)**2)
@@ -513,7 +514,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
         if 'surf bri' in _param:
             # -- use this to compute flux, can be function of wavelength
-            f = np.trapz(Ir*2*np.pi*_r, _r)
+            f = np.trapz(Ir*2*np.pi*_r, _r)*_ffrac
+            #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
+            #      'int(r*Ir)', f)
             if not '$WL' in _param['surf bri']:
                 f *= np.ones(len(oi['WL']))*_param['surf bri']
             else:
@@ -528,7 +531,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
                 oi['fit']['ignore negative flux']:
                 negativity = 0.0
-
 
         _n, _amp, _phi = [], [], []
         for k in _param.keys():
@@ -1139,6 +1141,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
     t0 = time.time()
     for c in comp:
+        #print(c)
         tc = time.time()
         # -- this component.
         _param = {k.split(',')[1].strip():param[k] for k in param.keys() if
