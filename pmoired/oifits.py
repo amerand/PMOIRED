@@ -861,9 +861,25 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
 
 
                 if len(r['OI_VIS2'][k]['MJD']) != len(mjd):
-                    print(k, 'VIS2 is missing data! (%d/%d)'%(len(mjd)-len(r['OI_VIS2'][k]['MJD']), len(mjd)))
+                    #print(k, 'VIS2 is missing data! (%d/%d)'%(len(mjd)-len(r['OI_VIS2'][k]['MJD']), len(mjd)))
                     # -- TODO: copy what is above!
+                    w = [x not in r['OI_VIS2'][k]['MJD'] for x in r['OI_VIS'][k]['MJD']]
+                    w = np.array(w)
 
+                    for x in ['MJD', 'u', 'v']:
+                        r['OI_VIS2'][k][x] = np.append(r['OI_VIS2'][k][x],
+                                                      r['OI_VIS'][k][x][w])
+
+                    for x in ['u/wl', 'v/wl', 'B/wl', 'FLAG', 'PA',
+                              'V2', 'EV2']:
+                        if x in r['OI_VIS'][k]:
+                            r['OI_VIS2'][k][x] = np.concatenate((r['OI_VIS2'][k][x],
+                                                                r['OI_VIS'][k][x][w,:]))
+                        else:
+                            r['OI_VIS2'][k][x] = np.concatenate((r['OI_VIS2'][k][x],
+                                                                1+0*r['OI_VIS'][k]['|V|'][w,:]))
+                    r['OI_VIS2'][k]['FLAG'][-sum(w):,:] = np.logical_or(
+                                        r['OI_VIS2'][k]['FLAG'][-sum(w):,:], True)
     # -- special case for T3 formulas
     # -- match MJDs for T3 computations:
     for r in res:
@@ -904,7 +920,6 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
             print('dictionnaries with unique setups:')
         else:
             print('dictionnary with a unique setup:')
-
         for i, m in enumerate(res):
             print(' [%d]'%i, m['insname'], ' %d wavelengths:'%len(m['WL']),
                     m['WL'][0], '..', m['WL'][-1], 'um', end=' ')

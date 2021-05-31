@@ -176,6 +176,13 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     'az ampi', 'az projangi': defines the cos variation amplitude and phase for
         i-th nodes along the azimuth
 
+    crescent:
+    ---------
+    crout, crin: the diameter of the outer and inner disk
+    croff: offset in fraction of (crout-crin) -1...1, where 0 is a ring
+    the orientation of the crescent is defined by 'incl' and 'projang', defining
+        the large axis
+
     flux modeling:
     --------------
     if nothing is specified, flux is assume equal to 1 at all wavelengths
@@ -239,7 +246,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     # -- spectrum, fraction of it if needed for bandwith smearing
     f = Ssingle(res, _param, noLambda=True)*_ffrac
-
     if any(f>0):
         # -- check negativity of spectrum
         negativity = np.sum(f[f<0])/np.sum(f[f>=0])
@@ -302,7 +308,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         wwl += (oi['WL']>=wlr[0]-0.05*(wlr[1]-wlr[0]))*\
                (oi['WL']<=wlr[1]+0.05*(wlr[1]-wlr[0]))
     wwl = np.bool_(wwl)
-
 
     # -- do we need to apply a stretch?
     if 'projang' in _param.keys() and 'incl' in _param.keys():
@@ -440,6 +445,30 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
+    elif 'crin' in _param and 'crout' in _param and 'croff' in _param: # crecsent
+        #print('crescent')
+        if _param['crin']>_param['crout']:
+            _crin=0.9999*_param['crout']
+        else:
+            _crin = _param['crin']
+
+        _off = _param['croff']*(_param['crout']-_crin)/2
+
+        Vf = lambda z: (np.exp(2j*_c*_uwl(z)*_off/2)*
+                        _param['crout']**2*2*scipy.special.j1(_c*_param['crout']*_Bwl(z) + 1e-12)/
+                        (_c*_param['crout']*_Bwl(z)+ 1e-12) -
+                        np.exp(-2j*_c*_uwl(z)*_off/2)*
+                        _crin**2*2*scipy.special.j1(_c*_crin*_Bwl(z) + 1e-12)/
+                                            (_c*_crin*_Bwl(z)+ 1e-12))/\
+                                            (_param['crout']**2-_crin**2)
+        if not I is None:
+            R2 = (_X+_off/2)**2+_Y**2
+            I = np.float_(R2<=(_param['crout']**2/4))
+            R2 = (_X-_off/2)**2+_Y**2
+            I -= (R2<=(_crin**2/4))
+            if np.sum(I)==0:
+                I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
+
 
     elif 'diamout' in _param or 'diam' in _param: # == F(r)*G(az) ========================
         # -- disk or ring with radial and az profile
@@ -481,6 +510,25 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Ir = 1-((_r-np.mean(_r))/np.ptp(_r)*2)**2
         elif _param['profile']=='uniform': # uniform
             Ir = np.ones(_r.shape)
+
+        if 'surf bri' in _param:
+            # -- use this to compute flux, can be function of wavelength
+            f = np.trapz(Ir*2*np.pi*_r, _r)
+            if not '$WL' in _param['surf bri']:
+                f *= np.ones(len(oi['WL']))*_param['surf bri']
+            else:
+                f *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+            if any(f>0):
+                # -- check negativity of spectrum
+                negativity = np.sum(f[f<0])/np.sum(f[f>=0])
+            elif all(f<0):
+                negativity = np.sum(f[f<0])
+            else:
+                negativity = 0
+            if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
+                oi['fit']['ignore negative flux']:
+                negativity = 0.0
+
 
         _n, _amp, _phi = [], [], []
         for k in _param.keys():
