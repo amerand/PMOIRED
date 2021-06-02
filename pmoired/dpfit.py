@@ -482,38 +482,40 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         print('# -- red CHI2=', reducedChi2)
         print('# --     NDOF=', int(chi2/reducedChi2))
         #print('-'*30)
-        tmp = list(pfix.keys()); tmp.sort()
-        maxLength = np.max(np.array([len(k) for k in tmp]))
-        format_ = "'%s':"
-        # -- write each parameter and its best fit, as well as error
-        # -- writes directly a dictionary
-        if len(tmp)<100 or type(verbose)==int and verbose>1:
-            #print('') # leave some space to the eye
-            #print('{ # -- chi2=%.4f'%chi2)
-            for ik,k in enumerate(tmp):
-                padding = ' '*(maxLength-len(k))
-                formatS = format_+padding
-                if ik==0:
-                    formatS = '{'+formatS
-                if uncer[k]>0:
-                    ndigit = max(-int(np.log10(uncer[k]))+2, 0)
-                    fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
-                    #print(formatS%k , round(pfix[k], ndigit), ',', end='')
-                    #print('# +/-', round(uncer[k], ndigit))
-                    print(formatS%k, fmt%(pfix[k], uncer[k]))
-                elif uncer[k]==0:
-                    if isinstance(pfix[k], str):
-                        print(formatS%k , "'"+pfix[k]+"'", ',')
-                    else:
-                        print(formatS%k , pfix[k], ',')
-                else:
-                    print(formatS%k , pfix[k], ',', end='')
-                    print('# +/-', uncer[k])
-            print('}') # end of the dictionnary
-            if normalizedUncer:
-                print('(uncertainty normalized to data dispersion)')
-            else:
-                print('(uncertainty assuming error bars are correct)')
+        dispBest({'best':pfix, 'uncer':uncer, 'fitOnly':fitOnly})
+
+        # tmp = list(pfix.keys()); tmp.sort()
+        # maxLength = np.max(np.array([len(k) for k in tmp]))
+        # format_ = "'%s':"
+        # # -- write each parameter and its best fit, as well as error
+        # # -- writes directly a dictionary
+        # if len(tmp)<100 or type(verbose)==int and verbose>1:
+        #     #print('') # leave some space to the eye
+        #     #print('{ # -- chi2=%.4f'%chi2)
+        #     for ik,k in enumerate(tmp):
+        #         padding = ' '*(maxLength-len(k))
+        #         formatS = format_+padding
+        #         if ik==0:
+        #             formatS = '{'+formatS
+        #         if uncer[k]>0:
+        #             ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+        #             fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+        #             #print(formatS%k , round(pfix[k], ndigit), ',', end='')
+        #             #print('# +/-', round(uncer[k], ndigit))
+        #             print(formatS%k, fmt%(pfix[k], uncer[k]))
+        #         elif uncer[k]==0:
+        #             if isinstance(pfix[k], str):
+        #                 print(formatS%k , "'"+pfix[k]+"'", ',')
+        #             else:
+        #                 print(formatS%k , pfix[k], ',')
+        #         else:
+        #             print(formatS%k , pfix[k], ',', end='')
+        #             print('# +/-', uncer[k])
+        #     print('}') # end of the dictionnary
+        #     if normalizedUncer:
+        #         print('(uncertainty normalized to data dispersion)')
+        #     else:
+        #         print('(uncertainty assuming error bars are correct)')
 
     # -- result:
     if fullOutput:
@@ -899,7 +901,12 @@ def _ellParam(sA2, sB2, sAB):
     return sMa, sma, a
 
 def dispBest(fit, pre='', asStr=False, asDict=True):
-    tmp = sorted(fit['best'].keys())
+    #tmp = sorted(fit['best'].keys())
+    # -- fitted param:
+    tmp = sorted(fit['fitOnly'])
+    # -- unfitted:
+    tmp += sorted(list(filter(lambda x: x not in fit['fitOnly'], fit['best'].keys())))
+
     uncer = fit['uncer']
     pfix = fit['best']
 

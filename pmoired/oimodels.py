@@ -468,7 +468,25 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             I -= (R2<=(_crin**2/4))
             if np.sum(I)==0:
                 I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
-
+        if 'surf bri' in _param:
+            # -- use this to compute flux, can be function of wavelength
+            f = np.pi*(_param['crout']**2 - _crin**2)/4*_ffrac
+            #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
+            #      'int(r*Ir)', f)
+            if not '$WL' in _param['surf bri']:
+                f *= np.ones(len(oi['WL']))*_param['surf bri']
+            else:
+                f *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+            if any(f>0):
+                # -- check negativity of spectrum
+                negativity = np.sum(f[f<0])/np.sum(f[f>=0])
+            elif all(f<0):
+                negativity = np.sum(f[f<0])
+            else:
+                negativity = 0
+            if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
+                oi['fit']['ignore negative flux']:
+                negativity = 0.0
 
     elif 'diamout' in _param or 'diam' in _param: # == F(r)*G(az) ========================
         # -- disk or ring with radial and az profile
@@ -512,11 +530,30 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         elif _param['profile']=='uniform': # uniform
             Ir = np.ones(_r.shape)
 
+        _n, _amp, _phi = [], [], []
+        for k in _param.keys():
+            if k.startswith('az amp'):
+                _n.append(int(k.split('az amp')[1]))
+                _phi.append(_param[k.replace('az amp', 'az projang')])
+                _amp.append(_param[k])
+
+        if 'projang' in _param.keys() and 'incl' in _param.keys():
+            stretch = [np.cos(np.pi*_param['incl']/180), _param['projang']]
+        else:
+            stretch = [1,0]
+
+        negativity += _negativityAzvar(_n, _phi, _amp)
+        if len(_n)>0:
+            # -- make sure max az var is 1 (important for surface brightness)
+            psi = np.linspace(0, 360, 91)[:-1]
+            psi = np.array(_n)[:,None]*(psi[None,:] + np.array(_phi)[:,None])
+            tmp = 1 + np.array(_amp)[:,None]*np.cos(psi*np.pi/180)
+            tmp = np.sum(tmp, axis=0)
+            #Ir /= max(tmp)
+
         if 'surf bri' in _param:
             # -- use this to compute flux, can be function of wavelength
-            f = np.trapz(Ir*2*np.pi*_r, _r)*_ffrac
-            #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
-            #      'int(r*Ir)', f)
+            f = 2*np.pi*np.trapz(Ir*_r, _r)*_ffrac
             if not '$WL' in _param['surf bri']:
                 f *= np.ones(len(oi['WL']))*_param['surf bri']
             else:
@@ -532,20 +569,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                 oi['fit']['ignore negative flux']:
                 negativity = 0.0
 
-        _n, _amp, _phi = [], [], []
-        for k in _param.keys():
-            if k.startswith('az amp'):
-                _n.append(int(k.split('az amp')[1]))
-                _phi.append(_param[k.replace('az amp', 'az projang')])
-                _amp.append(_param[k])
-
-        if 'projang' in _param.keys() and 'incl' in _param.keys():
-            stretch = [np.cos(np.pi*_param['incl']/180), _param['projang']]
-        else:
-            stretch = [1,0]
-        negativity += _negativityAzvar(_n, _phi, _amp)
-        Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl, Ir, _r, _n, _phi, _amp,
-                                stretch=stretch)
+        Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl,
+                               Ir, _r, _n, _phi, _amp, stretch=stretch)
 
         if not any(f>0):
             # -- save time
@@ -1190,7 +1215,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                                     np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
             m = {}
         else:
-            # -- combine model with others
+            # -- combine model with other components
             m = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent+1, noT3=True,
                         _dwl=_dwl, _ffrac=_ffrac)
