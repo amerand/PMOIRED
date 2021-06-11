@@ -242,7 +242,7 @@ class OI:
             if doNotFit is None:
                 doNotFit = self.bestfit['doNotFit']
             if fitOnly is None:
-                fiitOnly = self.bestfit['fitOnly']
+                fitOnly = self.bestfit['fitOnly']
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
