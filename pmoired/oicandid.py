@@ -14,7 +14,8 @@ try:
 except:
     import oimodels
 
-def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
+def fitMap(oi, firstGuess=None, companion='c', fitAlso=[],
+            rmin=None, rmax=None, rstep=None,
             multi=True, fig=1, cmap=None, doNotFit=[], logchi2=False):
     """
     firstguess: model. Star should be parametrized with '*,...' and companion 'c,...'.
@@ -67,10 +68,11 @@ def fitMap(oi, firstGuess=None, fitAlso=[], rmin=None, rmax=None, rstep=None,
     else:
         UD = oimodels.fitOI(oi, {'ud':1.0}, verbose=False)
     print('uniform disk fit: chi2=%.3f'%UD['chi2'])
-    default = {'*,ud':0.0, '*,f':1.0, 'c,ud':0.0, 'c,f':0.01}
+    default = {'*,ud':0.0, '*,f':1.0, companion+',ud':0.0, companion+',f':0.01}
 
     if firstGuess is None:
         firstGuess = default
+    
     default.update(firstGuess)
     firstGuess = default
 

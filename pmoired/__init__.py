@@ -64,8 +64,8 @@ class OI:
         self.spectra = {}
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
-                withHeader=False, medFilt=None, tellurics=None, binning=None):
-        if not type(filenames)==list:
+                withHeader=True, medFilt=None, tellurics=None, binning=None):
+        if not type(filenames)==list or not type(filenames)==tuple:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
@@ -96,7 +96,7 @@ class OI:
                     d['configurations per MJD'][mjd].extend(d['telescopes'])
 
                 mjd = np.array(sorted(list(d['configurations per MJD'])))
-                s = np.interp(d['WL'], wl, sed)[None,:] + mjd[:,None]
+                s = np.interp(d['WL'], wl, sed)[None,:] + 0*mjd[:,None]
                 for t in d['telescopes']:
                     flux[t] = {'FLUX':s, 'RFLUX':s, 'EFLUX':err*s, 'FLAG':s==0, 'MJD':mjd}
                 d['OI_FLUX'] = flux
@@ -193,6 +193,7 @@ class OI:
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
+        self.computeModelSpectrum()
         return
     def showFit(self):
         if not self.bestfit is None:
@@ -213,12 +214,13 @@ class OI:
                                           doNotFit=doNotFit, logchi2=logchi2,
                                           multi=multi)
         self.bestfit = self.candidFits[0]
+        self.computeModelSpectrum
         return
 
-    def gridFit(self, expl, Nfits=None, param=None, fitOnly=None, doNotFit=None,
-                     maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
+    def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
+                     maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8):
         """
-        perform "Nfits" fit on data, starting from "param" (default last best fit),
+        perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
         "grid" param are defined.
 
@@ -235,27 +237,43 @@ class OI:
         if "grid" are defined, they will define N as:
         Nfits = prod_i (max_i-min_i)/step_i + 1
         """
-        if param is None and not self.bestfit is None:
-            param = self.bestfit['best']
+        if model is None and not self.bestfit is None:
+            model = self.bestfit['best']
             if doNotFit is None:
                 doNotFit = self.bestfit['doNotFit']
             if fitOnly is None:
                 fitOnly = self.bestfit['fitOnly']
-        assert not param is None, 'first guess should be provided: param={...}'
+        assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        self.grid = oimodels.gridFitOI(self._merged, param, expl, Nfits,
+        self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
+        self.computeModelSpectrum()
+        self._expl = expl
         return
 
-    def showGrid(self, px, py, color='chi2', aspect=None,
-                vmin=None, vmax=None, cmap='spring'):
+    def showGrid(self, px=None, py=None, color='chi2', aspect=None,
+                vmin=None, vmax=None, cmap='spring', logV=False):
         assert not self.grid is None, 'You should run gridFit first!'
         self.fig += 1
+        params = []
+        for k in self._expl:
+            for g in self._expl[k]:
+                params.append(g)
+        params = sorted(params)
+        if px is None:
+            px = params[0]
+        if py is None:
+            py = params[1]
+        if aspect is None and \
+                (px=='x' or px.endswith(',x')) and \
+                (py=='y' or px.endswith(',y')):
+            aspect='equal'
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
-                    vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap)
+                          vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
+                          logV=logV)
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
@@ -264,9 +282,10 @@ class OI:
         by default Nfits is set to the number of data, and model to the last best
         fit. 'multi' sets the number of threads (default==all available).
         """
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        if self._merged is None:
+            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if model is None:
-            assert not self.bestfit is None, 'you should run a fit first'
+            assert not self.bestfit is None, 'you should run a fit first or give an explicit model'
             model = self.bestfit
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
@@ -287,11 +306,11 @@ class OI:
         self.fig += 1
         return
 
-    def show(self, model='best', fig=None, obs=None, logV=False, logB=False,
+    def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=False,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
-             imX=0, imY=0):
+             imX=0, imY=0, showChi2=False):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -333,7 +352,7 @@ class OI:
             N = [len(d['WL']) for d in self.data]
             spectro = max(N)>20
 
-        if perSetup or allInOne:
+        if allInOne or perSetup:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
         else:
             data = self.data
@@ -353,88 +372,103 @@ class OI:
             model = None
 
         if perSetup:
-            if perSetup is True:
-                # -- try to guess the groupings by "ins_wl_resolution"
-                R = lambda wl, dwl: 5*np.round(np.mean(wl/dwl)/5,
-                            1-int(np.log10(np.mean(wl/dwl)/5)))
-                setups = [d['insname'].split('_')[0]+' %.1fum R%.0f'%(d['WL'].mean(), R(d['WL'], d['dWL'])) for d in data]
-                perSetup = list(set(setups))
-                #print('setups:', setups)
-                #print('perSetup:', perSetup)
-            else:
-                setups = [d['insname'] for d in data]
+            # # -- try to be clever about grouping
+            # R = []
+            # for d in data:
+            #     r = (np.mean(d['WL'])/np.abs(np.mean(np.diff(d['WL'])))//5)*5.0
+            #     if d['insname'].startswith('PIONIER'):
+            #         R.append('%s R%.0f'%(d['insname'].split('_')[0], r))
+            #     else:
+            #         R.append('%s R%.0f'%(d['insname'], r))
+            # group = []
+            # _obs = []
+            # for r in sorted(list(set(R))):
+            #     group.append(oifits.mergeOI([data[i] for i in range(len(data)) if R[i]==r], verbose=False))
+            #     tmp = []
+            #     for i,d in enumerate(data):
+            #         if R[i]==r and 'fit' in d and 'obs' in d['fit']:
+            #             tmp.extend(d['fit']['obs'])
+            #     _obs.append(list(set(tmp)))
+            # # -- group
+            # print(len(group))
 
-            # -- group
-            group = []
-            for i,d in enumerate(data):
-                for s in perSetup:
-                    if s in setups[i]:
-                        group.append(s)
-                        continue
-            for j,g in enumerate(sorted(set(group))):
-                oimodels.showOI([d for i,d in enumerate(data) if group[i]==g],
-                        param=model, fig=self.fig, obs=obs, logV=logV,
+            for j,g in enumerate(data):
+                if 'fit' in g and 'obs' in g['fit']:
+                    #print(j, g['fit'])
+                    _obs = g['fit']['obs']
+                else:
+                    _obs = obs
+                oimodels.showOI(g,
+                        param=model, fig=self.fig, obs=_obs, logV=logV, logS=logS,
                         logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV, allInOne=True,
+                        spectro=spectro, showUV=showUV, allInOne=False,
                         imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                        cmap=cmap, imX=imX, imY=imY)
+                        cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
                 self.fig+=1
                 if imFov is None:
-                    plt.suptitle(g)
+                    #plt.suptitle(sorted(set(R))[j])
+                    pass
                 else:
-                    plt.figure(self.fig)
-                    plt.suptitle(g)
+                    #plt.figure(self.fig)
+                    #plt.suptitle(sorted(set(R))[j])
                     self.fig+=1
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
             if not obs is None:
-                obs = list(obs)
+                _obs = list(obs)
             else:
-                obs = []
                 for d in data:
+                    _obs = []
                     if not 'fit' in d or not 'obs' in d['fit']:
                         if 'OI_T3' in d:
-                            obs.append('T3PHI')
+                            _obs.append('T3PHI')
                         if 'OI_VIS2' in d:
-                            obs.append('V2')
+                            _obs.append('V2')
                         if 'OI_VIS' in d:
-                            obs.append('|V|')
+                            _obs.append('|V|')
                         if 'OI_FLUX' in d:
-                            obs.append('FLUX')
-                    else:
-                        obs.extend(d['fit']['obs'])
-                obs = list(set(obs))
+                            _obs.append('FLUX')
+                        if not 'fit' in d:
+                            d['fit'] = {}
+                        d['fit']['obs'] = _obs
 
+            #print('_obs', _obs)
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
-                    obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
+                    obs=None, logV=logV, logB=logB, logS=logS, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
                     imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
                     checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                    cmap=cmap, imX=imX, imY=imY)
+                    cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
             if allInOne:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
         else:
             for i,d in enumerate(data):
+                if 'fit' in d and 'obs' in d['fit']:
+                    #print(j, g['fit'])
+                    _obs = d['fit']['obs']
+                else:
+                    _obs = None
                 self._model = oimodels.showOI([d], param=model, fig=self.fig,
-                        obs=obs, logV=logV, logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV,
+                        obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
+                        spectro=spectro, showUV=showUV, logS=logS,
                         imFov=imFov if i==(len(data)-1) else None,
                         imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY)
+                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
                 self.fig += 1
         if not imFov is None:
             self.fig += 1
-        print('done in %.2fs'%(time.time()-t0))
+        #print('done in %.2fs'%(time.time()-t0))
         return
 
-    def halfLightRadii(self):
+    def halfLightRadii(self, verbose=True):
         if not self.bestfit is None:
-            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit, verbose=1)
+            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit,
+                                                            verbose=verbose)
         else:
             print('no best fit model to compute half light radii!')
         return
@@ -480,10 +514,8 @@ class OI:
         if len(allWLs):
             allWL = {'WL':allWLs, 'fit':{'obs':[]}} # minimum required
             tmp = oimodels.VmodelOI(allWL, model)
-            print(type(tmp), tmp.keys())
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}
-            #print('normalised spectra computed for each components in dict ".spectra"')
             M['normalised spectrum WL'] = allWLs
             M['normalised spectrum COMP'] = fluxes
             M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
@@ -492,7 +524,8 @@ class OI:
             M['normalised spectrum COMP'] = {}
             M['normalised spectrum TOTAL'] = np.array([])
 
-        return M
+        self.spectra = M
+        return
 
 def _checkObs(data, obs):
     """
@@ -518,7 +551,7 @@ def _checkSetupFit(fit):
             'mult error':dict,
             'obs':list, 'wl ranges':list,
             'Nr':int, 'spec res pix':float,
-            'cont ranges':list,
+            'continuum ranges':list,
             'ignore negative flux':bool}
     ok = True
     for k in fit.keys():
