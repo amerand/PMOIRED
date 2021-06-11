@@ -900,7 +900,7 @@ def _ellParam(sA2, sB2, sAB):
 
     return sMa, sma, a
 
-def dispBest(fit, pre='', asStr=False, asDict=True):
+def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
     #tmp = sorted(fit['best'].keys())
     # -- fitted param:
     tmp = sorted(fit['fitOnly'])
@@ -932,19 +932,26 @@ def dispBest(fit, pre='', asStr=False, asDict=True):
                 fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
             else:
                 fmt = '%.'+str(ndigit)+'f +/- %.'+str(ndigit)+'f'
-            res += formatS%k+fmt%(pfix[k], uncer[k])+'\n'
+            if color:
+                col = ('\033[94m', '\033[0m')
+            else:
+                col = ('', '')
+            res += col[0]+formatS%k+fmt%(pfix[k], uncer[k])+col[1]+'\n'
             #print(formatS%k, fmt%(pfix[k], uncer[k]))
         elif uncer[k]==0:
+            if color:
+                col = ('\033[97m', '\033[0m')
+            else:
+                col = ('', '')
             if isinstance(pfix[k], str):
                 #print(formatS%k , "'"+pfix[k]+"'", ',')
-                res += formatS%k+"'"+pfix[k]+"'"+',\n'
+                res += col[0]+formatS%k+"'"+pfix[k]+"',"+col[1]+'\n'
             else:
                 #print(formatS%k , pfix[k], ',')
-                res += formatS%k+str(pfix[k])+',\n'
+                res += col[0]+formatS%k+str(pfix[k])+','+col[1]+'\n'
         else:
             #print(formatS%k , pfix[k], end='')
             res += formatS%k+pfix[k]
-
             if asDict:
                 #print(', # +/-', uncer[k])
                 res += '# +/- '+str(uncer[k])+'\n'
