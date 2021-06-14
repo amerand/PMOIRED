@@ -20,7 +20,7 @@ print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end='
 print('https://github.com/amerand/PMOIRED')
 
 class OI:
-    def __init__(self, filenames, insname=None, targname=None, verbose=True,
+    def __init__(self, filenames=None, insname=None, targname=None, verbose=True,
                withHeader=True, medFilt=None, tellurics=None, debug=False,
                binning=None):
         """
@@ -45,10 +45,12 @@ class OI:
         # -- load data
         self.data = []
         self.debug = debug
-        self.addData(filenames, insname=insname, targname=targname,
-                        verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                        tellurics=tellurics, binning=binning)
-
+        if not filenames is None:
+            self.addData(filenames, insname=insname, targname=targname,
+                            verbose=verbose, withHeader=withHeader, medFilt=medFilt,
+                            tellurics=tellurics, binning=binning)
+        else:
+            self.data = []
         # -- last best fit to the data
         self.bestfit = None
         # -- bootstrap results:
