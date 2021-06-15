@@ -57,6 +57,8 @@ class OI:
         self.boot = None
         # -- grid / random fits:
         self.grid = None
+        # -- detection limit grid / random fits:
+        self.limgrid = None
         # -- CANDID results:
         self.candidFits = None
         # -- current figure
@@ -219,6 +221,96 @@ class OI:
         self.computeModelSpectrum
         return
 
+    def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True):
+        """
+        check the detection limit for parameter "param" in the model (default
+        bestfit), using a exploration grid "expl" (see gridFit for a description),
+        assuming that "param"=0 is non-detection. The detection limit is computed
+        for a number of sigma "nsigma" (default=3).
+        """
+        if model is None and not self.bestfit is None:
+            model = self.bestfit['best']
+        assert not model is None, 'first guess should be provided: model={...}'
+        assert param in model, '"param" should be one of the key in dict "model"'
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self.limgrid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
+                                       multi=multi, dLimParam=param,
+                                       dLimSigma=nsigma)
+        #self.limgrid = [{'best':g} for g in self.limgrid]
+        self._limexpl = expl
+        self._limexpl['param'] = param
+        self._limexpl['nsigma'] = nsigma
+        tmp = [r[param] for r in self.limgrid]
+        print('median', param, ':', np.median(tmp))
+        print('1sigma (68%)', np.percentile(tmp, 16), '->',
+                np.percentile(tmp, 100-16))
+        if len(self.limgrid)>40:
+            print('2sigma (95%)', np.percentile(tmp, 2.5), '->',
+                    np.percentile(tmp, 100-2.5))
+        if len(self.limgrid)>1600:
+            print('3sigma (99.7%)', np.percentile(tmp, 0.15), '->',
+                    np.percentile(tmp, 100-0.15))
+        return
+
+    def showLimGrid(self, px=None, py=None, aspect=None,
+                    vmin=None, vmax=None, mag=False, cmap='magma'):
+        """
+        show the results from `detectionLimit` as 2D coloured map.
+
+        px, py: parameters to show in x and y axis (default the first 2 parameters
+            from the grid, in alphabetical order)
+        aspect: default is None, but can be set to "equal"
+        vmin, vmax: apply cuts to the colours (default: None)
+        logV: show the colour as log scale
+        cmap: valid matplotlib colour map (default="spring")
+
+        The crosses are the starting points of the fits, and the coloured dots
+        show the value of the limit for nsigma.
+        """
+        assert not self.limgrid is None, 'You should run detectionLimit first!'
+        self.fig += 1
+        params = []
+        for k in ['grid', 'rand', 'randn']:
+            if k in self._limexpl:
+                for g in self._limexpl[k]:
+                    params.append(g)
+        params = sorted(params)
+        if px is None:
+            px = params[0]
+        if py is None:
+            py = params[1]
+        xy = False
+        if aspect is None and \
+                (px=='x' or px.endswith(',x')) and \
+                (py=='y' or py.endswith(',y')):
+            aspect = 'equal'
+            xy = True
+
+        self.fig+=1
+        plt.close(self.fig)
+        plt.figure(self.fig, figsize=(8,4))
+        ax1 = plt.subplot(121, aspect=aspect)
+        if xy:
+            ax1.invert_xaxis()
+        if mag:
+            c =[-2.5*np.log10(r[self._limexpl['param']]) for r in self.limgrid]
+        else:
+            c =[r[self._limexpl['param']] for r in self.limgrid]
+        plt.scatter([r[px] for r in self.limgrid],
+                    [r[py] for r in self.limgrid],
+                    c=c, cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.title('%.1f$\sigma$ detection'%self._limexpl['nsigma'])
+        plt.colorbar(label=self._limexpl['param']+(' (mag)' if mag else ''))
+        plt.xlabel(px)
+        plt.ylabel(py)
+
+        plt.subplot(122)
+        plt.hist(c, bins=max(int(np.sqrt(len(self.limgrid))), 5))
+        plt.xlabel(self._limexpl['param']+(' (mag)' if mag else ''))
+        plt.tight_layout()
+        return
+
+
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
                      maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8):
         """
@@ -226,8 +318,8 @@ class OI:
         with grid / randomised parameters. Nfits can be determined from "expl" if
         "grid" param are defined.
 
-        expl = {'grid':{'p1':(0,1,0.1), 'p2':(-1,1,0.5), ...},
-                'rand':{'p3':(0,1), 'p4':(-np.pi, np.pi), ...},
+        expl = {'grid':{'p1':(0, 1, 0.1), 'p2':(-1, 1, 0.5), ...},
+                'rand':{'p3':(0, 1), 'p4':(-np.pi, np.pi), ...},
                 'randn':{'p5':(0, 1), 'p6':(np.pi/2, np.pi), ...}}
 
         grid=(min, max, step): explore all values for "min" to "max" with "step"
@@ -257,7 +349,21 @@ class OI:
         return
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
-                vmin=None, vmax=None, cmap='spring', logV=False):
+                vmin=None, vmax=None, logV=False, cmap='spring'):
+        """
+        show the results from `gridFit` as 2D coloured map.
+
+        px, py: parameters to show in x and y axis (default the first 2 parameters
+            from the grid, in alphabetical order)
+        color: which parameter to show as colour (default is 'chi2')
+        aspect: default is None, but can be set to "equal"
+        vmin, vmax: apply cuts to the colours (default: None)
+        logV: show the colour as log scale
+        cmap: valid matplotlib colour map (default="spring")
+
+        The crosses are the starting points of the fits, and the circled dot
+        is the global minimum.
+        """
         assert not self.grid is None, 'You should run gridFit first!'
         self.fig += 1
         params = []
@@ -269,13 +375,19 @@ class OI:
             px = params[0]
         if py is None:
             py = params[1]
+        xy = False
         if aspect is None and \
                 (px=='x' or px.endswith(',x')) and \
-                (py=='y' or px.endswith(',y')):
-            aspect='equal'
+                (py=='y' or py.endswith(',y')):
+            aspect = 'equal'
+            xy = True
+
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
                           logV=logV)
+        if xy:
+            # -- usual x axis inversion when showing coordinates on sky
+            plt.gca().invert_xaxis()
         return
 
     def bootstrapFit(self, Nfits=None, model=None, multi=True):
@@ -475,25 +587,45 @@ class OI:
             print('no best fit model to compute half light radii!')
         return
 
-    def computeModelSpectrum(self, model='best'):
+    def computeModelSpectrum(self, model='best', uncer=True, Niter=100):
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
+            # -- randomise parameters, using covariance
+            models = oimodels.dpfit.randomParam(self.bestfit, N=Niter,
+                                                x=None)['r_param']
+        elif uncer:
+            print('I do not know how to compute uncertainties!')
+            models = None
+
         assert type(model) is dict, "model must be a dictionnary"
 
         allWLc = [] # -- continuum -> absolute flux
         allWLs = [] # -- with spectral lines -> normalized flux
 
         for i,o in enumerate(self.data):
-            if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
-                if 'WL mask' in o:
-                    allWLs.extend(list(o['WL'][o['WL mask']]))
-                else:
-                    allWLs.extend(list(o['WL']))
+            # -- user-defined wavelength range
+            fit = {'wl ranges':[(min(o['WL']), max(o['WL']))]}
+            if not 'fit' in o:
+                o['fit'] = fit.copy()
+            elif not 'wl ranges' in o['fit']:
+                # -- weird but necessary to avoid a global 'fit'
+                fit.update(o['fit'])
+                o['fit'] = fit.copy()
+
+            w = np.zeros(o['WL'].shape)
+            closest = []
+            for WR in o['fit']['wl ranges']:
+                w += (o['WL']>=WR[0])*(o['WL']<=WR[1])
+                closest.append(np.argmin(np.abs(o['WL']-0.5*(WR[0]+WR[1]))))
+            o['WL mask'] = np.bool_(w)
+            if not any(o['WL mask']):
+                for clo in closest:
+                    o['WL mask'][clo] = True
+            if 'NFLUX' in o['fit']['obs']:
+                allWLs.extend(list(o['WL'][o['WL mask']]))
             else:
-                if 'WL mask' in o:
-                    allWLc.extend(list(o['WL'][o['WL mask']]))
-                else:
-                    allWLc.extend(list(o['WL']))
+                allWLc.extend(list(o['WL'][o['WL mask']]))
+
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
         M = {}
@@ -505,9 +637,24 @@ class OI:
                           tmp['MODEL'].keys() if k.endswith(',flux')}
             except:
                 fluxes = {'total': tmp['MODEL']['totalflux']}
+
+            if not models is None:
+                tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+                try:
+                    efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
+                            tmp['MODEL'].keys() if k.endswith(',flux')}
+                            )
+                except:
+                    efluxes = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
+            else:
+                efluxes={}
             M['flux WL'] = allWLc
             M['flux COMP'] = fluxes
+            M['err flux COMP'] = efluxes
             M['flux TOTAL'] = tmp['MODEL']['totalflux']
+            if not models is None:
+                M['err flux TOTAL'] = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
+
         else:
             M['flux WL'] = np.array([])
             M['flux COMP'] = {}
@@ -518,9 +665,20 @@ class OI:
             tmp = oimodels.VmodelOI(allWL, model)
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}
+            if not models is None:
+                tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+                efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
+                          tmp['MODEL'].keys() if k.endswith(',flux')}
+                          )
+            else:
+                efluxes={}
             M['normalised spectrum WL'] = allWLs
             M['normalised spectrum COMP'] = fluxes
+            M['err normalised spectrum COMP'] = efluxes
             M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
+            if not models is None:
+                M['err normalised spectrum TOTAL'] = np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)
+
         else:
             M['normalised spectrum WL'] = np.array([])
             M['normalised spectrum COMP'] = {}

@@ -584,7 +584,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         print('  > MJD:', mjd.shape, '[', min(mjd), '..', max(mjd), ']')
         print('  >', '-'.join(res['telescopes']), end=' | ')
         print('WL:', res['WL'].shape, '[', round(np.min(res['WL']), 3), '..',
-              round(np.max(res['WL']), 3), '] um', end=' ')
+              round(np.max(res['WL']), 3),
+              '] um (R~%.0f)'%(np.mean(res['WL']/res['dWL'])),
+              end=' ')
         if not binning is None:
             print('(binned by x%d)'%binning, end=' ')
         #print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),

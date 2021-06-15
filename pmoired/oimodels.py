@@ -42,10 +42,9 @@ def Ssingle(oi, param, noLambda=False):
         f += _param['f0']
     elif 'f' in _param:
         f += _param['f']
-    elif not 'spectrum' in _param:
+    elif not 'spectrum' in _param and not any([x.startswith('fwvl') for x in _param]):
         # -- no continuum is defined, assumes 1.0
         f += 1.
-
     # == polynomials ============================
     As = filter(lambda x: x.startswith('f') and x[1:].isdigit(), _param.keys())
     for a in As:
@@ -1455,11 +1454,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
         fit.update(oi['fit'])
         oi['fit'] = fit.copy()
 
-    #w = np.zeros(oi['WL'].shape)
-    #for WR in oi['fit']['wl ranges']:
-    #    w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
-    #oi['WL mask'] = np.bool_(w)
-
     w = np.zeros(oi['WL'].shape)
     closest = []
     for WR in oi['fit']['wl ranges']:
@@ -2135,6 +2129,61 @@ def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
     print('-'*50)
     return fit
 
+def _nSigmas(chi2r_TEST, chi2r_TRUE, NDOF):
+    """
+    - chi2r_TEST is the hypothesis we test
+    - chi2r_TRUE is what we think is what described best the data
+    - NDOF: numer of degres of freedom
+
+    chi2r_TRUE <= chi2r_TEST
+
+    returns the nSigma detection
+    """
+    q = scipy.stats.chi2.cdf(NDOF*chi2r_TEST/chi2r_TRUE, NDOF)
+    p = 1.0-q
+    nsigma = np.sqrt(scipy.stats.chi2.ppf(1-p, 1))
+    if isinstance(nsigma, np.ndarray):
+        nsigma[p<1e-15] = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
+    elif p<1e-15:
+        nsigma = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
+    return nsigma
+
+
+def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
+    """
+    firstguess: model dictionnary
+    p: parameter to explore, assumes p==0 is the null hypothesis
+    chi2Ref: reduced chi2 for null hypotesis. If None, will compute for p==0
+    """
+    if chi2Ref is None:
+        pvalue = firstGuess[p]
+        firstGuess[p]=0
+        # -- assume one free parameter:
+        chi2Ref = residualsOI(oi, firstGuess)**2
+        NDOF = len(residualsOI(oi, firstGuess))
+        chi2Ref = np.sum(chi2Ref)/NDOF
+        firstGuess[p] = pvalue
+        if debug:
+            print('chi2Ref:', chi2Ref)
+            print('NDOF:', NDOF)
+
+    ftol = 1e-2
+    fact = 0.5
+
+    tmp = _nSigmas(np.sum(residualsOI(oi, firstGuess)**2)/NDOF, chi2Ref, NDOF)
+    if debug:
+        print(firstGuess[p], tmp, fact)
+    while np.abs(tmp-nsigma)>ftol:
+        if (tmp<nsigma and fact<1) or (tmp>nsigma and fact>1):
+            fact = 1/np.sqrt(fact)
+
+
+        firstGuess[p] *= fact
+        tmp = _nSigmas(np.sum(residualsOI(oi, firstGuess)**2)/NDOF, chi2Ref, NDOF)
+        if debug:
+            print(firstGuess[p], tmp, fact)
+
+    return firstGuess
 
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
@@ -2329,14 +2378,15 @@ def get_processor_info():
     return "unknown processor"
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
-                 maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7):
+              maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
+              dLimParam=None, dLimSigma=3, debug=False):
     """
     perform "N" fit on "oi", starting from "param", with grid / randomised
     parameters. N can be determined from "expl" if
 
     expl = {'grid':{'p1':(0,1,0.1), 'p2':(-1,1,0.5), ...},
-             'rand':{'p3':(0,1), 'p4':(-np.pi, np.pi), ...},
-             'randn':{'p5':(0, 1), 'p6':(np.pi/2, np.pi), ...}}
+            'rand':{'p3':(0,1), 'p4':(-np.pi, np.pi), ...},
+            'randn':{'p5':(0, 1), 'p6':(np.pi/2, np.pi), ...}}
 
     grid=(min, max, step): explore all values for "min" to "max" with "step"
     rand=(min, max): uniform randomized parameter
@@ -2393,8 +2443,12 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         t = time.time()
         pool = multiprocessing.Pool(Np)
         for i in range(min(Np, N)):
-            kwargs['iter'] = i
-            res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs))
+            if dLimParam is None:
+                kwargs['iter'] = i
+                res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs))
+            else:
+                kwargs = {'nsigma': dLimSigma}
+                res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam), kwargs))
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
@@ -2411,28 +2465,43 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 print('approx %.1fs remaining'%(tmp))
             pool = multiprocessing.Pool(Np)
             for i in range(max(N-Np, 0)):
-                kwargs['iter'] = Np+i
-                res.append(pool.apply_async(fitOI, (oi, PARAM[Np+i], ), kwargs))
+                if dLimParam is None:
+                    kwargs['iter'] = Np+i
+                    res.append(pool.apply_async(fitOI, (oi, PARAM[Np+i], ), kwargs))
+                else:
+                    kwargs = {'nsigma': dLimSigma}
+                    res.append(pool.apply_async(limitOI, (oi, PARAM[Np+i], dLimParam, ), kwargs))
             pool.close()
             pool.join()
             res = res[:Np]+[r.get(timeout=1) for r in res[Np:]]
     else:
+        if debug:
+            print('single thread')
         Np = 1
         t = time.time()
-        res.append(fitOI(oi, PARAM[0], **kwargs))
+        if dLimParam is None:
+            res.append(fitOI(oi, PARAM[0], **kwargs))
+        else:
+            kwargs = {'nsigma': dLimSigma}
+            res.append(limitOI(oi, PARAM[0], dLimParam, **kwargs))
         print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
         print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
         for i in range(N-1):
-            kwargs['iter'] = i
             if i%10==0:
                 print('%s | grid fit %d/%d'%(time.asctime(), i, N-1))
-            res.append(fitOI(oi, PARAM[i+1], **kwargs))
+            if dLimParam is None:
+                kwargs['iter'] = i
+                res.append(fitOI(oi, PARAM[i+1], **kwargs))
+            else:
+                kwargs = {'nsigma': dLimSigma}
+                res.append(limitOI(oi, PARAM[Np+i], dLimParam, **kwargs))
     print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
     print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
 
-    res = analyseGrid(res, expl, verbose=1)
+    if dLimParam is None:
+        res = analyseGrid(res, expl, verbose=1)
     return res
 
 def analyseGrid(fits, expl, debug=False, verbose=1):
@@ -2462,11 +2531,10 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
             for i,u in enumerate(uncer):
                 if u[k]==0:
                     # -- step of grid
-                    uncer[i][k] = (expl['grid'][k][1]-expl['grid'][k][0])/\
-                                   (2*expl['grid'][k][2])
+                    uncer[i][k] = 0.5*expl['grid'][k][2]
+
                     # -- for distance computation later
                     fitOnly[i].append(k)
-
 
     for i,f in enumerate(res):
         if i in ignore:
@@ -2542,17 +2610,26 @@ def showGrid(res, px, py, color='chi2', logV=False,
                 try:
                     plt.plot(f[px], f[py], '+', color='k')
                     plt.plot([f[px], r['best'][px]],
-                            [f[py], r['best'][py]], '-k', alpha=0.1)
+                             [f[py], r['best'][py]], '-k', alpha=0.1)
                 except:
                     #print(r['firstGuess'])
                     pass
-    if logV and min(c)>0:
-        c = np.log10(c)
-        color = 'log10['+color+']'
     if type(vmax)==str:
         vmax = np.percentile(c, float(vmax))
     if type(vmin)==str:
         vmin = np.percentile(c, float(vmin))
+
+    if vmin is None:
+        vmin = min(c)
+    if vmax is None:
+        vmax = max(c)
+
+    if logV and (min(c)>0 or vmin>0):
+        c = np.log10(np.maximum(c, vmin))
+        color = 'log10['+color+']'
+        vmin = np.log10(vmin)
+        vmax = np.log10(vmax)
+
 
     plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap)
     plt.colorbar(label=color)
@@ -2562,6 +2639,7 @@ def showGrid(res, px, py, color='chi2', logV=False,
              markersize=20, alpha=0.5)
     plt.xlabel(px)
     plt.ylabel(py)
+    plt.tight_layout()
     return
 
 def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
