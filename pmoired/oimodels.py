@@ -1714,7 +1714,7 @@ def computeLambdaParams(params):
                 for _k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
                     if s+_k in paramsI[k]:
                         try:
-                            repl = '%f'%paramsI[_k]
+                            repl = '%e'%paramsI[_k]
                         except:
                             repl = str(paramsI[_k])
                         tmp = tmp.replace(s+_k, '('+repl+')')
