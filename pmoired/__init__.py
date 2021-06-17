@@ -723,3 +723,7 @@ def _checkSetupFit(fit):
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
     return ok
+
+# -- see https://stackoverflow.com/questions/18204782
+if __name__ == '__main__':
+    pass
