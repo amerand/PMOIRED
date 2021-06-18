@@ -2588,6 +2588,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
 def showGrid(res, px, py, color='chi2', logV=False,
             fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
+    
     plt.close(fig)
     plt.figure(fig)
 
@@ -4225,6 +4226,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
     if comp is None:
         C = filter(lambda x: x.endswith(',profile'), param.keys())
         return {c.split(',')[0]:halfLightRadiusFromParam(param, c.split(',')[0]) for c in C}
+    diamin = 0
     if comp+',diam' in param:
         diamout = param[comp+',diam']
     if comp+',diamout' in param:

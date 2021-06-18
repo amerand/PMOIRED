@@ -350,7 +350,7 @@ class OI:
         return
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
-                vmin=None, vmax=None, logV=False, cmap='spring'):
+                vmin=None, vmax=None, logV=False, cmap='spring', fig=None):
         """
         show the results from `gridFit` as 2D coloured map.
 
@@ -366,7 +366,6 @@ class OI:
         is the global minimum.
         """
         assert not self.grid is None, 'You should run gridFit first!'
-        self.fig += 1
         params = []
         for k in self._expl:
             for g in self._expl[k]:
@@ -382,7 +381,10 @@ class OI:
                 (py=='y' or py.endswith(',y')):
             aspect = 'equal'
             xy = True
-
+        if fig is None:
+            self.fig += 1
+            fig=self.fig
+            
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
                           logV=logV)
@@ -723,7 +725,3 @@ def _checkSetupFit(fit):
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
     return ok
-
-# -- see https://stackoverflow.com/questions/18204782
-if __name__ == '__main__':
-    pass
