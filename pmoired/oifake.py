@@ -1027,15 +1027,19 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    ('+' if s3>0 else '-')+b3
             #print('debug:', i, tri, form)
 
+            # -- KLUDGE -> account for T3 amplitude
+            ncp = np.maximum(1, (15*noise['|V|'])**3/np.abs(T3))
+            #print(ncp.min(), ncp.max())
+
             OIT3[''.join(tri)] = {
                 'MJD':tmp['MJD'],
                 'FLAG':np.zeros((len(lst), len(wl)), bool),
-                'T3AMP':np.abs(T3)+
-                    noise['T3AMP']*np.random.randn(len(lst), len(wl)),
-                'ET3AMP':noise['T3AMP']*np.ones((len(lst), len(wl))),
+                'T3AMP':np.abs(T3)*(1+
+                    noise['T3AMP']*np.random.randn(len(lst), len(wl))),
+                'ET3AMP':noise['T3AMP']*np.ones((len(lst), len(wl)))*np.abs(T3),
                 'T3PHI':np.angle(T3)*180/np.pi+
-                    noise['T3PHI']*np.random.randn(len(lst), len(wl)),
-                'ET3PHI':noise['T3PHI']*np.ones((len(lst), len(wl))),
+                    ncp*noise['T3PHI']*np.random.randn(len(lst), len(wl)),
+                'ET3PHI':ncp*noise['T3PHI'], #noise['T3PHI']*np.ones((len(lst), len(wl))),
                 'u1':s1*tmp['u'][b1], 'v1':s1*tmp['v'][b1],
                 'u2':s2*tmp['u'][b2], 'v2':s2*tmp['v'][b2],
                 'u1/wl': s1*tmp['u'][b1][:,None]/wl[None,:],
