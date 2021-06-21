@@ -866,7 +866,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
     cube = {'image', 'scale', 'wl', 'spectrum'}
         image: Nx x Ny spatial pixels (x Nwl optional )
         scale: "scale", in mas (ignoired)
-        wl: wavelength vector in um (ignored if cube is 2D)
+        wl: wavelength vector in um (ignored if cube is 2D only)
         spectrum: spectrum (same lemgth as wl), should be sum(image, axis=(0,1))
 
     """
@@ -919,7 +919,6 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             fvis = lambda u,v,l: visImage(cube['image'], cube['scale'], u, v, l)
             fflux = lambda l: np.ones((len(lst), len(l)))
         else:
-            #assert False, "3D cube not implemented!"
             fvis = lambda u,v,l: visCube(cube, u, v, l)
             if 'spectrum' in cube:
                 fflux = lambda l: np.interp(l, cube['wl'], cube['spectrum'])
@@ -952,8 +951,8 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
-                   'V2':np.abs(VIS[b])**2+
-                        noise['V2']*np.random.randn(len(lst), len(wl)),
+                   'V2':np.abs(VIS[b])**2*(1+
+                        noise['V2']*np.random.randn(len(lst), len(wl)))*np.abs(VIS[b])**2,
                    'EV2':noise['V2']*np.ones((len(lst), len(wl))),
                    }
         OIV[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
@@ -963,9 +962,9 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
-                   '|V|':np.abs(VIS[b])+
-                        noise['|V|']*np.random.randn(len(lst), len(wl)),
-                   'E|V|':noise['|V|']*np.ones((len(lst), len(wl))),
+                   '|V|':np.abs(VIS[b])*(1+
+                        noise['|V|']*np.random.randn(len(lst), len(wl))),
+                   'E|V|':noise['|V|']*np.ones((len(lst), len(wl)))*np.abs(VIS[b]),
                    'PHI':np.angle(VIS[b])*180/np.pi+
                         noise['PHI']*np.random.randn(len(lst), len(wl)),
                    'EPHI':noise['PHI']*np.ones((len(lst), len(wl))),
@@ -978,11 +977,11 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
     # -- OI_FLUX
     OIF = {}
     for s in t:
-        OIF[s] = {'FLUX':fflux(wl)+
-                     noise['FLUX']*np.random.randn(len(lst), len(wl)),
-                  'RFLUX':fflux(wl)+
-                     noise['FLUX']*np.random.randn(len(lst), len(wl)),
-                  'EFLUX':noise['FLUX']*np.ones((len(lst), len(wl))),
+        OIF[s] = {'FLUX':fflux(wl)*(1+
+                     noise['FLUX']*np.random.randn(len(lst), len(wl))),
+                  'RFLUX':fflux(wl)*(1+
+                     noise['FLUX']*np.random.randn(len(lst), len(wl))),
+                  'EFLUX': noise['FLUX']*np.ones((len(lst), len(wl)))*fflux(wl)[None,:],
                   'FLAG':np.zeros((len(lst), len(wl)), bool),
                   'MJD':tmp['MJD'],
                   }
