@@ -541,16 +541,16 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         else:
             stretch = [1,0]
 
-        negativity += _negativityAzvar(_n, _phi, _amp)
-        if len(_n)>0:
-            # -- make sure max az var is 1 (important for surface brightness)
-            psi = np.linspace(0, 360, 91)[:-1]
-            psi = np.array(_n)[:,None]*(psi[None,:] + np.array(_phi)[:,None])
-            tmp = 1 + np.array(_amp)[:,None]*np.cos(psi*np.pi/180)
-            tmp = np.sum(tmp, axis=0)
-            #Ir /= max(tmp)
-
         if 'surf bri' in _param:
+            if len(_n)>0:
+                # -- make sure max az var is 1
+                # -- important for BB surface brightness
+                psi = np.linspace(0, 360, 91)[:-1]
+                psi = np.array(_n)[:,None]*(psi[None,:] + np.array(_phi)[:,None])
+                tmp = 1 + np.array(_amp)[:,None]*np.cos(psi*np.pi/180)
+                tmp = np.sum(tmp, axis=0)
+                Ir /= max(tmp)
+
             # -- use this to compute flux, can be function of wavelength
             f = 2*np.pi*np.trapz(Ir*_r, _r)*_ffrac
             if not '$WL' in _param['surf bri']:
@@ -559,15 +559,16 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                 f *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
             if any(f>0):
                 # -- check negativity of spectrum
-                negativity = np.sum(f[f<0])/np.sum(f[f>=0])
+                negativity += np.sum(f[f<0])/np.sum(f[f>=0])
             elif all(f<0):
-                negativity = np.sum(f[f<0])
+                negativity += np.sum(f[f<0])
             else:
-                negativity = 0
+                negativity += 0
             if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
                 oi['fit']['ignore negative flux']:
                 negativity = 0.0
 
+        negativity += 100*_negativityAzvar(_n, _phi, _amp)
         Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl,
                                Ir, _r, _n, _phi, _amp, stretch=stretch)
 
