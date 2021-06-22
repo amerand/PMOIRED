@@ -4,7 +4,7 @@
 ## Preamble: using and quoting `PMOIRED`
 
 This code is still in development and not yet fully documented. An article is in preparation describing the algorithms and features of `PMOIRED`. Using this code at the present should be done on a collaborative basis:
-> ***Until a refereed article describing `PMOIRED` is published, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***.
+> ***Until a refereed article describing `PMOIRED` is published, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***. 
 
 ## Overview
 
