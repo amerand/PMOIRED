@@ -19,6 +19,20 @@ except:
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
+import scipy
+import astropy
+import astroquery
+import matplotlib
+import sys
+
+__versions__={'python':sys.version,
+              'numpy':np.__version__,
+              'scipy':scipy.__version__,
+              'astropy': astropy.__version__,
+              'astroquery': astroquery.__version__,
+              'matplotlib':matplotlib.__version__
+              }
+
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None, verbose=True,
                withHeader=True, medFilt=None, tellurics=None, debug=False,
@@ -384,7 +398,7 @@ class OI:
         if fig is None:
             self.fig += 1
             fig=self.fig
-            
+
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
                           logV=logV)
