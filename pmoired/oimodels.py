@@ -2588,7 +2588,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
 def showGrid(res, px, py, color='chi2', logV=False,
             fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
-    
+
     plt.close(fig)
     plt.figure(fig)
 

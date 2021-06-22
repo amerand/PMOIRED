@@ -838,6 +838,7 @@ def visCube(cube, u, v, wl):
         for i,x in enumerate(wl):
             # -- find 2 closest images
             i1, i2 = np.argsort(np.abs(x-cube['wl']))[:2]
+            # -- linear interpolation
             im = cube['image'][:,:,i1] + \
                 (x-cube['wl'][i1])/(cube['wl'][i2]-cube['wl'][i1])*\
                 (cube['image'][:,:,i2]-cube['image'][:,:,i1])
@@ -856,7 +857,8 @@ def fluxCube(cube, wl):
     return np.interp(wl, cube['wl'], tmp)
 
 def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
-            diam=None, cube=None, noise=None, param=None):
+            diam=None, cube=None, noise=None, thres=None,
+            param=None):
     """
     t = list of stations
     targe = name of target, or (ra, dec) in (in hours, degs)
@@ -879,6 +881,9 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
         # -- high precision
         #noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
         #         'T3PHI':.1, 'T3AMP':0.001}
+    if thres is None:
+        # -- threshold for noise behavior (absolute)
+        thres = {'V2':0.01, '|V|':0.01, 'T3AMP':0.05, 'FLUX':0.0}
 
     tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
@@ -944,6 +949,8 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
         # -- complex visibility for this baseline
         VIS[b] = fvis(tmp['u'][b], tmp['v'][b], wl)
 
+
+        nv2 = noise['V2']*np.maximum(np.abs(VIS[b])**2, thres['V2'])
         OIV2[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
                    'u/wl': tmp['u'][b][:,None]/wl[None,:],
                    'v/wl': tmp['v'][b][:,None]/wl[None,:],
@@ -951,10 +958,12 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
-                   'V2':np.abs(VIS[b])**2*(1+
-                        noise['V2']*np.random.randn(len(lst), len(wl)))*np.abs(VIS[b])**2,
-                   'EV2':noise['V2']*np.ones((len(lst), len(wl))),
+                   'V2':np.abs(VIS[b])**2 +
+                        nv2*np.random.randn(len(lst), len(wl)),
+                   'EV2':nv2,
                    }
+
+        nv = noise['|V|']*np.maximum(np.abs(VIS[b]), thres['|V|'])
         OIV[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
                    'u/wl': tmp['u'][b][:,None]/wl[None,:],
                    'v/wl': tmp['v'][b][:,None]/wl[None,:],
@@ -962,9 +971,8 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
-                   '|V|':np.abs(VIS[b])*(1+
-                        noise['|V|']*np.random.randn(len(lst), len(wl))),
-                   'E|V|':noise['|V|']*np.ones((len(lst), len(wl)))*np.abs(VIS[b]),
+                   '|V|':np.abs(VIS[b]) + nv*np.random.randn(len(lst), len(wl)),
+                   'E|V|':nv,
                    'PHI':np.angle(VIS[b])*180/np.pi+
                         noise['PHI']*np.random.randn(len(lst), len(wl)),
                    'EPHI':noise['PHI']*np.ones((len(lst), len(wl))),
@@ -1022,13 +1030,20 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                 b3 = tri[0]+tri[2]
                 s3 = -1
                 T3 *= np.conj(VIS[b3])
+
+            # -- minimum visibility
+            minV = np.minimum(np.minimum(np.abs(VIS[b1]), np.abs(VIS[b2])),
+                              np.abs(VIS[b3]))
+
             form = ('+' if s1>0 else '-')+b1+\
                    ('+' if s2>0 else '-')+b2+\
                    ('+' if s3>0 else '-')+b3
             #print('debug:', i, tri, form)
 
             # -- KLUDGE -> account for T3 amplitude
-            ncp = np.maximum(1, (15*noise['|V|'])**3/np.abs(T3))
+            ncp = np.maximum(1, (thres['T3AMP']/np.abs(T3))**(1/3))
+            #ncp = np.maximum(1, thres['T3AMP']/minV)
+
             #print(ncp.min(), ncp.max())
 
             OIT3[''.join(tri)] = {
