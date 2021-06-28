@@ -914,8 +914,10 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
            'baselines':tmp['baselines'],
            'TELLURICS':np.ones(len(wl)),
            }
+    #print('res:', res)
+
     # == complex visibility function
-    # -- unresolved gray object
+    # -- default == unresolved gray object
     fvis = lambda u, v, l: np.ones((len(u), len(l)))
     fflux = lambda l: np.ones((len(lst), len(l)))
 
@@ -948,7 +950,6 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
     for b in tmp['baselines']:
         # -- complex visibility for this baseline
         VIS[b] = fvis(tmp['u'][b], tmp['v'][b], wl)
-
 
         nv2 = noise['V2']*np.maximum(np.abs(VIS[b])**2, thres['V2'])
         OIV2[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
@@ -1078,7 +1079,6 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
 
-
     if not param is None:
         res['fit'] = {'obs':['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
         res = oimodels.VmodelOI(res, param, fullOutput=True)
@@ -1088,9 +1088,11 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                                              res[e][k][o].shape[1])*\
                                          res[e][k]['E'+o]
 
-        for k in res['OI_FLUX'].keys():
-            res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*res['OI_FLUX'][k]['FLUX']
-            addnoise('OI_FLUX', k, 'FLUX')
+        if 'OI_FLUX' in res:
+            for k in res['OI_FLUX'].keys():
+                res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*res['OI_FLUX'][k]['FLUX']
+                addnoise('OI_FLUX', k, 'FLUX')
+
         for k in res['OI_VIS'].keys():
             res['OI_VIS'][k]['E|V|'] = noise['|V|']*res['OI_VIS'][k]['|V|']
             res['OI_VIS'][k]['EPHI'] = noise['PHI'] + 0.0*res['OI_VIS'][k]['PHI']
@@ -1104,6 +1106,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             res['OI_T3'][k]['ET3PHI'] = noise['T3PHI'] + 0.0*res['OI_T3'][k]['T3PHI']
             addnoise('OI_T3', k, 'T3AMP')
             addnoise('OI_T3', k, 'T3PHI')
+
 
     res['configurations per MJD'] = conf
     return res

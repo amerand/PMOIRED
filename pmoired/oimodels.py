@@ -202,6 +202,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     # -- compute self-referenced parameters
     _param = computeLambdaParams(param)
     res = {}
+    if fullOutput:
+        for k in['telescopes', 'baselines', 'triangles']:
+            if k in oi:
+                res[k] = oi[k]
+
 
     # -- what do we inherit from original data:
     for k in ['WL', 'fit']:
@@ -214,7 +219,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         for k in ['header']:
             if k in oi.keys():
                 res[k] = oi[k].copy()
-
 
     # -- small shift in wavelength (for bandwith smearing)
     if _dwl!=0:
@@ -1314,6 +1318,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     for k in['telescopes', 'baselines', 'triangles']:
         if k in oi:
             res[k] = oi[k]
+
     res['param'] = computeLambdaParams(param)
 
     t0 = time.time()
@@ -1852,7 +1857,6 @@ def computePrior(param, prior):
         resi = '('+form+'-'+str(val)+')/abs('+str(prior[p][2])+')'
         if prior[p][0]=='<' or prior[p][0]=='<=' or prior[p][0]=='>' or prior[p][0]=='>=':
             resi = '%s if 0'%resi+prior[p][0]+'%s else 0'%resi
-        #print(resi)
         res.append(eval(resi))
     return res
 
@@ -1983,7 +1987,9 @@ def residualsOI(oi, param, timeit=False):
         print('-'*30)
     res = np.append(res, m['MODEL']['negativity']*len(res))
     if 'fit' in oi and 'prior' in oi['fit']:
-        res = np.append(res, computePrior(param, oi['fit']['prior']))
+        tmp = computePrior(computeLambdaParams(param), oi['fit']['prior'])
+        #print('prior:', tmp)
+        res = np.append(res, tmp)
     #print(len(res))
     return res
 
@@ -2259,6 +2265,7 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
                            maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
                            doNotFit=doNotFit, follow=follow, epsfcn=1e-7)
     fit['prior'] = prior
+
     return fit
 
 def _chi2(oi, param):
@@ -3869,7 +3876,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
 def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               imFov=None, imPix=None, imPow=1.0, imX=0., imY=0., imWl0=None,
-              cmap='bone', imMax=None, logS=False):
+              cmap='bone', imMax=None, logS=False, showSED=True, legend=True):
     """
     oi: result from loadOI for mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
@@ -3915,7 +3922,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
         else:
             imWl0 = [np.mean(oi['WL'])]
 
-    if 'cube' in m['MODEL']:
+    if 'cube' in m['MODEL'] and showSED:
         nplot = len(imWl0)+1
     else:
         nplot = len(imWl0)
@@ -4068,17 +4075,19 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                 y = param[c+',y']
             else:
                 y = 0.0
-            plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
-                     markersize=8)
-            plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
-            if i==0:
+            if legend:
+                plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
+                        markersize=8)
+            #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
+
+            if i==0 and legend:
                 plt.legend(fontsize=5, ncol=2)
         axs[-1].tick_params(axis='x', labelsize=6)
         axs[-1].tick_params(axis='y', labelsize=6)
 
     axs[-1].invert_xaxis()
-    if not 'cube' in m['MODEL']:
+    if not 'cube' in m['MODEL'] or not showSED:
         plt.tight_layout()
         return m
 
@@ -4097,7 +4106,6 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
             plt.title('log10(SED)', fontsize=8)
         else:
             plt.title('SED', fontsize=8)
-
 
     w0 = m['MODEL']['total'+key][mask]>0
     if len(m['WL'][mask])>20 and \
@@ -4141,7 +4149,6 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                          color=symbols[k.split(',')[0].strip()]['c'])
 
     plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
-
     plt.legend(fontsize=5)
     plt.xlabel('wavelength ($\mu$m)')
     ax.tick_params(axis='x', labelsize=6)
