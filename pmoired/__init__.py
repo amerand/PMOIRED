@@ -183,8 +183,8 @@ class OI:
                     print(d['fit']['obs'])
         return
 
-    def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True, verbose=2,
-              maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None):
+    def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True,
+              verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None, prior=None):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -206,6 +206,13 @@ class OI:
             doNotFit = []
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        if not prior is None:
+            for d in self._merged:
+                if not 'fit' in d:
+                    d['fit'] = {prior:'prior'}
+                else:
+                    d['fit']['prior'] = prior
+        
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
@@ -729,7 +736,8 @@ def _checkSetupFit(fit):
             'obs':list, 'wl ranges':list,
             'Nr':int, 'spec res pix':float,
             'continuum ranges':list,
-            'ignore negative flux':bool}
+            'ignore negative flux':bool,
+            'prior':dict}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():
@@ -738,4 +746,11 @@ def _checkSetupFit(fit):
         elif type(fit[k]) != keys[k]:
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
+        # check priors are properly defined
+        if k == 'prior' and type(fit[k])==dict:
+            for p in fit[k]:
+                if not (len(fit[k][p])==3 and type(fit[k][p][0])==str):
+                    print("!WARNING! priors should be defined as 'key':('op', value, tol)\
+                    e.g. 'diam':('>', 0, 0.1)")
+                    ok = False
     return ok
