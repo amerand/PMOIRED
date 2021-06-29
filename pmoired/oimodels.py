@@ -1842,7 +1842,46 @@ def testBaselines(k, baselines):
         test = test or (b[:len(b)//2] in k and b[len(b)//2:] in k)
     return test
 
-def computePrior(param, prior):
+def autoPrior(param):
+    prior = []
+    for k in param:
+        tmp = ['diam', 'ud', 'diamin', 'fwhm', 'crin']
+        if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
+            # -- strict dimentional priors, with param in mas
+            prior.append((k, '>=', 0.0, 1e-6))
+
+        tmp = ['f']
+        if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
+            # -- hard to set a tolerance, but we can assume 1% of initial guess
+            if param[k]>0:
+                #prior[k] = ('>=', 0.0, param[k]/100)
+                prior.append((k, '>=', 0.0, param[k]/100))
+            else:
+                #prior[k] = ('>=', 0.0)
+                prior.append((k, '>=', 0.0))
+
+        tmp = ['diamout', 'crout']
+        if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
+            #prior[k] = ('>', k[:-3]+'in', 1e-3)
+            prior.append((k, '>', k[:-3]+'in', 1e-3))
+
+        tmp = ['thick']
+        if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
+            #prior[k] = ('>', 0, 1e-6)
+            #prior[k] = ('<', 1, 1e-6)
+            prior.append((k, '>', 0, 1e-6))
+            prior.append((k, '<', 1, 1e-6))
+
+        tmp = ['croff']
+        if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
+            #prior[k] = ('>', -1, 1e-6)
+            #prior[k] = ('<', 1, 1e-6)
+            prior.append((k, '>', -1, 1e-6))
+            prior.append((k, '<', 1, 1e-6))
+
+    return prior
+
+def computePriorD(param, prior):
     res = []
     for p in prior.keys():
         form = p+''
@@ -1854,11 +1893,36 @@ def computePrior(param, prior):
                 if k in val:
                     val = val.replace(k, str(param[k]))
         # -- residual
-        resi = '('+form+'-'+str(val)+')/abs('+str(prior[p][2])+')'
+        if len(prior[p])==2:
+            resi = '('+form+'-'+str(val)+')'
+        elif len(prior[p])==3:
+            resi = '('+form+'-'+str(val)+')/abs('+str(prior[p][2])+')'
+
         if prior[p][0]=='<' or prior[p][0]=='<=' or prior[p][0]=='>' or prior[p][0]=='>=':
             resi = '%s if 0'%resi+prior[p][0]+'%s else 0'%resi
         res.append(eval(resi))
-    return res
+    return np.array(res)
+
+def computePriorL(param, prior):
+    res = []
+    for p in prior:
+        form = p[0]
+        val = str(p[2])
+        for i in range(3):
+            for k in param.keys():
+                if k in form:
+                    form = form.replace(k, str(param[k]))
+                if k in val:
+                    val = val.replace(k, str(param[k]))
+        # -- residual
+        if len(p)==3:
+            resi = '('+form+'-'+str(val)+')'
+        elif len(p)==4:
+            resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
+        if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
+            resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
+        res.append(eval(resi))
+    return np.array(res)
 
 def residualsOI(oi, param, timeit=False):
     """
@@ -1987,9 +2051,11 @@ def residualsOI(oi, param, timeit=False):
         print('-'*30)
     res = np.append(res, m['MODEL']['negativity']*len(res))
     if 'fit' in oi and 'prior' in oi['fit']:
-        tmp = computePrior(computeLambdaParams(param), oi['fit']['prior'])
-        #print('prior:', tmp)
-        res = np.append(res, tmp)
+        # -- add priors as additional residuals.
+        tmp = computePriorL(computeLambdaParams(param), oi['fit']['prior'])
+        # -- approximate equal weight as rest of data
+        res = np.append(res, tmp*np.sqrt(len(res)))
+
     #print(len(res))
     return res
 
@@ -2220,9 +2286,9 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
 
     randomise: for bootstrapping
 
-    prior: dict of priors.
-        {'a+b':('=', 1.2, 0.1)} if a and b are parameters. a+b = 1.2 +- 0.1
-        {'a':('<', 'sqrt(b)', 0.1)} if a and b are parameters. a<sqrt(b), and
+    prior: list of priors as tuples.
+        [('a+b', '=', 1.2, 0.1)] if a and b are parameters. a+b = 1.2 +- 0.1
+        [('a', '<', 'sqrt(b)', 0.1)] if a and b are parameters. a<sqrt(b), and
             the penalty is 0 for a==sqrt(b) but rises significantly
             for a>sqrt(b)+0.1
     """
@@ -2651,7 +2717,7 @@ def showGrid(res, px, py, color='chi2', logV=False,
     plt.tight_layout()
     return
 
-def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
+def bootstrapFitOI(oi, fit, N=None, maxfev=5000,
                    ftol=1e-6, sigmaClipping=4.5, multi=True, prior=None):
     """
     """
@@ -2679,7 +2745,8 @@ def bootstrapFitOI(oi, fit, N=None, fitOnly=None, doNotFit=None, maxfev=5000,
     fitOnly = fit['fitOnly']
     doNotFit = fit['doNotFit']
     maxfev = fit['maxfev']
-    ftol = fit['ftol']
+    if ftol is None:
+        ftol = fit['ftol']
     epsfcn= fit['epsfcn']
     prior = fit['prior']
     firstGuess = fit['best']

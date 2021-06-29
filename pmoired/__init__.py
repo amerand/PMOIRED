@@ -183,8 +183,29 @@ class OI:
                     print(d['fit']['obs'])
         return
 
+    def _setPrior(self, model, prior=None, autoPrior=True):
+        if autoPrior:
+            if prior is None:
+                prior = []
+            tmp = oimodels.autoPrior(model)
+            # -- avoid overridding user provided priors
+            for t in tmp:
+                test = False
+                for p in prior:
+                    if not (t[0]==p[0] and t[1]==p[1]):
+                        prior.append(t)
+
+        if not prior is None:
+            for d in self._merged:
+                if not 'fit' in d:
+                    d['fit'] = {prior:'prior'}
+                else:
+                    d['fit']['prior'] = prior
+        return prior
+
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True,
-              verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None, prior=None):
+              verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
+              prior=None, autoPrior=True):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -206,13 +227,7 @@ class OI:
             doNotFit = []
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        if not prior is None:
-            for d in self._merged:
-                if not 'fit' in d:
-                    d['fit'] = {prior:'prior'}
-                else:
-                    d['fit']['prior'] = prior
-        
+        prior = self._setPrior(model, prior, autoPrior)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
@@ -332,9 +347,9 @@ class OI:
         plt.tight_layout()
         return
 
-
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
-                     maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8):
+                     maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8,
+                     prior=None, autoPrior=True):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
@@ -361,11 +376,13 @@ class OI:
                 fitOnly = self.bestfit['fitOnly']
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        prior = self._setPrior(model, prior, autoPrior)
         self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
+        self.bestfit['prior'] = prior
         self.computeModelSpectrum()
         self._expl = expl
         return
@@ -414,21 +431,23 @@ class OI:
             plt.gca().invert_xaxis()
         return
 
-    def bootstrapFit(self, Nfits=None, model=None, multi=True):
+    def bootstrapFit(self, Nfits=None, multi=True):
         """
-        perform 'Nfits' bootstrapped fits around dictionnary parameters 'model'.
-        by default Nfits is set to the number of data, and model to the last best
-        fit. 'multi' sets the number of threads (default==all available).
+        perform 'Nfits' bootstrapped fits around dictionnary parameters found
+        by a previously ran fit. By default Nfits is set to the number of
+        "independent" data. 'multi' sets the number of threads
+        (default==all available).
         """
         if self._merged is None:
             self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        if model is None:
-            assert not self.bestfit is None, 'you should run a fit first or give an explicit model'
-            model = self.bestfit
+
+        assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
+        model = self.bestfit
+
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False):
+    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -437,11 +456,14 @@ class OI:
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
                                 sigmaClipping=sigmaClipping, verbose=0)
-        self.fig += 1
+
+        if not fig is None:
+            self.fig = fig
+        else:
+            self.fig += 1
         oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig,
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                showChi2=showChi2)
-        self.fig += 1
         return
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
@@ -737,7 +759,7 @@ def _checkSetupFit(fit):
             'Nr':int, 'spec res pix':float,
             'continuum ranges':list,
             'ignore negative flux':bool,
-            'prior':dict}
+            'prior':list}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():
@@ -746,11 +768,4 @@ def _checkSetupFit(fit):
         elif type(fit[k]) != keys[k]:
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
-        # check priors are properly defined
-        if k == 'prior' and type(fit[k])==dict:
-            for p in fit[k]:
-                if not (len(fit[k][p])==3 and type(fit[k][p][0])==str):
-                    print("!WARNING! priors should be defined as 'key':('op', value, tol)\
-                    e.g. 'diam':('>', 0, 0.1)")
-                    ok = False
     return ok
