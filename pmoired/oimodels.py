@@ -2503,6 +2503,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         PARAM.append(tmp)
     #print('PARAM:', PARAM)
     # -- run all fits
+    
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'iter':-1}

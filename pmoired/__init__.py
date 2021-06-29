@@ -190,15 +190,17 @@ class OI:
             tmp = oimodels.autoPrior(model)
             # -- avoid overridding user provided priors
             for t in tmp:
-                test = False
+                test = True
                 for p in prior:
-                    if not (t[0]==p[0] and t[1]==p[1]):
-                        prior.append(t)
+                    if t[0]==p[0] and t[1]==p[1]:
+                        test = False
+                if test:
+                    prior.append(t)
 
         if not prior is None:
             for d in self._merged:
                 if not 'fit' in d:
-                    d['fit'] = {prior:'prior'}
+                    d['fit'] = {'prior':prior}
                 else:
                     d['fit']['prior'] = prior
         return prior
@@ -234,6 +236,7 @@ class OI:
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         self.computeModelSpectrum()
+        self.bestfit['prior'] = prior
         return
     def showFit(self):
         if not self.bestfit is None:
@@ -348,8 +351,8 @@ class OI:
         return
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
-                     maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8,
-                     prior=None, autoPrior=True):
+                maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8, prior=None,
+                autoPrior=True):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
@@ -374,6 +377,10 @@ class OI:
                 doNotFit = self.bestfit['doNotFit']
             if fitOnly is None:
                 fitOnly = self.bestfit['fitOnly']
+            if prior is None and 'prior' in self.bestfit:
+                prior = self.bestfit['prior']
+                print('prior:', prior)
+
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         prior = self._setPrior(model, prior, autoPrior)
