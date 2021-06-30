@@ -282,7 +282,7 @@ class OI:
         return
 
     def showLimGrid(self, px=None, py=None, aspect=None,
-                    vmin=None, vmax=None, mag=False, cmap='magma'):
+                    vmin=None, vmax=None, mag=False, cmap='inferno'):
         """
         show the results from `detectionLimit` as 2D coloured map.
 

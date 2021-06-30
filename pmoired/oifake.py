@@ -814,7 +814,7 @@ def visImage(image, scale, u, v, wl, debug=False):
 def visCube(cube, u, v, wl):
     """
     cube:  {'image':, 'scale': 'wl':}
-        image: Nx x Ny (spatial) x Nwl (wavelength, optional)
+        image: Nwl (wavelength, optional) x Nx x Ny (spatial)
         scale: "scale", in mas
         wl: wavelength vector in um (ignored if cube is 2D)
 
@@ -828,7 +828,7 @@ def visCube(cube, u, v, wl):
         # -- compute V(u,v) for each wl of the cube:
         tmp = np.zeros((len(u), len(cube['wl'])), np.complex)
         for i,x in enumerate(cube['wl']):
-            tmp[:,i] = visImage(cube['image'][:,:,i], cube['scale'],
+            tmp[:,i] = visImage(cube['image'][i,:,:], cube['scale'],
                                 u, v, cube['wl'][i])
         # -- interpolate
         for i in range(len(u)):
@@ -839,9 +839,9 @@ def visCube(cube, u, v, wl):
             # -- find 2 closest images
             i1, i2 = np.argsort(np.abs(x-cube['wl']))[:2]
             # -- linear interpolation
-            im = cube['image'][:,:,i1] + \
+            im = cube['image'][i1,:,:] + \
                 (x-cube['wl'][i1])/(cube['wl'][i2]-cube['wl'][i1])*\
-                (cube['image'][:,:,i2]-cube['image'][:,:,i1])
+                (cube['image'][i2,:,:]-cube['image'][i1,:,:])
             res[:,i] = visImage(im, cube['scale'], u, v, x)
     return res
 
@@ -853,7 +853,7 @@ def fluxCube(cube, wl):
         wl: wavelength vector in um (ignored if cube is 2D)
     wl: wavelength (vector, in um)
     """
-    tmp = np.sum(cube['image'], axis=(0,1))
+    tmp = np.sum(cube['image'], axis=(1,2))
     return np.interp(wl, cube['wl'], tmp)
 
 def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
@@ -931,7 +931,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                 fflux = lambda l: np.interp(l, cube['wl'], cube['spectrum'])
             else:
                 fflux = lambda l: np.interp(l, cube['wl'],
-                                            np.sum(cube['image'], axis=(0,1)))
+                                            np.sum(cube['image'], axis=(1,2)))
 
     if not diam is None:
         # -- uniform disk

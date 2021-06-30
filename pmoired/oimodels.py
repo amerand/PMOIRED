@@ -448,6 +448,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
+
     elif 'crin' in _param and 'crout' in _param and 'croff' in _param: # crecsent
         #print('crescent')
         if _param['crin']>_param['crout']:
@@ -1921,7 +1922,10 @@ def computePriorL(param, prior):
             resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
         if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
             resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
-        res.append(eval(resi))
+        try:
+            res.append(eval(resi))
+        except:
+            print('WARNING: could not compute prior "'+resi+'"')
     return np.array(res)
 
 def residualsOI(oi, param, timeit=False):
@@ -2503,7 +2507,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         PARAM.append(tmp)
     #print('PARAM:', PARAM)
     # -- run all fits
-    
+
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'iter':-1}
