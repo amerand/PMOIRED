@@ -813,7 +813,7 @@ def visImage(image, scale, u, v, wl, debug=False):
 
 def visCube(cube, u, v, wl):
     """
-    cube:  {'image':, 'scale': 'wl':}
+    cube:  {'image':, 'scale': 'WL':}
         image: Nwl (wavelength, optional) x Nx x Ny (spatial)
         scale: "scale", in mas
         wl: wavelength vector in um (ignored if cube is 2D)
@@ -826,51 +826,51 @@ def visCube(cube, u, v, wl):
     if False:
         # == Interpolate in visibility space =============================
         # -- compute V(u,v) for each wl of the cube:
-        tmp = np.zeros((len(u), len(cube['wl'])), np.complex)
-        for i,x in enumerate(cube['wl']):
+        tmp = np.zeros((len(u), len(cube['WL'])), np.complex)
+        for i,x in enumerate(cube['WL']):
             tmp[:,i] = visImage(cube['image'][i,:,:], cube['scale'],
-                                u, v, cube['wl'][i])
+                                u, v, cube['WL'][i])
         # -- interpolate
         for i in range(len(u)):
-            res[i,:] = np.interp(wl, cube['wl'], tmp[i,:])
+            res[i,:] = np.interp(wl, cube['WL'], tmp[i,:])
     else:
         # == Interpolate in image space ==================================
         for i,x in enumerate(wl):
             # -- find 2 closest images
-            i1, i2 = np.argsort(np.abs(x-cube['wl']))[:2]
+            i1, i2 = np.argsort(np.abs(x-cube['WL']))[:2]
             # -- linear interpolation
             im = cube['image'][i1,:,:] + \
-                (x-cube['wl'][i1])/(cube['wl'][i2]-cube['wl'][i1])*\
+                (x-cube['WL'][i1])/(cube['WL'][i2]-cube['WL'][i1])*\
                 (cube['image'][i2,:,:]-cube['image'][i1,:,:])
             res[:,i] = visImage(im, cube['scale'], u, v, x)
     return res
 
 def fluxCube(cube, wl):
     """
-    cube:  {'image':, 'scale': 'wl':}
+    cube:  {'image':, 'scale': 'WL':}
         image: Nx x Ny spatial pixels (x Nwl optional )
         scale: "scale", in mas (ignoired)
         wl: wavelength vector in um (ignored if cube is 2D)
     wl: wavelength (vector, in um)
     """
     tmp = np.sum(cube['image'], axis=(1,2))
-    return np.interp(wl, cube['wl'], tmp)
+    return np.interp(wl, cube['WL'], tmp)
 
 def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             diam=None, cube=None, noise=None, thres=None,
-            param=None):
+            model=None):
     """
     t = list of stations
     targe = name of target, or (ra, dec) in (in hours, degs)
     lst = np.array of LST (in hours)
     wl = np.array of wavelength (in um)
     diam = UD diam, in mas. If set, returns simple UD model
-    cube = {'image', 'scale', 'wl', 'spectrum'}
+    cube = {'image', 'scale', 'WL', 'spectrum'}
         image: Nx x Ny spatial pixels (x Nwl optional )
         scale: "scale", in mas (ignoired)
         wl: wavelength vector in um (ignored if cube is 2D only)
         spectrum: spectrum (same lemgth as wl), should be sum(image, axis=(0,1))
-
+    model = a dictionnary describing a model (usual PMOIRED syntax)
     """
     if noise == 0:
         noise = {k:0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
@@ -928,13 +928,16 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
         else:
             fvis = lambda u,v,l: visCube(cube, u, v, l)
             if 'spectrum' in cube:
-                fflux = lambda l: np.interp(l, cube['wl'], cube['spectrum'])
+                fflux = lambda l: np.interp(l, cube['WL'], cube['spectrum'])
             else:
-                fflux = lambda l: np.interp(l, cube['wl'],
+                fflux = lambda l: np.interp(l, cube['WL'],
                                             np.sum(cube['image'], axis=(1,2)))
+    elif model is None and diam is None:
+        # -- so we have at least somethinh to model!
+        diam = 1.0
 
     if not diam is None:
-        # -- uniform disk
+        # -- simple uniform disk
         c = np.pi/180/3600/1000/1e-6
         def fvis(u, v, l):
             x = c*np.pi*diam*np.sqrt(u**2+v**2)[:,None]/wl[None,:]
@@ -1079,7 +1082,8 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
 
-    if not param is None:
+    if not model is None:
+        param = model
         res['fit'] = {'obs':['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
         res = oimodels.VmodelOI(res, param, fullOutput=True)
         # -- add noise

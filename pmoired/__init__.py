@@ -80,6 +80,7 @@ class OI:
         # -- modeled quantities:
         self.fluxes = {}
         self.spectra = {}
+        self._model = []
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
                 withHeader=True, medFilt=None, tellurics=None, binning=None):
@@ -613,31 +614,68 @@ class OI:
             else:
                 self.fig += len(self.data)
         else:
+            self._model = []
             for i,d in enumerate(data):
                 if 'fit' in d and 'obs' in d['fit']:
                     #print(j, g['fit'])
                     _obs = d['fit']['obs']
                 else:
                     _obs = None
-                self._model = oimodels.showOI([d], param=model, fig=self.fig,
+                self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, logS=logS,
                         imFov=imFov if i==(len(data)-1) else None,
                         imPix=imPix, imPow=imPow, imMax=imMax,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
+                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
+                        showChi2=showChi2))
                 self.fig += 1
         if not imFov is None:
             self.fig += 1
         #print('done in %.2fs'%(time.time()-t0))
         return
 
-    def halfLightRadii(self, verbose=True):
+    def computeHalfLightRadiiFromParam(self, verbose=True):
         if not self.bestfit is None:
-            self.halfrad = oimodels.halfLightRadiusFromParam(self.bestfit,
+            self.halfradP = oimodels.halfLightRadiusFromParam(self.bestfit,
                                                             verbose=verbose)
         else:
             print('no best fit model to compute half light radii!')
+        return
+
+    def computeHalfLightRadiiFromImages(self, incl=0, projang=0, x0=0, y0=0,
+        excludeCentralPix=True):
+        if len(self._model)==0:
+            print('no best images model to compute half light radii!')
+        res = {'WL':[], 'HLR':[],  'I':[]}
+        for j,m in enumerate(self._model):
+            scale = np.diff(m['MODEL']['X']).max()
+            Xp = (m['MODEL']['X']-x0)*np.cos(-projang*np.pi/180+np.pi/2) + \
+                 (m['MODEL']['Y']-y0)*np.sin(-projang*np.pi/180+np.pi/2)
+            Yp = -(m['MODEL']['X']-x0)*np.sin(-projang*np.pi/180+np.pi/2) + \
+                  (m['MODEL']['Y']-y0)*np.cos(-projang*np.pi/180+np.pi/2)
+            Yp /= np.cos(incl*np.pi/180)
+            R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
+            if excludeCentralPix:
+                r = np.linspace(scale, np.max(R), int(np.max(R)/scale))
+            else:
+                r = np.linspace(0, np.max(R), int(np.max(R)/scale))
+            res['R'] = r
+            if 'cube' in m['MODEL']:
+                for i, wl in enumerate(m['WL']):
+                    if not wl in res['WL']:
+                        res['WL'].append(wl)
+                        tmp = m['MODEL']['cube'][i].flatten()
+                        if excludeCentralPix:
+                            I = [tmp[(R<=x)*(R>scale)].sum() for x in r]
+                        else:
+                            I = [tmp[R<=x].sum() for x in r]
+                        res['I'].append(np.array(I))
+                        res['HLR'].append(np.interp(I[-1]/2, I, r))
+        res['HLR'] = np.array(res['HLR'])[np.argsort(res['WL'])]
+        res['I'] = [res['I'][i] for i in np.argsort(res['WL'])]
+        res['WL'] = np.array(sorted(res['WL']))
+        self.halfradI = res
         return
 
     def computeModelSpectrum(self, model='best', uncer=True, Niter=100):

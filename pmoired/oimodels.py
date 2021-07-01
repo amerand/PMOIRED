@@ -3179,8 +3179,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1mcT = {'i':0} # initialize global marker/color for triangles
             ai1ax = {} # initialise global list of axes
             ai1i = [] # initialise global list of axes
-
-        return m
+        return models
 
     #print('->', computeLambdaParams(param))
     if not vLambda0 is None:
