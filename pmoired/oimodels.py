@@ -235,8 +235,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     #print('->', imFov, imPix)
     if not imFov is None and not imPix is None:
         # -- image coordinates in mas
-        X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, int(imFov/imPix)+1),
-                           np.linspace(-imFov/2, imFov/2, int(imFov/imPix)+1))
+        X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
+                           np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1))
         if not imX is None:
             X += imX
         if not imY is None:

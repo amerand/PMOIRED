@@ -80,6 +80,7 @@ class OI:
         # -- modeled quantities:
         self.fluxes = {}
         self.spectra = {}
+        self.images = {}
         self._model = []
 
     def addData(self, filenames, insname=None, targname=None, verbose=True,
@@ -635,50 +636,134 @@ class OI:
         #print('done in %.2fs'%(time.time()-t0))
         return
 
-    def computeHalfLightRadiiFromParam(self, verbose=True):
+    def computeHalfLightRadiiFromParam(self):
+        """
+        result stored in self.halfradP
+        """
         if not self.bestfit is None:
             self.halfradP = oimodels.halfLightRadiusFromParam(self.bestfit,
-                                                            verbose=verbose)
+                                                             verbose=verbose)
         else:
             print('no best fit model to compute half light radii!')
         return
 
     def computeHalfLightRadiiFromImages(self, incl=0, projang=0, x0=0, y0=0,
-        excludeCentralPix=True):
-        if len(self._model)==0:
-            print('no best images model to compute half light radii!')
-        res = {'WL':[], 'HLR':[],  'I':[]}
-        for j,m in enumerate(self._model):
-            scale = np.diff(m['MODEL']['X']).max()
-            Xp = (m['MODEL']['X']-x0)*np.cos(-projang*np.pi/180+np.pi/2) + \
-                 (m['MODEL']['Y']-y0)*np.sin(-projang*np.pi/180+np.pi/2)
-            Yp = -(m['MODEL']['X']-x0)*np.sin(-projang*np.pi/180+np.pi/2) + \
-                  (m['MODEL']['Y']-y0)*np.cos(-projang*np.pi/180+np.pi/2)
-            Yp /= np.cos(incl*np.pi/180)
-            R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
+                                        excludeCentralPix=True):
+        """
+        use models' synthetic images (self.images) to compute half-ligh radii (HLR)
+        as function of wavelength.
+        incl, projang: inclination and projection angle (in degrees) to
+            de-project images (default 0,0, i.e. assume face-on)
+        x0, y0: center of image to compute HLR (default: 0,0)
+        excludeCentralPix: exclude central pixel for the computation of the HLR
+            (default: True)
+
+        result is stored in self.halfradI as a dictionary:
+            'WL': wavelength (in um, sorted)
+            'HLR': half-light radii, (in mas, same length as WL)
+            'I': the radial cumulative intensity profiles
+            'R': the radial dimension (im mas)
+        """
+        # if len(self._model)==0:
+        #     print('no best images model to compute half light radii!')
+        assert self.images!={}, 'run ".computeModelImages" first!'
+
+        res = {'WL':self.images['WL'], 'HLR':[],  'I':[]}
+        scale = self.images['scale']
+        Xp = (self.images['X']-x0)*np.cos(-projang*np.pi/180+np.pi/2) + \
+             (self.images['Y']-y0)*np.sin(-projang*np.pi/180+np.pi/2)
+        Yp = -(self.images['X']-x0)*np.sin(-projang*np.pi/180+np.pi/2) + \
+              (self.images['Y']-y0)*np.cos(-projang*np.pi/180+np.pi/2)
+        Yp /= np.cos(incl*np.pi/180)
+        R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
+
+        if excludeCentralPix:
+            r = np.linspace(scale, np.max(R), int(np.max(R)/scale))
+        else:
+            r = np.linspace(0, np.max(R), int(np.max(R)/scale))
+        res['R'] = r
+
+        for i, wl in enumerate(res['WL']):
+            tmp = self.images['cube'][i].flatten()
             if excludeCentralPix:
-                r = np.linspace(scale, np.max(R), int(np.max(R)/scale))
+                I = [tmp[(R<=x)*(R>scale)].sum() for x in r]
             else:
-                r = np.linspace(0, np.max(R), int(np.max(R)/scale))
-            res['R'] = r
-            if 'cube' in m['MODEL']:
-                for i, wl in enumerate(m['WL']):
-                    if not wl in res['WL']:
-                        res['WL'].append(wl)
-                        tmp = m['MODEL']['cube'][i].flatten()
-                        if excludeCentralPix:
-                            I = [tmp[(R<=x)*(R>scale)].sum() for x in r]
-                        else:
-                            I = [tmp[R<=x].sum() for x in r]
-                        res['I'].append(np.array(I))
-                        res['HLR'].append(np.interp(I[-1]/2, I, r))
-        res['HLR'] = np.array(res['HLR'])[np.argsort(res['WL'])]
-        res['I'] = [res['I'][i] for i in np.argsort(res['WL'])]
-        res['WL'] = np.array(sorted(res['WL']))
+                I = [tmp[R<=x].sum() for x in r]
+            res['I'].append(np.array(I))
+            res['HLR'].append(np.interp(I[-1]/2, I, r))
+        res['HLR'] = np.array(res['HLR'])
         self.halfradI = res
         return
 
+
+    def computeModelImages(self, imFov, model='best', imPix=None,
+                           imX=0, imY=0):
+        """
+        Compute an image cube of the synthetic model, for each wavelength in
+        the data. By default, the model used is the best fit model
+        (self.bestfit['best']), but a dictionnary can be provided using "model=".
+        a field of view ("imFov", in mas) must be given as first parameter.
+
+        Parameters for the images are:
+        imFov: mandatory Field of View , (in mas)
+        imPix: pixel size (in mas). Default: imFov/101
+        imX, imY: center of the field (in mas). Default is 0,0
+
+        result is stored in the dictionnary self.images:
+        'WL': wavelength (in um), sorted
+        'cube': image cube, cube[i] is the i-th wavelength
+        'X', 'Y': 2D arrays of coordinates of pixels
+        'scale': actual pixel scale (in mas)
+        """
+        if model=='best' and not self.bestfit is None:
+            model = self.bestfit['best']
+        assert type(model) is dict, "model must be a dictionnary"
+        if imPix is None:
+            imPix = imFov/101
+        tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
+                                imX=imX, imY=imY) for d in self.data]
+
+        # -- image coordinates in mas
+        X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
+                           np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1))
+        X += imX
+        Y += imY
+        scale = np.diff(X).max()
+        res = {'WL':[], 'cube':[], 'X':X, 'Y':Y, 'scale':scale}
+
+        for t in tmp:# for each OIFITS object
+            for i, wl in enumerate(t['WL']):
+                if not wl in res['WL']:
+                    res['WL'].append(wl)
+                    if 'cube' in t['MODEL']:
+                        res['cube'].append(t['MODEL']['cube'][i])
+                    else:
+                        res['cube'].append(t['MODEL']['image'])
+        res['cube'] = np.array([res['cube'][i] for i in np.argsort(res['WL'])])
+        res['WL'] = sorted(np.array(res['WL']))
+        self.images = res
+        return
+
     def computeModelSpectrum(self, model='best', uncer=True, Niter=100):
+        """
+        Compute the fluxes (i.e. SED) and/or spectra for each component of given
+        model (default model is the self.bestfit['best']). If "uncer=True"
+        (default) and "model='best'", uncertainties of the spectra will be computed
+        using the covariance matrix of best fit, using "Niter" (default=100).
+
+        Fluxes and/or spectra will be computed depending if "FLUX" and/or "NFLUX"
+        were fitted (i.e. defined in the fit setup dictionnary).
+
+        result is a dictionnary stored in self.spectra:
+        for fluxes (i.e. SED):
+            'flux WL': wavelength vector
+            'flux COMP': fluxes for each components of the model
+            'err flux COMP': uncertainties of fluxes for each component
+            'flux TOTAL': total flux
+            'err flux TOTAL': uncertainty on total flux
+        for normalised spectra:
+            replace 'flux' by 'normalised spectrum'
+        """
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
             # -- randomise parameters, using covariance
