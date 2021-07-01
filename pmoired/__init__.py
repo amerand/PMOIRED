@@ -34,7 +34,7 @@ __versions__={'python':sys.version,
               }
 
 class OI:
-    def __init__(self, filenames=None, insname=None, targname=None, ,
+    def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
                  tellurics=None, debug=False, verbose=True):
         """
