@@ -1855,28 +1855,21 @@ def autoPrior(param):
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
             # -- hard to set a tolerance, but we can assume 1% of initial guess
             if param[k]>0:
-                #prior[k] = ('>=', 0.0, param[k]/100)
                 prior.append((k, '>=', 0.0, param[k]/100))
             else:
-                #prior[k] = ('>=', 0.0)
                 prior.append((k, '>=', 0.0))
 
         tmp = ['diamout', 'crout']
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
-            #prior[k] = ('>', k[:-3]+'in', 1e-3)
             prior.append((k, '>', k[:-3]+'in', 1e-3))
 
         tmp = ['thick']
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
-            #prior[k] = ('>', 0, 1e-6)
-            #prior[k] = ('<', 1, 1e-6)
             prior.append((k, '>', 0, 1e-6))
             prior.append((k, '<', 1, 1e-6))
 
         tmp = ['croff']
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
-            #prior[k] = ('>', -1, 1e-6)
-            #prior[k] = ('<', 1, 1e-6)
             prior.append((k, '>', -1, 1e-6))
             prior.append((k, '<', 1, 1e-6))
 

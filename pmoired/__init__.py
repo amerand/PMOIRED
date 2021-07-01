@@ -34,9 +34,9 @@ __versions__={'python':sys.version,
               }
 
 class OI:
-    def __init__(self, filenames=None, insname=None, targname=None, verbose=True,
-               withHeader=True, medFilt=None, tellurics=None, debug=False,
-               binning=None):
+    def __init__(self, filenames=None, insname=None, targname=None, ,
+                 withHeader=True, medFilt=None, binning=None,
+                 tellurics=None, debug=False, verbose=True):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str).
@@ -46,7 +46,7 @@ class OI:
 
         targname: which target. Not needed if only one target in files
 
-        with_header: will load full header (default=False)
+        with_header: will load full header (default=True)
 
         medFilt: apply median filter of width 'medFilt'. Default no filter
 
@@ -55,6 +55,10 @@ class OI:
         tellurics: pass a telluric correction vector, or a list of vectors,
             one per file. If nothing given, will use the tellurics in the OIFITS
             file. Works with results from 'pmoired.tellcorr'
+
+        verbose: default is True
+
+        See Also: addData
         """
         # -- load data
         self.data = []
@@ -83,8 +87,32 @@ class OI:
         self.images = {}
         self._model = []
 
-    def addData(self, filenames, insname=None, targname=None, verbose=True,
-                withHeader=True, medFilt=None, tellurics=None, binning=None):
+    def addData(self, filenames, insname=None, targname=None, withHeader=True,
+                medFilt=None, tellurics=None, binning=None, verbose=True):
+        """
+        add data to the existing ones:
+
+        filenames: is either a single file (str) or a list of OIFITS files (list
+            of str).
+
+        insname: which instrument to select. Not needed if only one instrument
+            per file. If multi instruments in files, all will be loaded.
+
+        targname: which target. Not needed if only one target in files
+
+        with_header: will load full header (default=True)
+
+        medFilt: apply median filter of width 'medFilt'. Default no filter
+
+        binning: bin data by this factor (integer). default no binning
+
+        tellurics: pass a telluric correction vector, or a list of vectors,
+            one per file. If nothing given, will use the tellurics in the OIFITS
+            file. Works with results from 'pmoired.tellcorr'
+
+        verbose: default is True
+
+        """
         if not type(filenames)==list or not type(filenames)==tuple:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
@@ -134,7 +162,6 @@ class OI:
             'DPHI': differential phase (wrt continuum)
             'T3PHI': closure phases
             'T3AMP': closure amplitude
-        -> by default, all possible observables are fitted
 
         'wl ranges': gives a list of wavelength ranges (in um) where to fit.
             e.g. [(1.5, 1.6), (1.65, 1.75)]
@@ -148,8 +175,21 @@ class OI:
         'min relative error': same as 'min error', but for relative values. Useful
             for FLUX, V2, |V| or T3AMP
 
-        'max error': similar to 'min error' but will ignore (flag) data above a
-            certain error
+        'max error': similar to 'min error' but will ignore (flag) data above
+
+        'max relative error': similar to 'min relative error' but will ignore
+            (flag) data above
+
+        'Nr':int, number of points to compute radial profiles (default=100)
+
+        'spec res pix':float, spectral resolution spread in pixel
+            (e.g. for GRAVITY, use 1.4)
+
+        'continuum ranges':list of ranges where continuum need to be computed,
+            same format as 'wl ranges'. Not needed if you use Gaussian or
+            Lorentzian in model with defined syntax ("line_...")
+
+        'ignore negative flux':bool. Default is False
         """
         correctType = type(fit)==dict
         correctType = correctType or (type(fit)==list and
@@ -217,6 +257,15 @@ class OI:
         maxfev: maximum number of iterations
         ftol: chi2 stopping criteria
         follow: list of parameters to display as fit is going on
+
+        prior: list of priors as tuples. For example
+            [('a+b', '=', 1.2, 0.1)] if a and b are parameters. a+b = 1.2 +- 0.1
+            [('a', '<', 'sqrt(b)', 0.1)] if a and b are parameters. a<sqrt(b), and
+                the penalty is 0 for a==sqrt(b) but rises significantly
+                for a>sqrt(b)+0.1
+
+        autoPrior: (default: True). Set automaticaly priors such as "diam>0" or
+            "diamout>diamin".
         """
         if model is None:
             try:
@@ -237,10 +286,13 @@ class OI:
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
-        self.computeModelSpectrum()
+        self.computeModelSpectra()
         self.bestfit['prior'] = prior
         return
     def showFit(self):
+        """
+        show how chi2 / fitted parameters changed with each iteration of the fit.
+        """
         if not self.bestfit is None:
             self.fig += 1
             oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
@@ -249,6 +301,9 @@ class OI:
     def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
                     firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
                     logchi2=False, multi=True):
+        """
+        not to be used! still under development
+        """
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         if fig is None:
             self.fig += 1
@@ -264,10 +319,12 @@ class OI:
 
     def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True):
         """
-        check the detection limit for parameter "param" in the model (default
-        bestfit), using a exploration grid "expl" (see gridFit for a description),
+        check the detection limit for parameter "param" from "model" (default
+        bestfit), using an exploration grid "expl" (see gridFit for a description),
         assuming that "param"=0 is non-detection. The detection limit is computed
         for a number of sigma "nsigma" (default=3).
+
+        See Also: gridFit, showLimGrid
         """
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
@@ -297,6 +354,8 @@ class OI:
 
         The crosses are the starting points of the fits, and the coloured dots
         show the value of the limit for nsigma.
+
+        See Also: detectionLimit
         """
         assert not self.limgrid is None, 'You should run detectionLimit first!'
         self.fig += 1
@@ -372,6 +431,8 @@ class OI:
 
         if "grid" are defined, they will define N as:
         Nfits = prod_i (max_i-min_i)/step_i + 1
+
+        See Also: showGrid, detectionLimit
         """
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
@@ -411,6 +472,8 @@ class OI:
 
         The crosses are the starting points of the fits, and the circled dot
         is the global minimum.
+
+        See Also: gridFit
         """
         assert not self.grid is None, 'You should run gridFit first!'
         params = []
@@ -446,6 +509,8 @@ class OI:
         by a previously ran fit. By default Nfits is set to the number of
         "independent" data. 'multi' sets the number of threads
         (default==all available).
+
+        See Also: showBootstrap
         """
         if self._merged is None:
             self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
@@ -461,6 +526,8 @@ class OI:
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
                    'PA':'np.arctan2($c,x, $c,y)*180/np.pi'}
+
+        See Also: bootstrapFit
         """
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
@@ -695,7 +762,6 @@ class OI:
         self.halfradI = res
         return
 
-
     def computeModelImages(self, imFov, model='best', imPix=None,
                            imX=0, imY=0):
         """
@@ -714,6 +780,9 @@ class OI:
         'cube': image cube, cube[i] is the i-th wavelength
         'X', 'Y': 2D arrays of coordinates of pixels
         'scale': actual pixel scale (in mas)
+
+        See Also: computeModelSpectra
+
         """
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
@@ -744,7 +813,7 @@ class OI:
         self.images = res
         return
 
-    def computeModelSpectrum(self, model='best', uncer=True, Niter=100):
+    def computeModelSpectra(self, model='best', uncer=True, Niter=100):
         """
         Compute the fluxes (i.e. SED) and/or spectra for each component of given
         model (default model is the self.bestfit['best']). If "uncer=True"
@@ -763,6 +832,8 @@ class OI:
             'err flux TOTAL': uncertainty on total flux
         for normalised spectra:
             replace 'flux' by 'normalised spectrum'
+
+        See Also: computeModelImages
         """
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
@@ -880,7 +951,7 @@ def _checkObs(data, obs):
 
 def _checkSetupFit(fit):
     """
-    check for setupFit:
+    check for setupFit
     """
     keys = {'min error':dict, 'min relative error':dict,
             'max error':dict, 'max relative error':dict,
