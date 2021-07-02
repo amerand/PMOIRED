@@ -4241,7 +4241,7 @@ def _callbackAxes(ax):
         print('could not find axes')
     return
 
-def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=False):
+def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
     if type(param) is dict and 'best' in param and 'uncer' in param:
         # -- ramdomised params
         allP = dpfit.randomParam(param, N=100, x=None)['r_param']

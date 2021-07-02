@@ -1,13 +1,8 @@
 try:
-    from pmoired import oimodels, oifits, oicandid, oifake
+    from pmoired import oimodels, oifits, oifake #, oicandid
 except:
-    import oimodels, oifits, oicandid , oifake
+    import oimodels, oifits, oifake #, oicandid
 
-
-import time
-
-import numpy as np
-import matplotlib.pyplot as plt
 
 import multiprocessing
 try:
@@ -16,14 +11,19 @@ try:
 except:
     pass
 
-print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
-print('https://github.com/amerand/PMOIRED')
-
+import numpy as np
+import matplotlib.pyplot as plt
 import scipy
 import astropy
 import astroquery
 import matplotlib
 import sys
+import os
+import pickle
+import time
+
+print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
+print('https://github.com/amerand/PMOIRED')
 
 __versions__={'python':sys.version,
               'numpy':np.__version__,
@@ -78,14 +78,40 @@ class OI:
         # -- detection limit grid / random fits:
         self.limgrid = None
         # -- CANDID results:
-        self.candidFits = None
+        #self.candidFits = None
         # -- current figure
         self.fig = 0
         # -- modeled quantities:
-        self.fluxes = {}
         self.spectra = {}
         self.images = {}
         self._model = []
+    def save(self, name=None, override=False):
+        """
+        save object as binary file (not OIFITS :()
+        takes a snapshot
+        """
+        if name is None:
+            name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
+        if not name.endswith('.pmrd'):
+            name += '.pmrd'
+        assert not os.path.exists(name) and not override, 'file "'+name+'" already exists'
+        with open(name, 'wb') as f:
+            pickle.dump((self.data, self.bestfit, self.boot, self.grid,
+                        self.limgrid, self.fig, self.spectra, self._model), f)
+        print('object saved as "'+name+'"')
+        return
+    def load(self, name):
+        """
+        Loaf object as binary file (not OIFITS :()
+        """
+        if not os.path.exists(name) and os.path.exists(name+'.pmrd'):
+            name += '.pmrd'
+        assert os.path.exists(name), 'file "'+name+'" does not exist'
+        with open(name, 'rb') as f:
+            self.data, self.bestfit, self.boot, \
+                self.grid, self.limgrid, self.fig, \
+                self.spectra, self._model = pickle.load(f)
+        return
 
     def addData(self, filenames, insname=None, targname=None, withHeader=True,
                 medFilt=None, tellurics=None, binning=None, verbose=True):
@@ -298,24 +324,24 @@ class OI:
             oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
         return
 
-    def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
-                    firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
-                    logchi2=False, multi=True):
-        """
-        not to be used! still under development
-        """
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-        if fig is None:
-            self.fig += 1
-            fig = self.fig
-        self.candidFits = oicandid.fitMap(self._merged, rmin=rmin, rmax=rmax,
-                                          rstep=rstep, firstGuess=firstGuess,
-                                          fitAlso=fitAlso, fig=fig, cmap=cmap,
-                                          doNotFit=doNotFit, logchi2=logchi2,
-                                          multi=multi)
-        self.bestfit = self.candidFits[0]
-        self.computeModelSpectrum
-        return
+    # def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
+    #                 firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
+    #                 logchi2=False, multi=True):
+    #     """
+    #     not to be used! still under development
+    #     """
+    #     self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+    #     if fig is None:
+    #         self.fig += 1
+    #         fig = self.fig
+    #     self.candidFits = oicandid.fitMap(self._merged, rmin=rmin, rmax=rmax,
+    #                                       rstep=rstep, firstGuess=firstGuess,
+    #                                       fitAlso=fitAlso, fig=fig, cmap=cmap,
+    #                                       doNotFit=doNotFit, logchi2=logchi2,
+    #                                       multi=multi)
+    #     self.bestfit = self.candidFits[0]
+    #     self.computeModelSpectrum
+    #     return
 
     def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True):
         """
@@ -543,7 +569,7 @@ class OI:
         return
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
-             showFlagged=False, spectro=None, showUV=True, perSetup=False,
+             showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False):
@@ -587,6 +613,9 @@ class OI:
         if spectro is None:
             N = [len(d['WL']) for d in self.data]
             spectro = max(N)>20
+
+        if allInOne and perSetup:
+            perSetup = False
 
         if allInOne or perSetup:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
@@ -708,10 +737,28 @@ class OI:
         result stored in self.halfradP
         """
         if not self.bestfit is None:
-            self.halfradP = oimodels.halfLightRadiusFromParam(self.bestfit,
-                                                             verbose=verbose)
+            self.halfradP = oimodels.halfLightRadiusFromParam(self.bestfit)
         else:
             print('no best fit model to compute half light radii!')
+        return
+    def deprojectImages(self, incl=0, projang=0, x0=0, y0=0):
+        """
+        deproject coordinates of synthetic images with inc, projang (in degrees),
+        and center x0, y0 (in mas, default 0,0)
+        """
+        assert self.images!={}, 'run ".computeModelImages" first!'
+        if type(incl)==str and incl in self.images['model']:
+            incl = self.images['model'][incl]
+        if type(projang)==str and projang in self.images['model']:
+            projang = self.images['model'][projang]
+
+        Xp = (self.images['X']-x0)*np.cos(-projang*np.pi/180) + \
+             (self.images['Y']-y0)*np.sin(-projang*np.pi/180)
+        Yp = -(self.images['X']-x0)*np.sin(-projang*np.pi/180) + \
+              (self.images['Y']-y0)*np.cos(-projang*np.pi/180)
+        Xp /= np.cos(incl*np.pi/180)
+        self.images['Xp'] = Xp
+        self.images['Yp'] = Yp
         return
 
     def computeHalfLightRadiiFromImages(self, incl=0, projang=0, x0=0, y0=0,
@@ -720,7 +767,8 @@ class OI:
         use models' synthetic images (self.images) to compute half-ligh radii (HLR)
         as function of wavelength.
         incl, projang: inclination and projection angle (in degrees) to
-            de-project images (default 0,0, i.e. assume face-on)
+            de-project images (default 0,0, i.e. assume face-on). These also can
+            by parameters' keyword from the model used to compute images.
         x0, y0: center of image to compute HLR (default: 0,0)
         excludeCentralPix: exclude central pixel for the computation of the HLR
             (default: True)
@@ -734,14 +782,11 @@ class OI:
         # if len(self._model)==0:
         #     print('no best images model to compute half light radii!')
         assert self.images!={}, 'run ".computeModelImages" first!'
+        self.deprojectImages(incl, projang, x0, y0)
 
         res = {'WL':self.images['WL'], 'HLR':[],  'I':[]}
         scale = self.images['scale']
-        Xp = (self.images['X']-x0)*np.cos(-projang*np.pi/180+np.pi/2) + \
-             (self.images['Y']-y0)*np.sin(-projang*np.pi/180+np.pi/2)
-        Yp = -(self.images['X']-x0)*np.sin(-projang*np.pi/180+np.pi/2) + \
-              (self.images['Y']-y0)*np.cos(-projang*np.pi/180+np.pi/2)
-        Yp /= np.cos(incl*np.pi/180)
+        Xp, Yp = self.images['Xp'], self.images['Yp']
         R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
 
         if excludeCentralPix:
@@ -798,7 +843,8 @@ class OI:
         X += imX
         Y += imY
         scale = np.diff(X).max()
-        res = {'WL':[], 'cube':[], 'X':X, 'Y':Y, 'scale':scale}
+        res = {'WL':[], 'cube':[], 'X':X, 'Y':Y, 'scale':scale,
+                'model':model}
 
         for t in tmp:# for each OIFITS object
             for i, wl in enumerate(t['WL']):
@@ -809,7 +855,7 @@ class OI:
                     else:
                         res['cube'].append(t['MODEL']['image'])
         res['cube'] = np.array([res['cube'][i] for i in np.argsort(res['WL'])])
-        res['WL'] = sorted(np.array(res['WL']))
+        res['WL'] = np.array(sorted(res['WL']))
         self.images = res
         return
 
@@ -875,7 +921,7 @@ class OI:
 
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
-        M = {}
+        M = {'model':model}
         if len(allWLc):
             allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
             tmp = oimodels.VmodelOI(allWL, model)
