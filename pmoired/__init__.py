@@ -78,6 +78,7 @@ class OI:
         self.spectra = {}
         self.images = {}
         self._model = []
+        self.data = []
         if type(filenames)==str and filenames.endswith('.pmrd'):
             self.load(filenames)
         elif not filenames is None:
@@ -505,7 +506,7 @@ class OI:
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
-        self.computeModelSpectra()
+        #self.computeModelSpectra()
         self._expl = expl
         return
 
