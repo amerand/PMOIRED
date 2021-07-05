@@ -883,7 +883,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
         #         'T3PHI':.1, 'T3AMP':0.001}
     if thres is None:
         # -- threshold for noise behavior (absolute)
-        thres = {'V2':0.01, '|V|':0.01, 'T3AMP':0.05, 'FLUX':0.0}
+        thres = {'V2':0.01, '|V|':0.02, 'T3AMP':0.05, 'FLUX':0.01}
 
     tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
@@ -902,9 +902,9 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
     # -- fake MJD
     tmp['MJD'] = (np.array(lst)-lst0)/24 + mjd0
-    res = {'insname':'fake_%.3f_%.3fum_R%d'%(min(wl), max(wl),
-                        np.mean(wl)/np.ptp(wl)*len(wl)),
-           'filename':'',
+    res = {'insname':'fake_%.3f_%.3fum_R%.0f'%(min(wl), max(wl),
+                        np.mean(wl/np.gradient(wl))),
+           'filename':'synthetic',
            'targname':target if type(target)==str else
                             '%.3f %.3f'%tuple(target),
            'pipeline':'None',
@@ -1094,23 +1094,25 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
         if 'OI_FLUX' in res:
             for k in res['OI_FLUX'].keys():
-                res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*res['OI_FLUX'][k]['FLUX']
+                res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*np.maximum(res['OI_FLUX'][k]['FLUX'],
+                                                                      thres['FLUX'])
                 addnoise('OI_FLUX', k, 'FLUX')
 
         for k in res['OI_VIS'].keys():
-            res['OI_VIS'][k]['E|V|'] = noise['|V|']*res['OI_VIS'][k]['|V|']
-            res['OI_VIS'][k]['EPHI'] = noise['PHI'] + 0.0*res['OI_VIS'][k]['PHI']
-            res['OI_VIS2'][k]['EV2'] = noise['V2']*res['OI_VIS2'][k]['V2']
+            res['OI_VIS'][k]['E|V|'] = noise['|V|']*np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])
+            res['OI_VIS'][k]['EPHI'] = noise['PHI']*(thres['|V|']/np.sqrt(thres['|V|']**2 +
+                                           np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])**2))
+            res['OI_VIS2'][k]['EV2'] = noise['V2']*np.maximum(res['OI_VIS2'][k]['V2'], thres['V2'])
             addnoise('OI_VIS', k, '|V|')
             addnoise('OI_VIS', k, 'PHI')
             addnoise('OI_VIS2', k, 'V2')
 
         for k in res['OI_T3'].keys():
-            res['OI_T3'][k]['ET3AMP'] = noise['T3AMP']*res['OI_T3'][k]['T3AMP']
-            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI'] + 0.0*res['OI_T3'][k]['T3PHI']
+            res['OI_T3'][k]['ET3AMP'] = noise['T3AMP']*np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])
+            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*(thres['T3AMP']/np.sqrt(thres['T3AMP']**2+
+                            np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
             addnoise('OI_T3', k, 'T3AMP')
             addnoise('OI_T3', k, 'T3PHI')
-
 
     res['configurations per MJD'] = conf
     return res

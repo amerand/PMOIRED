@@ -39,7 +39,8 @@ class OI:
                  tellurics=None, debug=False, verbose=True):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
-            of str).
+            of str). Can also be the name of a ".pmrd" binary file from another
+            PMOIRED session.
 
         insname: which instrument to select. Not needed if only one instrument
             per file. If multi instruments in files, all will be loaded.
@@ -50,25 +51,17 @@ class OI:
 
         medFilt: apply median filter of width 'medFilt'. Default no filter
 
-        binning: bin data by this factor (integer). default no binning
+        binning: bin spectral data by integer factor. default no binning (1)
 
         tellurics: pass a telluric correction vector, or a list of vectors,
             one per file. If nothing given, will use the tellurics in the OIFITS
-            file. Works with results from 'pmoired.tellcorr'
+            file (from 'pmoired.tellcorr')
 
         verbose: default is True
 
-        See Also: addData
+        See Also: addData, load, save
         """
-        # -- load data
-        self.data = []
         self.debug = debug
-        if not filenames is None:
-            self.addData(filenames, insname=insname, targname=targname,
-                            verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                            tellurics=tellurics, binning=binning)
-        else:
-            self.data = []
         # -- last best fit to the data
         self.bestfit = None
         # -- bootstrap results:
@@ -85,10 +78,20 @@ class OI:
         self.spectra = {}
         self.images = {}
         self._model = []
+        if type(filenames)==str and filenames.endswith('.pmrd'):
+            self.load(filenames)
+        elif not filenames is None:
+            self.addData(filenames, insname=insname, targname=targname,
+                            verbose=verbose, withHeader=withHeader, medFilt=medFilt,
+                            tellurics=tellurics, binning=binning)
+        else:
+            self.data = []
+
     def save(self, name=None, override=False):
         """
-        save object as binary file (not OIFITS :()
-        takes a snapshot
+        save session as binary file (not OIFITS :()
+
+        See Also: load
         """
         if name is None:
             name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
@@ -102,7 +105,9 @@ class OI:
         return
     def load(self, name):
         """
-        Loaf object as binary file (not OIFITS :()
+        Load session from a binary file (not OIFITS :()
+
+        See Also: save
         """
         if not os.path.exists(name) and os.path.exists(name+'.pmrd'):
             name += '.pmrd'
@@ -111,6 +116,27 @@ class OI:
             self.data, self.bestfit, self.boot, \
                 self.grid, self.limgrid, self.fig, \
                 self.spectra, self._model = pickle.load(f)
+        return
+    def info(self):
+        """
+        Print out information about the current session
+        """
+        # -- data
+        print('== DATA', '='*40)
+        for i,d in enumerate(self.data):
+            print(' >', i, 'file="'+d['filename']+'"', 'ins="'+d['insname']+'"',
+                '-'.join(d['telescopes']),
+                '%dxWL=%.2f..%.2fum [R~%.0f]'%(len(d['WL']), d['WL'].min(), d['WL'].max(),
+                                            np.mean(d['WL']/np.gradient(d['WL']))))
+        if not self.bestfit is None:
+            print('== FIT', '='*40)
+            print('chi2 = %f'%self.bestfit['chi2'])
+            oimodels.dpfit.dispBest(self.bestfit)
+            oimodels.dpfit.dispCor(self.bestfit)
+
+        if not self.boot is None:
+            print("== BOOTSTRAPPING == ")
+            oimodels.analyseBootstrap(self.boot)
         return
 
     def addData(self, filenames, insname=None, targname=None, withHeader=True,
@@ -340,7 +366,7 @@ class OI:
     #                                       doNotFit=doNotFit, logchi2=logchi2,
     #                                       multi=multi)
     #     self.bestfit = self.candidFits[0]
-    #     self.computeModelSpectrum
+    #     self.computeModelSpectra
     #     return
 
     def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True):
@@ -479,7 +505,7 @@ class OI:
                                        epsfcn=epsfcn)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
-        self.computeModelSpectrum()
+        self.computeModelSpectra()
         self._expl = expl
         return
 
@@ -745,6 +771,8 @@ class OI:
         """
         deproject coordinates of synthetic images with inc, projang (in degrees),
         and center x0, y0 (in mas, default 0,0)
+
+        Adds 'Xp' and 'Yp' deprojected coordinates of the pixels in "self.images"
         """
         assert self.images!={}, 'run ".computeModelImages" first!'
         if type(incl)==str and incl in self.images['model']:
@@ -766,6 +794,7 @@ class OI:
         """
         use models' synthetic images (self.images) to compute half-ligh radii (HLR)
         as function of wavelength.
+
         incl, projang: inclination and projection angle (in degrees) to
             de-project images (default 0,0, i.e. assume face-on). These also can
             by parameters' keyword from the model used to compute images.
@@ -773,7 +802,7 @@ class OI:
         excludeCentralPix: exclude central pixel for the computation of the HLR
             (default: True)
 
-        result is stored in self.halfradI as a dictionary:
+        result is stored in "self.halfradI" as a dictionary:
             'WL': wavelength (in um, sorted)
             'HLR': half-light radii, (in mas, same length as WL)
             'I': the radial cumulative intensity profiles
@@ -790,9 +819,9 @@ class OI:
         R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
 
         if excludeCentralPix:
-            r = np.linspace(scale, np.max(R), int(np.max(R)/scale))
+            r = np.linspace(scale, np.max(R), 2*int(np.max(R)/scale))
         else:
-            r = np.linspace(0, np.max(R), int(np.max(R)/scale))
+            r = np.linspace(0, np.max(R), 2*int(np.max(R)/scale))
         res['R'] = r
 
         for i, wl in enumerate(res['WL']):

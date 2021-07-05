@@ -4849,7 +4849,8 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             PAvar += amp[k]*np.cos(n[k]*(PA + 3*np.pi/2 + phi[k]*np.pi/180))
         Im *= PAvar
         # -- normalize image to total flux
-        Im /= np.sum(Im)
+        if np.sum(Im)>0:
+            Im /= np.sum(Im)
 
         # -- numerical Visibility
         if numVis:
