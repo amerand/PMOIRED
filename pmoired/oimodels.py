@@ -451,30 +451,41 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     elif 'crin' in _param and 'crout' in _param and 'croff' in _param: # crecsent
         #print('crescent')
-        if _param['crin']>_param['crout']:
-            _crin=0.9999*_param['crout']
+        #if _param['crin']>_param['crout']:
+        #    _crin=0.9999*_param['crout']
+        #else:
+        _crin = _param['crin']
+        _crout = _param['crout']
+
+        # -- offset of inner disk / outer disk
+        _off = _param['croff']*(_crout-_crin)/2
+        if 'crprojang' in _param:
+            crpa = _param['crprojang']*np.pi/180
         else:
-            _crin = _param['crin']
+            crpa = 0.0
 
-        _off = _param['croff']*(_param['crout']-_crin)/2
-
-        Vf = lambda z: (np.exp(2j*_c*_uwl(z)*_off/2)*
-                        _param['crout']**2*2*scipy.special.j1(_c*_param['crout']*_Bwl(z) + 1e-12)/
-                        (_c*_param['crout']*_Bwl(z)+ 1e-12) -
-                        np.exp(-2j*_c*_uwl(z)*_off/2)*
+        Vf = lambda z: (np.exp(2j*_c*_uwl(z)*_off/2*np.sin(crpa)
+                               +2j*_c*_vwl(z)*_off/2*np.cos(crpa)
+                               )*
+                        _crout**2*2*scipy.special.j1(_c*_crout*_Bwl(z) + 1e-12)/
+                                (_c*_crout*_Bwl(z)+ 1e-12) -
+                        np.exp(-2j*_c*_uwl(z)*_off/2*np.sin(crpa)
+                               -2j*_c*_vwl(z)*_off/2*np.cos(crpa)
+                               )*
                         _crin**2*2*scipy.special.j1(_c*_crin*_Bwl(z) + 1e-12)/
-                                            (_c*_crin*_Bwl(z)+ 1e-12))/\
-                                            (_param['crout']**2-_crin**2)
+                                (_c*_crin*_Bwl(z) + 1e-12))/\
+                                                 (_crout**2-_crin**2)
         if not I is None:
-            R2 = (_X+_off/2)**2+_Y**2
-            I = np.float_(R2<=(_param['crout']**2/4))
-            R2 = (_X-_off/2)**2+_Y**2
+            R2 = (_X+_off*np.sin(crpa)/2)**2+(_Y+_off*np.cos(crpa)/2)**2
+            I = np.float_(R2<=(_crout**2/4))
+            R2 = (_X-_off*np.sin(crpa)/2)**2+(_Y-_off*np.cos(crpa)/2)**2
+
             I -= (R2<=(_crin**2/4))
             if np.sum(I)==0:
                 I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
         if 'surf bri' in _param:
             # -- use this to compute flux, can be function of wavelength
-            f = np.pi*(_param['crout']**2 - _crin**2)/4*_ffrac
+            f = np.pi*(_crout**2 - _crin**2)/4*_ffrac
             #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
             #      'int(r*Ir)', f)
             if not '$WL' in _param['surf bri']:
@@ -531,6 +542,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Ir = eval(tmp)
         elif _param['profile']=='doughnut':
             Ir = 1-((_r-np.mean(_r))/np.ptp(_r)*2)**2
+        elif _param['profile'].startswith('doughnut'):
+            p = float(_param['profile'].split('doughnut')[1])
+            Ir = 1-np.abs((_r-np.mean(_r))/np.ptp(_r)*2)**p
         elif _param['profile']=='uniform': # uniform
             Ir = np.ones(_r.shape)
 
@@ -4312,7 +4326,10 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
     if not comp+',profile' in param:
         _p = np.ones(len(_r))
     elif param[comp+',profile'] == 'doughnut':
-        _p = 1-4*((_r-_r.mean())/_r.ptp())**2
+        _p = 1-((_r-_r.mean())/_r.ptp()*2)**2
+    elif _param['profile'].startswith('doughnut'):
+        tmp = float(_param['profile'].split('doughnut')[1])
+        _p = 1-np.abs((_r-np.mean(_r))/np.ptp(_r)*2)**tmp
     elif param[comp+',profile'] == 'uniform':
         _p = np.ones(len(_r))
     else:
