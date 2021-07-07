@@ -136,6 +136,7 @@ class OI:
         if debug:
             print('loaded:', loaded)
         return
+
     def info(self):
         """
         Print out information about the current session
@@ -149,9 +150,7 @@ class OI:
                                             np.mean(d['WL']/np.gradient(d['WL']))))
         if not self.bestfit is None:
             print('== FIT', '='*40)
-            print('chi2 = %f'%self.bestfit['chi2'])
-            oimodels.dpfit.dispBest(self.bestfit)
-            oimodels.dpfit.dispCor(self.bestfit)
+            self.showBestfit()
 
         if not self.boot is None:
             print("== BOOTSTRAPPING == ")
@@ -773,7 +772,6 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS)
-
         return
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
@@ -1192,6 +1190,14 @@ class OI:
         #print('fS(1)=', fS(1))
         return m
 
+    def showBestfit(self):
+        if not self.bestfit is None:
+            print('chi2 = %f'%self.bestfit['chi2'])
+            oimodels.dpfit.dispBest(self.bestfit)
+            oimodels.dpfit.dispCor(self.bestfit)
+        else:
+            print('no fit to show')
+        return
 
     def computeHalfLightRadiiFromParam(self):
         """
