@@ -99,14 +99,16 @@ class OI:
         if not name.endswith('.pmrd'):
             name += '.pmrd'
         assert not (os.path.exists(name) and not override), 'file "'+name+'" already exists'
+        ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
+                'images']
         with open(name, 'wb') as f:
-            pickle.dump((self.data, self.bestfit, self.boot, self.grid,
-                        self.limgrid, self.fig, self.spectra, self._model), f)
+            data = {k:self.__dict__[k] for k in ext}
+            pickle.dump(data, f)
         print('object saved as "'+name+'"', end=' ')
         print('[size %.1fM]'%(os.stat('HD163296_all_star+rim+disk.pmrd').st_size/2**20))
         return
 
-    def load(self, name):
+    def load(self, name, debug=False):
         """
         Load session from a binary file (not OIFITS :()
 
@@ -116,9 +118,23 @@ class OI:
             name += '.pmrd'
         assert os.path.exists(name), 'file "'+name+'" does not exist'
         with open(name, 'rb') as f:
+            data = pickle.load(f)
+        if type(data)==tuple and len(data)==8:
+            # --
             self.data, self.bestfit, self.boot, \
                 self.grid, self.limgrid, self.fig, \
-                self.spectra, self._model = pickle.load(f)
+                self.spectra, self._model = data
+            return
+        assert type(data)==dict, 'unvalid data format?'
+        loaded = []
+        for k in data:
+            try:
+                self.__dict__[k] = data[k]
+                loaded.append(k)
+            except:
+                pass
+        if debug:
+            print('loaded:', loaded)
         return
     def info(self):
         """
@@ -608,7 +624,7 @@ class OI:
             models
         - fig: figure number (int)
         - obs: list of pbservables to show (in ['|V|', 'V2', 'T3PHI', 'DPHI',
-            'FLUX']). Defautl will show all data. If fit was performed, fitted
+            'FLUX']). Default will show all data. If fit was performed, fitted
             observables will be shown.
         - logV, logB: show visibilities, baselines in log scale (boolean)
         - showFlagged: show data flagged in the file (boolean)
@@ -619,7 +635,7 @@ class OI:
         - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
         - allInOne: all data in a single figure
 
-        show image and sepctrum of model: set imFov to a value to show image
+        show image and spectrum of model: set imFov to a value to show image
         - imFov: field of view in mas
         - imPix: imPixel size in mas
         - imMax: cutoff for image display (0..1) or in percentile ('0'..'100')
@@ -627,9 +643,11 @@ class OI:
             surface brightness features
         - imX, imY: center of image (in mas)
         - imWl0: list of wavelength (um) to show the image default (min, max)
-        - cmap: color map (default 'bone')
+        - cmap: color map (default 'inferno')
         - checkImVis: compute visibility from image to check (can be wrong if
             fov is too small)
+        - cColors: an optional dictionary to set the color of each components in
+            the SED plot
         """
         t0 = time.time()
 
