@@ -98,12 +98,14 @@ class OI:
             name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
         if not name.endswith('.pmrd'):
             name += '.pmrd'
-        assert not os.path.exists(name) and not override, 'file "'+name+'" already exists'
+        assert not (os.path.exists(name) and not override), 'file "'+name+'" already exists'
         with open(name, 'wb') as f:
             pickle.dump((self.data, self.bestfit, self.boot, self.grid,
                         self.limgrid, self.fig, self.spectra, self._model), f)
-        print('object saved as "'+name+'"')
+        print('object saved as "'+name+'"', end=' ')
+        print('[size %.1fM]'%(os.stat('HD163296_all_star+rim+disk.pmrd').st_size/2**20))
         return
+
     def load(self, name):
         """
         Load session from a binary file (not OIFITS :()
@@ -339,7 +341,7 @@ class OI:
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
-        self.computeModelSpectra()
+        self.computeModelSpectra(uncer=False)
         self.bestfit['prior'] = prior
         return
     def showFit(self):
@@ -597,9 +599,9 @@ class OI:
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
-             allInOne=False, imFov=None, imPix=None, imPow=1., imMax=None,
+             allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
-             imX=0, imY=0, showChi2=False):
+             imX=0, imY=0, showChi2=False, cColors={}, cMarkers={}):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -644,7 +646,7 @@ class OI:
         if allInOne and perSetup:
             perSetup = False
 
-        if allInOne or perSetup:
+        if allInOne:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
         else:
             data = self.data
@@ -664,47 +666,36 @@ class OI:
             model = None
 
         if perSetup:
-            # # -- try to be clever about grouping
-            # R = []
-            # for d in data:
-            #     r = (np.mean(d['WL'])/np.abs(np.mean(np.diff(d['WL'])))//5)*5.0
-            #     if d['insname'].startswith('PIONIER'):
-            #         R.append('%s R%.0f'%(d['insname'].split('_')[0], r))
-            #     else:
-            #         R.append('%s R%.0f'%(d['insname'], r))
-            # group = []
-            # _obs = []
-            # for r in sorted(list(set(R))):
-            #     group.append(oifits.mergeOI([data[i] for i in range(len(data)) if R[i]==r], verbose=False))
-            #     tmp = []
-            #     for i,d in enumerate(data):
-            #         if R[i]==r and 'fit' in d and 'obs' in d['fit']:
-            #             tmp.extend(d['fit']['obs'])
-            #     _obs.append(list(set(tmp)))
-            # # -- group
-            # print(len(group))
+            if perSetup == 'insname':
+                perSetup = list(set([d['insname'] for d in self.data]))
+            elif not type(perSetup)==list:
+                perSetup = list(set([d['insname'].split(' ')[0].split('_')[0] for d in self.data]))
+
+            if type(perSetup)==list:
+                data = []
+                for s in perSetup:
+                    data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
+                                    if s in self.data[i]['insname']], verbose=False))
 
             for j,g in enumerate(data):
                 if 'fit' in g and 'obs' in g['fit']:
-                    #print(j, g['fit'])
                     _obs = g['fit']['obs']
                 else:
                     _obs = obs
                 oimodels.showOI(g,
-                        param=model, fig=self.fig, obs=_obs, logV=logV, logS=logS,
+                        param=model, fig=self.fig, obs=_obs, logV=logV,
                         logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV, allInOne=False,
-                        imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
-                        checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                        cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
+                        spectro=spectro, showUV=showUV, allInOne=True,
+                        imFov=None,  checkImVis=checkImVis, vLambda0=vLambda0,
+                        showChi2=showChi2)
                 self.fig+=1
-                if imFov is None:
-                    #plt.suptitle(sorted(set(R))[j])
-                    pass
-                else:
-                    #plt.figure(self.fig)
-                    #plt.suptitle(sorted(set(R))[j])
-                    self.fig+=1
+                if type(perSetup)==list:
+                    plt.suptitle(perSetup[j])
+            if not imFov is None:
+                self.showModel(model=model, imFov=imFov, imPix=imPix,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                               cmap=cmap, logS=logS)
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -728,15 +719,23 @@ class OI:
 
             #print('_obs', _obs)
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
-                    obs=None, logV=logV, logB=logB, logS=logS, showFlagged=showFlagged,
+                    obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
-                    imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
-                    checkImVis=checkImVis, vLambda0=vLambda0, imWl0=imWl0,
-                    cmap=cmap, imX=imX, imY=imY, showChi2=showChi2)
+                    #imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
+                    #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
+                    #cColors=cColors, cMarkers=cMarkers
+                    checkImVis=checkImVis, vLambda0=vLambda0, showChi2=showChi2,
+                    )
             if allInOne:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
+            if not imFov is None:
+                self.showModel(model=model, imFov=imFov, imPix=imPix,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                               cmap=cmap, logS=logS)
+
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -747,17 +746,434 @@ class OI:
                     _obs = None
                 self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV, logS=logS,
-                        imFov=imFov if i==(len(data)-1) else None,
-                        imPix=imPix, imPow=imPow, imMax=imMax,
+                        spectro=spectro, showUV=showUV,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                         showChi2=showChi2))
                 self.fig += 1
-        if not imFov is None:
-            self.fig += 1
-        #print('done in %.2fs'%(time.time()-t0))
+            if not imFov is None:
+                self.showModel(model=model, imFov=imFov, imPix=imPix,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                               cmap=cmap, logS=logS)
+
         return
+    def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
+                  imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
+                  showSED=True, showIM=True, fig=None, cmap='inferno', logS=False):
+        """
+        oi: result from loadOI for mergeOI,
+            or a wavelength vector in um (must be a np.ndarray)
+        param: parameter dictionnary, describing the model
+        m: result from Vmodel, if none given, computed from 'oi' and 'param'
+        fig: which figure to plot on (default 1)
+        figHeight: height of the figure, in inch
+
+        imFov: field of view in mas
+        imPix: imPixel size in mas
+        imMax: cutoff for image display (0..1) or in percentile ('0'..'100')
+        imPow: power law applied to image for display. use 0<imPow<1 to show low
+            surface brightness features
+        imX, imY: center of image (in mas)
+        imWl0: list of wavelength (um) to show the image default (min, max)
+        cmap: color map (default 'bone')
+        """
+
+        if model=='best' and type(self.bestfit) is dict and \
+                    'best' in self.bestfit:
+            #print('showing best fit model')
+            model = self.bestfit['best']
+        assert type(model)==dict, 'model should be a dictionnary!'
+
+        self.computeModelImages(imFov, model=model, imPix=imPix,
+                                imX=imX, imY=imY)
+        self.computeModelSpectra(model=model, uncer=False)
+
+        if imWl0 is None and showIM:
+            #imWl0 = self.images['WL'].min(), self.images['WL'].max()
+            imWl0 = [np.mean(self.images['WL'])]
+
+        if not type(imWl0)==list and not type(imWl0)==tuple and \
+            not type(imWl0)==set and not type(imWl0)==np.ndarray:
+            imWl0 = [imWl0]
+
+        if showSED:
+            nplot = len(imWl0)+1
+        else:
+            nplot = len(imWl0)
+
+        if fig is None:
+            fig = self.fig
+            self.fig+=1
+        figWidth, figHeight = None, 4
+        if figWidth is None and figHeight is None:
+            figHeight =  min(max(nplot, 8), 5)
+            figWidth = min(figHeight*nplot, 9.5)
+        if figWidth is None and not figHeight is None:
+            figWidth = min(figHeight*nplot, 9.5)
+        if not figWidth is None and figHeight is None:
+            figHeight =  max(figWidth/nplot, 6)
+        plt.close(fig)
+        plt.figure(fig, figsize=(figWidth, figHeight))
+
+        for i,wl0 in enumerate(imWl0):
+            ax = plt.subplot(1, nplot, i+1, aspect='equal')
+            i0 = np.argmin(np.abs(self.images['WL']-wl0))
+            im = self.images['cube'][i0]/np.max(self.images['cube'][i0])
+            if not imMax is None:
+                if type(imMax)==str:
+                    _imMax = np.percentile(im**imPow, float(imMax))
+                else:
+                    _imMax = imMax**imPow
+            else:
+                _imMax = np.max(imMax**imPow)
+
+            pc = plt.pcolormesh(self.images['X'], self.images['Y'],
+                        im**imPow, cmap=cmap,
+                        shading='auto', vmax=_imMax)
+            cb = plt.colorbar(pc, ax=ax,
+                              orientation='horizontal' if len(imWl0)>1 else
+                              'vertical')
+
+            Xcb = np.linspace(0,1,5)*_imMax
+            XcbL = ['%.1e'%(xcb**(1./imPow)) for xcb in Xcb]
+            XcbL = [xcbl.replace('e+00', '').replace('e-0', 'e-') for xcbl in XcbL]
+            cb.set_ticks(Xcb)
+            cb.set_ticklabels(XcbL)
+            cb.ax.tick_params(labelsize=6)
+            ax.invert_xaxis()
+            ax.tick_params(axis='x', labelsize=6)
+            ax.tick_params(axis='y', labelsize=6)
+            ax.set_xlabel(r'$\leftarrow$ E (mas)')
+            if i==0:
+                ax.set_ylabel(r'N $\rightarrow$ (mas)')
+            if not imPow == 1:
+                title = 'Image$^{%.2f}$ '%imPow
+            else:
+                title ='Image '
+            n = 2-np.log10(np.median(np.abs(np.diff(self.images['WL']))))
+
+            title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
+            title = title%self.images['WL'][i0]
+            plt.title(title, fontsize=9)
+
+        symbols = {}
+        a, b, c = 0.9, 0.6, 0.1
+        colors = [(c,a,b), (a,b,c), (b,c,a),
+                  (a,c,b), (c,b,a), (b,a,c),
+                  (a,c,c), (c,a,c), (c,c,a),
+                  (b,b,c), (b,c,b), (c,b,b),
+                  (b,b,b)]
+        markers = ['1', '2', '3', '4'] # 3 branches crosses
+        _ic = 0
+        _im =  0
+
+        if showSED:
+            plt.subplot(1, nplot, i+2)
+            if len(self.spectra['normalised spectrum WL']):
+                key = 'normalised spectrum '
+            else:
+                key = 'flux '
+            for c in sorted(self.spectra[key+'COMP']):
+                if c in cColors:
+                    col = cColors[c]
+                else:
+                    col = colors[_ic%len(colors)]
+                    _ic+=1
+                w = self.spectra[key+'COMP'][c]>0
+                plt.plot(self.spectra[key+'WL'][w], self.spectra[key+'COMP'][c][w],
+                        '.-', label=c, color=col)
+            plt.plot(self.spectra[key+'WL'], self.spectra[key+'TOTAL'],
+                    '.-k', label='TOTAL')
+            if logS:
+                plt.yscale('log')
+            plt.xlabel('wavelength ($\mu$m)')
+            if key=='flux ':
+                plt.title('SED', fontsize=9)
+            else:
+                plt.title('normalised spectra', fontsize=9)
+                # -- show continuum
+                #w = self.spectra[key+'CMASK']
+                #plt.plt.plot(self.spectra[key+'WL'][w],
+                #             self.spectra[key+'TOTAL'][w],
+                #             'sc', label='cont.', alpha=0.5)
+            plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+            plt.legend(fontsize=6)
+
+
+        plt.tight_layout()
+        return
+        param = computeLambdaParams(param)
+        # -- catch case were OI is just a wavelength vector:
+        if type(oi)==np.ndarray:
+            oi = {'WL':oi, # minimum required
+                  'fit':{'obs':['NFLUX']} # force computation of continuum
+                  }
+
+        if m is None:
+            m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                        debug=False)
+            #print(m['MODEL'].keys())
+            #if not 'WL mask' in oi and 'WL mask' in m:
+            #    oi['WL mask'] = m['WL mask'].copy()
+            if not 'WL cont' in oi and 'WL cont' in m:
+                oi['WL cont'] = m['WL cont'].copy()
+            #print('continuum:', oi['WL cont'])
+
+        # -- show synthetic images ---------------------------------------------
+        if imWl0 is None or imWl0==[]:
+            if 'cube' in m['MODEL'].keys():
+                if not 'WL mask' in oi.keys():
+                    imWl0 = np.min(oi['WL']),  np.max(oi['WL'])
+                else:
+                    imWl0 = [np.min(oi['WL'][oi['WL mask']]),
+                             np.max(oi['WL'][oi['WL mask']]),]
+            else:
+                imWl0 = [np.mean(oi['WL'])]
+
+        if 'cube' in m['MODEL'] and showSED:
+            nplot = len(imWl0)+1
+        else:
+            nplot = len(imWl0)
+
+        #print('showModel: nplot=', nplot)
+        #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
+
+        if figWidth is None and figHeight is None:
+            figHeight =  min(max(nplot, 8), 5)
+            figWidth = min(figHeight*nplot, 9.5)
+        if figWidth is None and not figHeight is None:
+            figWidth = min(figHeight*nplot, 9.5)
+        if not figWidth is None and figHeight is None:
+            figHeight =  max(figWidth/nplot, 6)
+
+        #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
+
+        plt.close(fig)
+        plt.figure(fig, figsize=(figWidth, figHeight))
+
+        if 'cube' in m['MODEL'].keys():
+            normIm = np.max(m['MODEL']['cube'])**imPow
+        else:
+            normIm = 1
+
+        if imMax is None:
+            imMax = 1.0
+
+        # -- components
+        comps = set([k.split(',')[0].strip() for k in param.keys() if ',' in k and not '&dwl' in k])
+        # -- peak wavelengths to show components with color code
+        wlpeak = {}
+        allpeaks = []
+        for c in comps:
+            # -- lines in the components
+            #lines = list(filter(lambda x: x.startswith(c+',line_') and x.endswith('wl0'), param))
+            # if len(lines):
+            #     # -- weighted wavelength of lines:
+            #     wlpeak[c] = np.sum([param[k]*param[k.replace('_wl0', '_f')] for k in lines])/\
+            #                 np.sum([param[k.replace('_wl0', '_f')] for k in lines])
+            #     allpeaks.append(wlpeak[c])
+            # else:
+            #     wlpeak[c] = None
+            wlpeak[c] = None
+        symbols = {}
+        a, b, c = 0.9, 0.6, 0.1
+        colors = [(c,a,b), (a,b,c), (b,c,a),
+                  (a,c,b), (c,b,a), (b,a,c),
+                  (a,c,c), (c,a,c), (c,c,a),
+                  (b,b,c), (b,c,b), (c,b,b),
+                  (b,b,b)]
+        markers = ['1', '2', '3', '4'] # 3 branches crosses
+        _ic = 0
+        _im =  0
+        for c in comps:
+            if wlpeak[c] is None:
+                symbols[c] = {'m':markers[_im%len(markers)],
+                              'c':colors[_ic%len(colors)]}
+                _ic+=1
+                _im+=1
+            else:
+                if len(allpeaks)==1:
+                    # -- only one component with line
+                    symbols[c] = {'m':'+', 'c':'orange'}
+                else:
+                    symbols[c] = {'m':markers[_im%len(markers)],
+                                  'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
+                                 }
+                    _im+=1
+            if c in cColors:
+                symbols[c]['c'] = cColors[c]
+            if c in cMarkers:
+                symbols[c]['m'] = cMarkers[c]
+
+        if 'WL mask' in oi.keys():
+            mask = oi['WL mask']
+        else:
+            mask = np.isfinite(oi['WL'])
+
+        axs = []
+        for i,wl in enumerate(imWl0):
+            # -- for each wavelength for which we need to show the image
+            if axs ==[]:
+                axs = [plt.subplot(1, nplot, i+1, aspect='equal')]
+            else:
+                axs.append(plt.subplot(1, nplot, i+1, aspect='equal',
+                           sharex=axs[0], sharey=axs[0]))
+            _j = np.argmin(np.abs(oi['WL'][mask]-wl))
+            _wl = oi['WL'][mask][_j]
+            j = np.arange(len(oi['WL']))[mask][_j]
+
+            if not imPow == 1:
+                title = 'Image$^{%.2f}$ '%imPow
+            else:
+                title ='Image '
+            n = 2-np.log10(np.median(np.abs(np.diff(oi['WL'][mask]))))
+
+            title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
+            title = title%_wl
+            plt.title(title, fontsize=9)
+
+            if 'cube' in m['MODEL'].keys():
+                im = m['MODEL']['cube'][j,:,:]
+                if np.min(im)<0:
+                    print('WARNING: negative image! wl=%.4fum'%_wl, end=' ')
+                    print(' fraction of <0 flux:',
+                          '%.2e'%(-np.sum(im[im<0])/np.sum(im[im>=0])), end=' ')
+                    print(' "negativity" in model:', m['MODEL']['negativity'])
+                im = np.maximum(im, 0)**imPow
+                im /= normIm
+            elif 'image' in m['MODEL'].keys():
+                im = m['MODEL']['image']/m['MODEL']['image'].max()
+            else:
+                print('!!! no imaging data !!!')
+                print(m['MODEL'].keys())
+
+            if type(imMax)==str:
+                _imMax = np.percentile(im**(1/imPow), float(imMax))
+            else:
+                _imMax = imMax
+            #print('_imMax', _imMax)
+
+            vmin, vmax = 0, _imMax**imPow
+
+            #print('debug: im min,max =', im.min(), ',', im.max())
+            #print('    vmin, vmax =', vmin, ',', vmax)
+            #print('    Xmin , Xmax =', m['MODEL']['X'].min(), ',', m['MODEL']['X'].max())
+            #print('    Ymin , Ymax =', m['MODEL']['Y'].min(), ',', m['MODEL']['Y'].max())
+
+            pc = plt.pcolormesh(m['MODEL']['X'], m['MODEL']['Y'],
+                                im, vmin=vmin, vmax=vmax,
+                                cmap=cmap, shading='auto')
+            cb = plt.colorbar(pc, ax=axs[-1],
+                              orientation='horizontal' if len(imWl0)>1 else
+                              'vertical')
+
+            Xcb = np.linspace(0,1,5)*_imMax**imPow
+            XcbL = ['%.1e'%(xcb**(1./imPow)) for xcb in Xcb]
+            XcbL = [xcbl.replace('e+00', '').replace('e-0', 'e-') for xcbl in XcbL]
+            cb.set_ticks(Xcb)
+            cb.set_ticklabels(XcbL)
+            cb.ax.tick_params(labelsize=6)
+            plt.xlabel(r'$\leftarrow$ E (mas)')
+            if i==0:
+                plt.ylabel(r'N $\rightarrow$ (mas)')
+
+            # -- show position of each components
+            for c in sorted(comps):
+                if c+',x' in param.keys():
+                    x = param[c+',x']
+                else:
+                    x = 0.0
+                if c+',y' in param.keys():
+                    y = param[c+',y']
+                else:
+                    y = 0.0
+
+                if legend:
+                    plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
+                            markersize=8)
+                #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
+
+                if i==0 and legend:
+                    plt.legend(fontsize=5, ncol=2)
+            axs[-1].tick_params(axis='x', labelsize=6)
+            axs[-1].tick_params(axis='y', labelsize=6)
+
+        axs[-1].invert_xaxis()
+        if not 'cube' in m['MODEL'] or not showSED:
+            plt.tight_layout()
+            return m
+
+        # -- show spectra / SED
+        ax = plt.subplot(1, nplot, nplot)
+        fS = lambda x: x
+        # if logS:
+        #     fS = lambda x: np.log10(x)
+
+        if 'totalnflux' in m['MODEL']:
+            key = 'nflux'
+            plt.title('spectra, normalized\nto total continuum', fontsize=8)
+        else:
+            key = 'flux'
+            if logS:
+                plt.title('log10(SED)', fontsize=8)
+            else:
+                plt.title('SED', fontsize=8)
+
+        w0 = m['MODEL']['total'+key][mask]>0
+        if len(m['WL'][mask])>20 and \
+                np.std(np.diff(m['WL'][mask]))/np.mean(np.diff(m['WL'][mask]))<0.1:
+            plt.step(m['WL'][mask][w0], fS(m['MODEL']['total'+key][mask][w0]),
+                    '-k', label='total', where='mid')
+        else:
+            plt.plot(m['WL'][mask][w0], fS(m['MODEL']['total'+key][mask][w0]),
+                    '.-k', label='total')
+
+        if 'WL cont' in oi:
+            cont = np.ones(oi['WL'].shape)
+            cont[~oi['WL cont']] = np.nan
+            if len(m['WL'][mask])>20 and\
+                np.std(np.diff(m['WL'][mask]))/np.mean(np.diff(m['WL'][mask]))<0.1:
+                plt.step(m['WL'][mask][w0], fS((m['MODEL']['total'+key]*cont)[mask][w0]),
+                        'c', label='continuum', where='mid', alpha=0.7,
+                        linewidth=3, linestyle='dotted')
+            else:
+                plt.plot(m['WL'][mask][w0], fS((m['MODEL']['total'+key]*cont)[mask][w0]), '.-',
+                        label='continuum', alpha=0.7,
+                        linewidth=3, linestyle='dotted')
+
+        # -- show spectra of each components
+        KZ = filter(lambda x: not '&dwl' in x, m['MODEL'].keys())
+        for k in sorted(KZ):
+            if k.endswith(','+key):
+                if logS:
+                    w0 = m['MODEL'][k][mask]>0
+                else:
+                    w0 = m['MODEL'][k][mask]!=0
+
+                if len(m['WL'][mask])>20 and\
+                    np.std(np.diff(m['WL'][mask]))/np.mean(np.diff(m['WL'][mask]))<0.1:
+                    plt.step(m['WL'][mask][w0], fS(m['MODEL'][k][mask][w0]),
+                             label=k.split(',')[0].strip(), where='mid',
+                             color=symbols[k.split(',')[0].strip()]['c'])
+                else:
+                    plt.plot(m['WL'][mask][w0], fS(m['MODEL'][k][mask][w0]), '.-',
+                             label=k.split(',')[0].strip(),
+                             color=symbols[k.split(',')[0].strip()]['c'])
+
+        plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+        plt.legend(fontsize=5)
+        plt.xlabel('wavelength ($\mu$m)')
+        ax.tick_params(axis='x', labelsize=6)
+        ax.tick_params(axis='y', labelsize=6)
+
+        if not logS:
+            plt.ylim(0)
+        else:
+            plt.yscale('log')
+        plt.tight_layout()
+        #print('fS(1)=', fS(1))
+        return m
+
 
     def computeHalfLightRadiiFromParam(self):
         """
@@ -911,23 +1327,29 @@ class OI:
 
         See Also: computeModelImages
         """
+        models = None
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
             # -- randomise parameters, using covariance
             models = oimodels.dpfit.randomParam(self.bestfit, N=Niter,
                                                 x=None)['r_param']
-        elif uncer:
-            print('I do not know how to compute uncertainties!')
-            models = None
 
         assert type(model) is dict, "model must be a dictionnary"
 
         allWLc = [] # -- continuum -> absolute flux
         allWLs = [] # -- with spectral lines -> normalized flux
 
+        allCont = []
+
         for i,o in enumerate(self.data):
             # -- user-defined wavelength range
             fit = {'wl ranges':[(min(o['WL']), max(o['WL']))]}
+            if 'fit' in o and 'continuum ranges' in o['fit']:
+                fit['continuum ranges'] = o['fit']['continuum ranges']
+                for c in o['fit']['continuum ranges']:
+                    if not c in allCont:
+                        allCont.append(c)
+
             if not 'fit' in o:
                 o['fit'] = fit.copy()
             elif not 'wl ranges' in o['fit']:
@@ -951,6 +1373,8 @@ class OI:
 
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
+        #print('SED:', allWLc)
+        #print('spe:', allWLs)
         M = {'model':model}
         if len(allWLc):
             allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
@@ -984,8 +1408,9 @@ class OI:
             M['flux TOTAL'] = np.array([])
 
         if len(allWLs):
-            allWL = {'WL':allWLs, 'fit':{'obs':[]}} # minimum required
-            tmp = oimodels.VmodelOI(allWL, model)
+            allWL = {'WL':allWLs, 'fit':{'obs':['NFLUX'],
+                                    'continuum ranges':allCont}} # minimum required
+            tmp = oimodels.VmodelOI(allWL, model, timeit=False)
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}
             if not models is None:
@@ -995,6 +1420,7 @@ class OI:
                           )
             else:
                 efluxes={}
+            M['normalised spectrum CMASK'] = tmp['WL cont']
             M['normalised spectrum WL'] = allWLs
             M['normalised spectrum COMP'] = fluxes
             M['err normalised spectrum COMP'] = efluxes

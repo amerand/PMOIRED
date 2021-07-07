@@ -899,7 +899,6 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                 else:
                     # I Should never arrive here!!!
                     key = None
-
                 try:
                     for mjd in r['OI_T3'][k]['MJD']:
                         _w0.append(np.argmin(np.abs(r[key][t[0]]['MJD']-mjd)))

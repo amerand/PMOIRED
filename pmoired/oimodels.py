@@ -460,26 +460,41 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         # -- offset of inner disk / outer disk
         _off = _param['croff']*(_crout-_crin)/2
         if 'crprojang' in _param:
-            crpa = _param['crprojang']*np.pi/180
+            crpa = - _param['crprojang']*np.pi/180
         else:
             crpa = 0.0
+        # == share offset between the 2 disks
+        # -- offset of outer disk
+        _offXo = -_off/2*np.sin(crpa)
+        _offYo = -_off/2*np.cos(crpa)
+        # -- offset of inner disk
+        _offXi = _off/2*np.sin(crpa)
+        _offYi = _off/2*np.cos(crpa)
+        # == offset only inner disk
+        # # -- offset of outer disk
+        # _offXo = 0
+        # _offYo = 0
+        # # -- offset of inner disk
+        # _offXi = _off*np.sin(crpa)
+        # _offYi = _off*np.cos(crpa)
 
-        Vf = lambda z: (np.exp(2j*_c*_uwl(z)*_off/2*np.sin(crpa)
-                               +2j*_c*_vwl(z)*_off/2*np.cos(crpa)
+        Vf = lambda z: (np.exp(-2j*_c*_uwl(z)*_offXo
+                               -2j*_c*_vwl(z)*_offYo
                                )*
                         _crout**2*2*scipy.special.j1(_c*_crout*_Bwl(z) + 1e-12)/
                                 (_c*_crout*_Bwl(z)+ 1e-12) -
-                        np.exp(-2j*_c*_uwl(z)*_off/2*np.sin(crpa)
-                               -2j*_c*_vwl(z)*_off/2*np.cos(crpa)
+                        np.exp(-2j*_c*_uwl(z)*_offXi
+                               -2j*_c*_vwl(z)*_offYi
                                )*
                         _crin**2*2*scipy.special.j1(_c*_crin*_Bwl(z) + 1e-12)/
                                 (_c*_crin*_Bwl(z) + 1e-12))/\
                                                  (_crout**2-_crin**2)
         if not I is None:
-            R2 = (_X+_off*np.sin(crpa)/2)**2+(_Y+_off*np.cos(crpa)/2)**2
+            # -- outer disk
+            R2 = (_X - _offXo)**2 + (_Y - _offYo)**2
             I = np.float_(R2<=(_crout**2/4))
-            R2 = (_X-_off*np.sin(crpa)/2)**2+(_Y-_off*np.cos(crpa)/2)**2
-
+            # -- remove inner disk
+            R2 = (_X - _offXi)**2 + (_Y - _offYi)**2
             I -= (R2<=(_crin**2/4))
             if np.sum(I)==0:
                 I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
@@ -1061,17 +1076,19 @@ def VfromImageOI(oi):
         tmp['V2'] = np.abs(V)**2
         tmp['PHI'] = (np.angle(V)*180/np.pi+180)%360 - 180
         oi['IM_VIS'][k] = tmp
-    for k in oi['OI_FLUX'].keys():
-        oi['IM_FLUX'][k] = {'FLUX':oi['OI_FLUX'][k]['FLAG']*0 +
-                             np.sum(oi['MODEL']['cube'], axis=(1,2))[None,:],
-                            'RFLUX':oi['OI_FLUX'][k]['FLAG']*0 +
-                              np.sum(oi['MODEL']['cube'], axis=(1,2))[None,:],
-                            'MJD':oi['OI_FLUX'][k]['MJD'],
-                            'FLAG':oi['OI_FLUX'][k]['FLAG'],
-                            }
+    if 'OI_FLUX' in oi:
+        for k in oi['OI_FLUX'].keys():
+            oi['IM_FLUX'][k] = {'FLUX':oi['OI_FLUX'][k]['FLAG']*0 +
+                                 np.sum(oi['MODEL']['cube'], axis=(1,2))[None,:],
+                                'RFLUX':oi['OI_FLUX'][k]['FLAG']*0 +
+                                  np.sum(oi['MODEL']['cube'], axis=(1,2))[None,:],
+                                'MJD':oi['OI_FLUX'][k]['MJD'],
+                                'FLAG':oi['OI_FLUX'][k]['FLAG'],
+                                }
     oi = computeT3fromVisOI(oi)
     oi = computeDiffPhiOI(oi)
-    oi = computeNormFluxOI(oi)
+    if 'OI_FLUX' in oi:
+        oi = computeNormFluxOI(oi)
     return oi
 
 SMEA = 7
@@ -1886,7 +1903,6 @@ def autoPrior(param):
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
             prior.append((k, '>', -1, 1e-6))
             prior.append((k, '<', 1, 1e-6))
-
     return prior
 
 def computePriorD(param, prior):
@@ -3051,7 +3067,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            showChi2=False, wlMin=None, wlMax=None, spectro=None, imMax=None,
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
-           onlyMJD=None, showUV=False, allInOne=False, vLambda0=None):
+           onlyMJD=None, showUV=False, allInOne=False, vLambda0=None,
+           cColors={}, cMarkers={}):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -3116,6 +3133,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vLambda0=vLambda0,
+                   cColors=cColors, cMarkers=cMarkers
                    )
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
@@ -3144,7 +3162,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                               imWl0=imWl0, imMax=imMax, logS=logS,
-                              figWidth=figWidth)
+                              figWidth=figWidth, cColors=cColors, cMarkers=cMarkers)
                 im+=1
                 fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                                 tmp['MODEL'].keys() if k.endswith(',flux')}
@@ -3158,7 +3176,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                               imWl0=imWl0, imMax=imMax, logS=logS,
-                              figWidth=figWidth)
+                              figWidth=figWidth, cColors=cColors, cMarkers=cMarkers)
                 fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                                 tmp['MODEL'].keys() if k.endswith(',flux')}
                 #print('debug: computing fluxes dict')
@@ -3380,10 +3398,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if allInOne and 'UV' in ai1ax:
                 ax = ai1ax['UV']
             else:
-                if len(oi['baselines'])>8 and n_flux>0:
-                    ax = plt.subplot(n_flux+2, ncol, 1, aspect='equal')
-                else:
-                    ax = plt.subplot(n_flux+1, ncol, 1, aspect='equal')
+                #if len(oi['baselines'])>8 and n_flux>0:
+                #    ax = plt.subplot(n_flux+2, ncol, 1, aspect='equal')
+                #else:
+                   ax = plt.subplot(n_flux+1, ncol, 1, aspect='equal')
 
             # -- for each observables per baselines
             ext = [e for e in ['OI_VIS', 'OI_VIS2'] if e in oi]
@@ -3540,7 +3558,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             else:
                 if 'UV' in obs and 'FLUX' in l:
                     if i==0:
-                        if len(oi['baselines'])<=8:
+                        if True or len(oi['baselines'])<=8:
                             if ax0 is None:
                                 ax0 = plt.subplot(n_flux+2, ncol, ncol*(i_flux+1)+1)
                                 ax = ax0
@@ -3949,12 +3967,13 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         showModel(oi, param, m=m, fig=fig+1, imPow=imPow, cmap=cmap,
                  figWidth=None,#figWidth,
                  imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                 imWl0=imWl0, imMax=imMax)
+                 imWl0=imWl0, imMax=imMax, cColors=cColors, cMarkers=cMarkers)
     return m
 
 def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               imFov=None, imPix=None, imPow=1.0, imX=0., imY=0., imWl0=None,
-              cmap='bone', imMax=None, logS=False, showSED=True, legend=True):
+              cmap='bone', imMax=None, logS=False, showSED=True, legend=True,
+              cColors={}, cMarkers={}):
     """
     oi: result from loadOI for mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
@@ -4070,6 +4089,10 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                               'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
                              }
                 _im+=1
+        if c in cColors:
+            symbols[c]['c'] = cColors[c]
+        if c in cMarkers:
+            symbols[c]['m'] = cMarkers[c]
 
     if 'WL mask' in oi.keys():
         mask = oi['WL mask']
