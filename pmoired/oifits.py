@@ -218,8 +218,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG: loading OI_VIS2', set(sta2))
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
-                if debug:
-                    print(' | ', k, w)
+                #if debug:
+                #    print(' | ', k, w)
                 if k in res['OI_VIS2'] and any(w):
                     for k1, k2 in [('V2', 'VIS2DATA'), ('EV2', 'VIS2ERR'), ('FLAG', 'FLAG')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
@@ -292,8 +292,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
-                if debug:
-                    print(' | ', k, any(w))
+                #if debug:
+                #    print(' | ', k, any(w))
                 if k in res['OI_VIS'] and any(w):
                     for k1, k2 in [('|V|', 'VIS2AMP'), ('E|V|', 'VISAMPERR'),
                                     ('PHI', 'VISPHI'), ('EPHI', 'VISPHIERR'),
@@ -381,6 +381,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     #         elif sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
     #             print(k, 'mismatched coverage VIS/VIS2!')
 
+
+    # -- !!TEST!!
+    # k0 = list(res['OI_VIS2'].keys())[0]
+    # res['OI_VIS2'].pop(k0)
+    # sta2 = list(set(sta2))
+    # sta2.remove(k0)
+
+    M = [] # missing baselines in T3
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
                     hdu.header['INSNAME']==insname:
@@ -397,30 +405,42 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             for k in set(sta3):
                 w = (np.array(sta3)==k)*wTarg(hdu, targname, targets)
                 # -- find triangles
-                t, s = [], []
+                t, s, m = [], [], []
                 # -- first baseline
-                if k[:2*n] in sta2:
+                if k[:2*n] in sta2 or k[:2*n] in M:
                     t.append(k[:2*n])
                     s.append(1)
-                elif k[n:2*n]+k[:n] in sta2:
+                elif k[n:2*n]+k[:n] in sta2 or k[:2*n] in M:
                     t.append(k[n:2*n]+k[:n])
                     s.append(-1)
+                else:
+                    t.append(k[:2*n])
+                    s.append(1)
+                    M.append(k[:2*n])
 
                 # -- second baseline
-                if k[n:] in sta2:
+                if k[n:] in sta2 or k[n:] in M:
                     t.append(k[n:])
                     s.append(1)
-                elif k[2*n:3*n]+k[n:2*n] in sta2:
+                elif k[2*n:3*n]+k[n:2*n] in sta2 or k[2*n:3*n]+k[n:2*n] in M:
                     t.append(k[2*n:3*n]+k[n:2*n])
                     s.append(-1)
+                else:
+                    t.append(k[n:])
+                    s.append(1)
+                    M.append(k[n:])
 
                 # -- third baseline
-                if k[2*n:3*n]+k[:n] in sta2:
+                if k[2*n:3*n]+k[:n] in sta2 or k[2*n:3*n]+k[:n] in M:
                     t.append(k[2*n:3*n]+k[:n])
                     s.append(1)
-                elif k[:n]+k[2*n:3*n] in sta2:
+                elif k[:n]+k[2*n:3*n] in sta2 or k[:n]+k[2*n:3*n] in M:
                     t.append(k[:n]+k[2*n:3*n])
                     s.append(-1)
+                else:
+                    t.append(k[2*n:3*n]+k[:n])
+                    s.append(1)
+                    M.append(k[2*n:3*n]+k[:n])
 
                 if k in res['OI_T3'] and any(w):
                     for k1, k2 in [('T3AMP', 'T3AMP'), ('ET3AMP', 'T3AMPERR'),
@@ -497,7 +517,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
                         res['OI_T3'][k]['FLAG'] = flag
-
     key = 'OI_VIS'
     if res['OI_VIS']=={}:
         res.pop('OI_VIS')
@@ -509,14 +528,51 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if res['OI_T3']=={}:
         res.pop('OI_T3')
     else:
+        if len(M):
+            print('    warning: missing baselines', M, 'to define T3')
         # -- match MJDs for T3 computations:
         for k in res['OI_T3'].keys():
             s, t = res['OI_T3'][k]['formula']
             w0, w1, w2 = [], [], []
+            A = {}
+            for m in M:
+                if m in t:
+                    if t.index(m)==0:
+                        u = res['OI_T3'][k]['u1']
+                        v = res['OI_T3'][k]['v1']
+                    elif t.index(m)==1:
+                        u = res['OI_T3'][k]['u2']
+                        v = res['OI_T3'][k]['v2']
+                    elif t.index(m)==2:
+                        u = res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2']
+                        v = res['OI_T3'][k]['v2']+res['OI_T3'][k]['v2']
+                    # -- add data
+                    tmp = {}
+                    if key=='OI_VIS':
+                        _K = ['|V|', 'PHI']
+                    else:
+                        _K = ['V2']
+                    for _k in _K:
+                        tmp[_k] = np.zeros((len(res['OI_T3'][k]['MJD']),
+                                              len(res['WL'])))
+                        tmp['E'+_k] = np.ones((len(res['OI_T3'][k]['MJD']),
+                                               len(res['WL'])))
+                    tmp['u'], tmp['v'] = u, v
+                    tmp['u/wl'] = u[:,None]/res['WL'][None,:]
+                    tmp['v/wl'] = v[:,None]/res['WL'][None,:]
+                    tmp['B/wl'] = np.sqrt(tmp['u/wl']**2 + tmp['v/wl']**2)
+                    tmp['FLAG'] = np.ones((len(res['OI_T3'][k]['MJD']),
+                                           len(res['WL'])), dtype=bool)
+                    tmp['MJD'] = res['OI_T3'][k]['MJD']
+                    A[m] = tmp
+            if len(A):
+                for m in A:
+                    print('    adding fake', m, 'to', key)
+                    res[key][m] = A[m]
+                    M.remove(m)
+
             if debug:
                 print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
-                for _t in t:
-                    print(' | ', _t, key, res[key][_t])
             try:
                 for mjd in res['OI_T3'][k]['MJD']:
                     w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
