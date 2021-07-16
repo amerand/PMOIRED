@@ -196,7 +196,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     'line_i_gaussian': fwhm for Gaussian profile (warning: in nm, not um!)
         or
     'line_i_lorentzian': width for Lorentzian (warning: in nm, not um!)
-
     """
     t0 = time.time()
 
@@ -274,7 +273,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         key = None
 
     if not key is None:
-        baselines = oi[key].keys()
+        baselines = list(oi[key].keys())
     else:
         baselines = []
 
@@ -349,8 +348,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Bdv = lambda z: np.sqrt(_udv(z)**2 + _vdv(z)**2)
 
         if not I is None:
-            _X = (np.cos(rot)*(X-np.mean(x(oi))) + np.sin(rot)*(Y-np.mean(y(oi))))/np.cos(_param['incl']*np.pi/180)
-            _Y = -np.sin(rot)*(X-np.mean(x(oi))) + np.cos(rot)*(Y-np.mean(y(oi)))
+            _X = (np.cos(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
+                    np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
+            _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
+                    np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
             R = np.sqrt(_X**2+_Y**2)
     else:
         _uwl = lambda z: z['u/wl'][:,wwl]/cwl
@@ -365,12 +366,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Bdv = lambda z: np.sqrt(_udv(z)**2 + _vdv(z)**2)
 
         if not I is None:
-            try:
-                _X, _Y = X-np.mean(x(oi)), Y-np.mean(y(oi))
-            except:
-                print('oops!')
-                print('I:', type(I), 'X:', type(X), 'x:', x, type(x))
-
+            _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
             R = np.sqrt(_X**2+_Y**2)
 
     # -- phase offset
@@ -382,10 +378,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         #dPHIdu = lambda z: -2j*_c*x*PHI(z)/oi['WL']
         #dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
         PHIdu = lambda z: np.exp(-2j*_c*((z['u/wl'][:,wwl]/cwl +
-                                         du/res['WL'][:,wwl])*x(oi)[:,wwl] +
-                                          z['v/wl'][:,wwl]/cwl*y(oi)[:,wwl]))
-        PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(oi)[:,wwl] +
-                                        (z['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(oi)[:,wwl]))
+                                         du/res['WL'][:,wwl])*x(z)[:,wwl] +
+                                          z['v/wl'][:,wwl]/cwl*y(z)[:,wwl]))
+        PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(z)[:,wwl] +
+                                        (z['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(z)[:,wwl]))
 
     # -- guess which visibility function
     if 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
@@ -634,8 +630,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Vfdv = lambda z: _Vazvar(_udv(z), _vdv(z), Ir, _r, _n, _phi, _amp,)
         if not I is None:
             I = _Vazvar(None, None, Ir, _r, _n, _phi, _amp,
-                        stretch=stretch, numerical=1, XY=(X-np.mean(x(oi)),
-                                                          Y-np.mean(y(oi))))
+                        stretch=stretch, numerical=1, XY=(X-np.mean(x(oi[key][baselines[0]])),
+                                                          Y-np.mean(y(oi[key][baselines[0]]))))
             if np.sum(I)==0:
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2

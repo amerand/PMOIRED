@@ -383,14 +383,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     sta2 = list(set(sta2))
 
-    # -- TEST: removing som MJDs
-    # k0 = list(res['OI_VIS2'].keys())[0]
-    # print(res['OI_VIS2'][k0]['MJD'])
+    # # -- TEST: removing som MJDs
+    # k0 = list(res['OI_VIS2'].keys())[1]
+    # #print(res['OI_VIS2'][k0]['MJD'])
     # for k in ['u', 'v', 'MJD']:
-    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][1:-1]
+    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][2:-2]
     # for k in ['u/wl', 'v/wl', 'FLAG', 'B/wl', 'V2', 'EV2']:
-    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][1:-1,:]
-    # print(res['OI_VIS2'][k0]['MJD'])
+    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][2:-2,:]
+    # #print(res['OI_VIS2'][k0]['MJD'])
 
     M = [] # missing baselines in T3
     for ih, hdu in enumerate(h):
@@ -578,127 +578,127 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
             if debug:
                 print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
-            try:
-                for i, mjd in enumerate(res['OI_T3'][k]['MJD']):
-                    # check data are within ~10s
-                    if min(np.abs(res[key][t[0]]['MJD']-mjd))<1e-4:
-                        w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
-                    else:
-                        w0.append(len(res[key][t[0]]['MJD']))
-                        print('WARNING: missing MJD', mjd, k, key, t[0])
-                        # -- add fake data for MJD
-                        res[key][t[0]]['MJD'] = np.append(res[key][t[0]]['MJD'], mjd)
-                        res[key][t[0]]['u'] = np.append(res[key][t[0]]['u'],
-                                                       res['OI_T3'][k]['u1'][i])
-                        res[key][t[0]]['v'] = np.append(res[key][t[0]]['v'],
-                                                       res['OI_T3'][k]['v1'][i])
-                        res[key][t[0]]['u/wl'] = np.append(res[key][t[0]]['u/wl'],
-                                                       res['OI_T3'][k]['u1'][i]/
-                                                       res['WL'])
-                        res[key][t[0]]['v/wl'] = np.append(res[key][t[0]]['v/wl'],
-                                                       res['OI_T3'][k]['v1'][i]/
-                                                       res['WL'])
-                        res[key][t[0]]['B/wl'] = np.append(res[key][t[0]]['B/wl'],
-                                                     np.sqrt(res['OI_T3'][k]['u1'][i]**2+
-                                                             res['OI_T3'][k]['v1'][i]**2)/
-                                                     res['WL'])
-                        res[key][t[0]]['FLAG'] = np.append(res[key][t[0]]['FLAG'],
-                                                    np.ones(len(res['WL']), dtype=bool))
-                        if key=='OI_VIS':
-                            res[key][t[0]]['|V|'] = np.append(res[key][t[0]]['|V|'],
-                                                    res['WL']*0)
-                            res[key][t[0]]['E|V|'] = np.append(res[key][t[0]]['E|V|'],
-                                                    res['WL']*0+1)
-                            res[key][t[0]]['PHI'] = np.append(res[key][t[0]]['PHI'],
-                                                    res['WL']*0)
-                            res[key][t[0]]['EPHI'] = np.append(res[key][t[0]]['EPHI'],
-                                                    res['WL']*0+1)
-                        else:
-                            res[key][t[0]]['V2'] = np.append(res[key][t[0]]['V2'],
-                                                    res['WL']*0)
-                            res[key][t[0]]['EV2'] = np.append(res[key][t[0]]['EV2'],
-                                                    res['WL']*0+1)
+            #try:
+            for i, mjd in enumerate(res['OI_T3'][k]['MJD']):
+                # check data are within ~10s
+                if min(np.abs(res[key][t[0]]['MJD']-mjd))<1e-4:
+                    w0.append(np.argmin(np.abs(res[key][t[0]]['MJD']-mjd)))
+                else:
+                    w0.append(len(res[key][t[0]]['MJD']))
+                    #print('WARNING: missing MJD [0]', mjd, k, key, t[0])
+                    # -- add fake data for MJD
+                    res[key][t[0]]['MJD'] = np.append(res[key][t[0]]['MJD'], mjd)
+                    res[key][t[0]]['u'] = np.append(res[key][t[0]]['u'],
+                                                   res['OI_T3'][k]['u2'][i])
+                    res[key][t[0]]['v'] = np.append(res[key][t[0]]['v'],
+                                                   res['OI_T3'][k]['v2'][i])
+                    res[key][t[0]]['u/wl'] = np.append(res[key][t[0]]['u/wl'],
+                                                   np.array([res['OI_T3'][k]['u2'][i]/
+                                                   res['WL']]), axis=0)
+                    res[key][t[0]]['v/wl'] = np.append(res[key][t[0]]['v/wl'],
+                                                   np.array([res['OI_T3'][k]['v2'][i]/
+                                                   res['WL']]), axis=0)
+                    res[key][t[0]]['B/wl'] = np.append(res[key][t[0]]['B/wl'],
+                                                 np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
+                                                         res['OI_T3'][k]['v2'][i]**2)/
+                                                 res['WL']]), axis=0)
+                    res[key][t[0]]['FLAG'] = np.append(res[key][t[0]]['FLAG'],
+                                                np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
 
-                    if min(np.abs(res[key][t[1]]['MJD']-mjd))<1e-4:
-                        w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
+                    if key=='OI_VIS':
+                        res[key][t[0]]['|V|'] = np.append(res[key][t[0]]['|V|'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[0]]['E|V|'] = np.append(res[key][t[0]]['E|V|'],
+                                                 np.array([res['WL']*0+1]), axis=0)
+                        res[key][t[0]]['PHI'] = np.append(res[key][t[0]]['PHI'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[0]]['EPHI'] = np.append(res[key][t[0]]['EPHI'],
+                                                np.array([res['WL']*0+1]), axis=0)
                     else:
-                        w1.append(len(res[key][t[1]]['MJD']))
-                        print('WARNING: missing MJD', mjd, k, key, t[1])
-                        # -- add fake data for MJD
-                        res[key][t[1]]['MJD'] = np.append(res[key][t[1]]['MJD'], mjd)
-                        res[key][t[1]]['u'] = np.append(res[key][t[1]]['u'],
-                                                       res['OI_T3'][k]['u2'][i])
-                        res[key][t[1]]['v'] = np.append(res[key][t[1]]['v'],
-                                                       res['OI_T3'][k]['v2'][i])
-                        res[key][t[1]]['u/wl'] = np.append(res[key][t[1]]['u/wl'],
-                                                       res['OI_T3'][k]['u2'][i]/
-                                                       res['WL'])
-                        res[key][t[1]]['v/wl'] = np.append(res[key][t[1]]['v/wl'],
-                                                       res['OI_T3'][k]['v2'][i]/
-                                                       res['WL'])
-                        res[key][t[1]]['B/wl'] = np.append(res[key][t[1]]['B/wl'],
-                                                     np.sqrt(res['OI_T3'][k]['u2'][i]**2+
-                                                             res['OI_T3'][k]['v2'][i]**2)/
-                                                     res['WL'])
-                        res[key][t[1]]['FLAG'] = np.append(res[key][t[1]]['FLAG'],
-                                                    np.ones(len(res['WL']), dtype=bool))
-                        if key=='OI_VIS':
-                            res[key][t[1]]['|V|'] = np.append(res[key][t[1]]['|V|'],
-                                                    res['WL']*0)
-                            res[key][t[1]]['E|V|'] = np.append(res[key][t[1]]['E|V|'],
-                                                    res['WL']*0+1)
-                            res[key][t[1]]['PHI'] = np.append(res[key][t[1]]['PHI'],
-                                                    res['WL']*0)
-                            res[key][t[1]]['EPHI'] = np.append(res[key][t[1]]['EPHI'],
-                                                    res['WL']*0+1)
-                        else:
-                            res[key][t[1]]['V2'] = np.append(res[key][t[1]]['V2'],
-                                                    res['WL']*0)
-                            res[key][t[1]]['EV2'] = np.append(res[key][t[1]]['EV2'],
-                                                    res['WL']*0+1)
-                    if min(np.abs(res[key][t[2]]['MJD']-mjd))<1e-4:
-                        w2.append(np.argmin(np.abs(res[key][t[2]]['MJD']-mjd)))
+                        res[key][t[0]]['V2'] = np.append(res[key][t[0]]['V2'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[0]]['EV2'] = np.append(res[key][t[0]]['EV2'],
+                                                np.array([res['WL']*0+1]), axis=0)
+                if min(np.abs(res[key][t[1]]['MJD']-mjd))<1e-4:
+                    w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
+                else:
+                    w1.append(len(res[key][t[1]]['MJD']))
+                    #print('WARNING: missing MJD [1]', mjd, k, key, t[1])
+                    # -- add fake data for MJD
+                    res[key][t[1]]['MJD'] = np.append(res[key][t[1]]['MJD'], mjd)
+                    res[key][t[1]]['u'] = np.append(res[key][t[1]]['u'],
+                                                   res['OI_T3'][k]['u2'][i])
+                    res[key][t[1]]['v'] = np.append(res[key][t[1]]['v'],
+                                                   res['OI_T3'][k]['v2'][i])
+                    res[key][t[1]]['u/wl'] = np.append(res[key][t[1]]['u/wl'],
+                                                   np.array([res['OI_T3'][k]['u2'][i]/
+                                                   res['WL']]), axis=0)
+                    res[key][t[1]]['v/wl'] = np.append(res[key][t[1]]['v/wl'],
+                                                   np.array([res['OI_T3'][k]['v2'][i]/
+                                                   res['WL']]), axis=0)
+                    res[key][t[1]]['B/wl'] = np.append(res[key][t[1]]['B/wl'],
+                                                 np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
+                                                         res['OI_T3'][k]['v2'][i]**2)/
+                                                 res['WL']]), axis=0)
+                    res[key][t[1]]['FLAG'] = np.append(res[key][t[1]]['FLAG'],
+                                                np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
+                    if key=='OI_VIS':
+                        res[key][t[1]]['|V|'] = np.append(res[key][t[1]]['|V|'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[1]]['E|V|'] = np.append(res[key][t[1]]['E|V|'],
+                                                 np.array([res['WL']*0+1]), axis=0)
+                        res[key][t[1]]['PHI'] = np.append(res[key][t[1]]['PHI'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[1]]['EPHI'] = np.append(res[key][t[1]]['EPHI'],
+                                                np.array([res['WL']*0+1]), axis=0)
                     else:
-                        w2.append(len(res[key][t[2]]['MJD']))
-                        print('WARNING: missing MJD', mjd, k, key, t[2])
-                        # -- add fake data for MJD
-                        res[key][t[2]]['MJD'] = np.append(res[key][t[2]]['MJD'], mjd)
-                        res[key][t[2]]['u'] = np.append(res[key][t[2]]['u'],
-                                                       -res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])
-                        res[key][t[2]]['v'] = np.append(res[key][t[2]]['v'],
-                                                       -res['OI_T3'][k]['v2'][i]-res['OI_T3'][k]['v2'][i])
-                        res[key][t[2]]['u/wl'] = np.append(res[key][t[2]]['u/wl'],
-                                                       (-res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])/
-                                                       res['WL'])
-                        res[key][t[2]]['v/wl'] = np.append(res[key][t[2]]['v/wl'],
-                                                       (-res['OI_T3'][k]['v1'][i]-res['OI_T3'][k]['v2'][i])/
-                                                       res['WL'])
-                        res[key][t[2]]['B/wl'] = np.append(res[key][t[2]]['B/wl'],
-                                                     np.sqrt((res['OI_T3'][k]['u1'][i]+res['OI_T3'][k]['u2'][i])**2+
-                                                             (res['OI_T3'][k]['v1'][i]+res['OI_T3'][k]['v2'][i])**2)/
-                                                     res['WL'])
-                        res[key][t[2]]['FLAG'] = np.append(res[key][t[2]]['FLAG'],
-                                                    np.ones(len(res['WL']), dtype=bool))
-                        if key=='OI_VIS':
-                            res[key][t[2]]['|V|'] = np.append(res[key][t[2]]['|V|'],
-                                                    res['WL']*0)
-                            res[key][t[2]]['E|V|'] = np.append(res[key][t[2]]['E|V|'],
-                                                    res['WL']*0+1)
-                            res[key][t[2]]['PHI'] = np.append(res[key][t[2]]['PHI'],
-                                                    res['WL']*0)
-                            res[key][t[2]]['EPHI'] = np.append(res[key][t[2]]['EPHI'],
-                                                    res['WL']*0+1)
-                        else:
-                            res[key][t[2]]['V2'] = np.append(res[key][t[2]]['V2'],
-                                                    res['WL']*0)
-                            res[key][t[2]]['EV2'] = np.append(res[key][t[2]]['EV2'],
-                                                    res['WL']*0+1)
+                        res[key][t[1]]['V2'] = np.append(res[key][t[1]]['V2'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[1]]['EV2'] = np.append(res[key][t[1]]['EV2'],
+                                                np.array([res['WL']*0+1]), axis=0)
+                if min(np.abs(res[key][t[2]]['MJD']-mjd))<1e-4:
+                    w2.append(np.argmin(np.abs(res[key][t[2]]['MJD']-mjd)))
+                else:
+                    w2.append(len(res[key][t[2]]['MJD']))
+                    #print('WARNING: missing MJD [2]', mjd, k, key, t[2])
+                    # -- add fake data for MJD
+                    res[key][t[2]]['MJD'] = np.append(res[key][t[2]]['MJD'], mjd)
+                    res[key][t[2]]['u'] = np.append(res[key][t[2]]['u'],
+                                                   -res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])
+                    res[key][t[2]]['v'] = np.append(res[key][t[2]]['v'],
+                                                   -res['OI_T3'][k]['v2'][i]-res['OI_T3'][k]['v2'][i])
+                    res[key][t[2]]['u/wl'] = np.append(res[key][t[2]]['u/wl'],
+                                                   np.array([(-res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])/
+                                                   res['WL']]), axis=0)
+                    res[key][t[2]]['v/wl'] = np.append(res[key][t[2]]['v/wl'],
+                                                   np.array([(-res['OI_T3'][k]['v1'][i]-res['OI_T3'][k]['v2'][i])/
+                                                   res['WL']]), axis=0)
+                    res[key][t[2]]['B/wl'] = np.append(res[key][t[2]]['B/wl'],
+                                                 np.array([np.sqrt((res['OI_T3'][k]['u1'][i]+res['OI_T3'][k]['u2'][i])**2+
+                                                         (res['OI_T3'][k]['v1'][i]+res['OI_T3'][k]['v2'][i])**2)/
+                                                 res['WL']]), axis=0)
+                    res[key][t[2]]['FLAG'] = np.append(res[key][t[2]]['FLAG'],
+                                                np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
+                    if key=='OI_VIS':
+                        res[key][t[2]]['|V|'] = np.append(res[key][t[2]]['|V|'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[2]]['E|V|'] = np.append(res[key][t[2]]['E|V|'],
+                                                np.array([res['WL']*0+1]), axis=0)
+                        res[key][t[2]]['PHI'] = np.append(res[key][t[2]]['PHI'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[2]]['EPHI'] = np.append(res[key][t[2]]['EPHI'],
+                                                np.array([res['WL']*0+1]), axis=0)
+                    else:
+                        res[key][t[2]]['V2'] = np.append(res[key][t[2]]['V2'],
+                                                np.array([res['WL']*0]), axis=0)
+                        res[key][t[2]]['EV2'] = np.append(res[key][t[2]]['EV2'],
+                                                np.array([res['WL']*0+1]), axis=0)
 
-                res['OI_T3'][k]['formula'] = [s, t, w0, w1, w2]
-            except:
-                print('warning! triplet', k,
-                      'has no formula in', res[key].keys())
-                res['OI_T3'][k]['formula'] = None
+            res['OI_T3'][k]['formula'] = [s, t, w0, w1, w2]
+            # except:
+            #     print('warning! triplet', k,
+            #           'has no formula in', res[key].keys())
+            #     res['OI_T3'][k]['formula'] = None
     if 'OI_FLUX' in res:
         res['telescopes'] = sorted(list(res['OI_FLUX'].keys()))
     else:
@@ -1032,8 +1032,6 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     #         print(r['OI_VIS2'][k][x].shape)
                     #     else:
                     #         print(r['OI_VIS2'][k]['V2'].shape)
-
-
 
                 if len(r['OI_VIS2'][k]['MJD']) != len(mjd):
                     #print(k, 'VIS2 is missing data! (%d/%d)'%(len(mjd)-len(r['OI_VIS2'][k]['MJD']), len(mjd)))
