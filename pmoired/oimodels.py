@@ -65,7 +65,8 @@ def Ssingle(oi, param, noLambda=False):
         wl0 = _param['line_'+i+'_wl0'] # in um
         if 'line_'+i+'_lorentzian' in _param.keys():
             dwl = _param['line_'+i+'_lorentzian'] # in nm
-            f += _param[l]*1/(1+(oi['WL']-wl0)**2/(dwl/1000)**2)
+            #f += _param[l]*1/(1+(oi['WL']-wl0)**2/(dwl/1000)**2)
+            f += _param[l]*(0.5*dwl/1000)**2/((oi['WL']-wl0)**2 + (0.5*dwl/1000)**2)
         if 'line_'+i+'_gaussian' in _param.keys():
             dwl = _param['line_'+i+'_gaussian'] # in nm
             if 'line_'+i+'_power' in _param.keys():
@@ -207,7 +208,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             if k in oi:
                 res[k] = oi[k]
 
-
     # -- what do we inherit from original data:
     for k in ['WL', 'fit']:
         if k in oi.keys():
@@ -287,10 +287,23 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     # -- position of the element in the field
     if 'x' in _param.keys() and 'y' in _param.keys():
-        x, y = _param['x'], _param['y']
+        _xs, _ys = _param['x'], _param['y']
+        if type(_xs)==str and '$MJD' in _xs:
+            x = lambda o: eval(_xs.replace('$MJD', 'np.'+
+                                np.array_repr(o['MJD'][:,None]+0*oi['WL'][None,:])))
+        else:
+            x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
+        if type(_ys)==str and '$MJD' in _ys:
+            y = lambda o: eval(_ys.replace('$MJD', 'np.'+
+                                np.array_repr(o['MJD'][:,None]+0*oi['WL'][None,:])))
+        else:
+            y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
     else:
-        x, y = 0.0, 0.0
+        #x, y = lambda o: 0.0, lambda o: 0.0
+        x = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
+        y = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
 
+    #print('debug:', x, y)
     # -- 'slant' i.e. linear variation of flux
     if 'slant' in list(_param.keys()) and 'slant projang' in list(_param.keys()):
         du, dv = 1e-6, 1e-6 # in meters / microns
@@ -336,8 +349,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Bdv = lambda z: np.sqrt(_udv(z)**2 + _vdv(z)**2)
 
         if not I is None:
-            _X = (np.cos(rot)*(X-x) + np.sin(rot)*(Y-y))/np.cos(_param['incl']*np.pi/180)
-            _Y = -np.sin(rot)*(X-x) + np.cos(rot)*(Y-y)
+            _X = (np.cos(rot)*(X-np.mean(x(oi))) + np.sin(rot)*(Y-np.mean(y(oi))))/np.cos(_param['incl']*np.pi/180)
+            _Y = -np.sin(rot)*(X-np.mean(x(oi))) + np.cos(rot)*(Y-np.mean(y(oi)))
             R = np.sqrt(_X**2+_Y**2)
     else:
         _uwl = lambda z: z['u/wl'][:,wwl]/cwl
@@ -353,7 +366,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
         if not I is None:
             try:
-                _X, _Y = X-x, Y-y
+                _X, _Y = X-np.mean(x(oi)), Y-np.mean(y(oi))
             except:
                 print('oops!')
                 print('I:', type(I), 'X:', type(X), 'x:', x, type(x))
@@ -362,13 +375,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     # -- phase offset
     #phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
-    PHI = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x + z['v/wl'][:,wwl]/cwl*y))
+    #print('debug:', x, y)
+    PHI = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(z)[:,wwl] +
+                                   z['v/wl'][:,wwl]/cwl*y(z)[:,wwl]))
     if du:
         #dPHIdu = lambda z: -2j*_c*x*PHI(z)/oi['WL']
         #dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
         PHIdu = lambda z: np.exp(-2j*_c*((z['u/wl'][:,wwl]/cwl +
-                                         du/res['WL'][:,wwl])*x + z['v/wl'][:,wwl]/cwl*y))
-        PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x + (z['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y))
+                                         du/res['WL'][:,wwl])*x(oi)[:,wwl] +
+                                          z['v/wl'][:,wwl]/cwl*y(oi)[:,wwl]))
+        PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(oi)[:,wwl] +
+                                        (z['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(oi)[:,wwl]))
 
     # -- guess which visibility function
     if 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
@@ -617,7 +634,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Vfdv = lambda z: _Vazvar(_udv(z), _vdv(z), Ir, _r, _n, _phi, _amp,)
         if not I is None:
             I = _Vazvar(None, None, Ir, _r, _n, _phi, _amp,
-                        stretch=stretch, numerical=1, XY=(X-x,Y-y))
+                        stretch=stretch, numerical=1, XY=(X-np.mean(x(oi)),
+                                                          Y-np.mean(y(oi))))
             if np.sum(I)==0:
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
@@ -680,7 +698,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             # -- see https://en.wikipedia.org/wiki/Fourier_transform#Tables_of_important_Fourier_transforms
             # -- relations 106 and 107
             V[:,wwl] = V[:,wwl]+1j*(np.sin(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdu +
-                      np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
+                       np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
             V[:,wwl] *= PHI(oi[key][k])
         else:
             #print('!!', key, oi[key][k].keys())
@@ -937,6 +955,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
 
     # -- lines profiles:
     loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/max(dwl/1000, obs_dwl/2)**2)
+    #loren = lambda x, wl0, dwl: max(0.5*dwl/1000, 0.5*obs_dwl/2)/((x-wl0)**2 + max(0.5*dwl/1000, 0.5*obs_dwl/2)**2)
     gauss = lambda x, wl0, dwl: np.exp(-4*np.log(2)*(x-wl0)**2/max(dwl/1000, obs_dwl)**2)
 
     for a in As: # for each spectral lines
@@ -1150,9 +1169,12 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     smearing = {}
     for c in comp:
         if c+',x' in param.keys() and c+',y' in param.keys():
-            sep = np.sqrt(param[c+',x']**2 + param[c+',y']**2)
+            try:
+                sep = np.sqrt(param[c+',x']**2 + param[c+',y']**2)
+            except:
+                sep = 0.0
         else:
-            sep = 0.
+            sep = 0.0
         if c+',ud' in param.keys():
             sep += param[c+',ud']/2
         if c+',diam' in param.keys():
@@ -1517,7 +1539,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
                 if k.replace('_wl0', '_gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
-                    dwl = 8*_param[k.replace('wl0', 'lorentzian')]/1000.
+                    dwl = 2*_param[k.replace('wl0', 'lorentzian')]/1000.
 
                 vel = 0.0
                 if ',' in k:
@@ -1618,9 +1640,9 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
             for clo in closest:
                 w[clo] = True
     oi['WL mask'] = np.bool_(w).copy()
-
     # -- user defined continuum
-    if 'fit' in oi and 'continuum ranges' in oi['fit']:
+    if 'fit' in oi and 'continuum ranges' in oi['fit'] and \
+        oi['fit']['continuum ranges']!=[]:
         wc = np.zeros(oi['WL'].shape)
         for WR in oi['fit']['continuum ranges']:
             wc += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
@@ -1634,8 +1656,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in _param.keys():
-                    dwl = 8*_param[k.replace('wl0', 'lorentzian')]/1000.
-
+                    dwl = 2*_param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
@@ -1650,12 +1671,10 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
                 dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/3e5)**2)
-
-                w *= (np.abs(oi['WL']-_param[k])>=dwl)
-
+                w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
 
     if np.sum(w)==0:
-        print('WARNING: no continuum! using all wavelengths')
+        print('WARNING: no continuum! using all wavelengths for spectra')
         w = oi['WL']>0
 
     oi['WL cont'] = np.bool_(w)
@@ -2922,9 +2941,10 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
             else:
                 print("'"+k+"'%s:"%(' '*(ns-len(k))), end='')
                 if type(res['best'][k])==str:
-                    print("'"+res['best'][k]+"'")
+                    print("'"+res['best'][k]+"',")
                 else:
-                    print(res['best'][k])
+                    print(res['best'][k], ',')
+
         print('}')
     if verbose>1 and np.size(res['cov'])>1:
         dpfit.dispCor(res)
@@ -2966,7 +2986,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if k.replace('wl0', 'gaussian') in param.keys():
                     dwl = 1.5*param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in param.keys():
-                    dwl = 8*param[k.replace('wl0', 'lorentzian')]/1000.
+                    dwl = 2*param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
@@ -2984,7 +3004,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
 
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:
-        print('WARNING: no continuum! using all wavelengths')
+        print('WARNING: no continuum! using all wavelengths for clipping')
         w = oi['WL']>0
 
     oi['WL cont'] = np.bool_(w)

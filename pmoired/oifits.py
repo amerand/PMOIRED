@@ -459,9 +459,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                     (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
                     bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
                     bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
-                    bavg = np.sqrt(res['OI_T3'][k]['B1']**2 +
-                                   res['OI_T3'][k]['B2']**2 +
-                                   res['OI_T3'][k]['B3']**2)
+                    bavg = (res['OI_T3'][k]['B1'] +
+                            res['OI_T3'][k]['B2'] +
+                            res['OI_T3'][k]['B3'])/3
+
                     res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
                     res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
 
