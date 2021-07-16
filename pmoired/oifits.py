@@ -589,18 +589,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     res[key][t[0]]['MJD'] = np.append(res[key][t[0]]['MJD'], mjd)
                     res[key][t[0]]['u'] = np.append(res[key][t[0]]['u'],
-                                                   res['OI_T3'][k]['u2'][i])
+                                                   s[0]*res['OI_T3'][k]['u1'][i])
                     res[key][t[0]]['v'] = np.append(res[key][t[0]]['v'],
-                                                   res['OI_T3'][k]['v2'][i])
+                                                   s[0]*res['OI_T3'][k]['v1'][i])
                     res[key][t[0]]['u/wl'] = np.append(res[key][t[0]]['u/wl'],
-                                                   np.array([res['OI_T3'][k]['u2'][i]/
+                                                   s[0]*np.array([res['OI_T3'][k]['u1'][i]/
                                                    res['WL']]), axis=0)
                     res[key][t[0]]['v/wl'] = np.append(res[key][t[0]]['v/wl'],
-                                                   np.array([res['OI_T3'][k]['v2'][i]/
+                                                   s[0]*np.array([res['OI_T3'][k]['v1'][i]/
                                                    res['WL']]), axis=0)
                     res[key][t[0]]['B/wl'] = np.append(res[key][t[0]]['B/wl'],
-                                                 np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
-                                                         res['OI_T3'][k]['v2'][i]**2)/
+                                                 np.array([np.sqrt(res['OI_T3'][k]['u1'][i]**2+
+                                                         res['OI_T3'][k]['v1'][i]**2)/
                                                  res['WL']]), axis=0)
                     res[key][t[0]]['FLAG'] = np.append(res[key][t[0]]['FLAG'],
                                                 np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
@@ -627,14 +627,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     res[key][t[1]]['MJD'] = np.append(res[key][t[1]]['MJD'], mjd)
                     res[key][t[1]]['u'] = np.append(res[key][t[1]]['u'],
-                                                   res['OI_T3'][k]['u2'][i])
+                                                   s[1]*res['OI_T3'][k]['u2'][i])
                     res[key][t[1]]['v'] = np.append(res[key][t[1]]['v'],
-                                                   res['OI_T3'][k]['v2'][i])
+                                                   s[1]*res['OI_T3'][k]['v2'][i])
                     res[key][t[1]]['u/wl'] = np.append(res[key][t[1]]['u/wl'],
-                                                   np.array([res['OI_T3'][k]['u2'][i]/
+                                                   s[1]*np.array([res['OI_T3'][k]['u2'][i]/
                                                    res['WL']]), axis=0)
                     res[key][t[1]]['v/wl'] = np.append(res[key][t[1]]['v/wl'],
-                                                   np.array([res['OI_T3'][k]['v2'][i]/
+                                                   s[1]*np.array([res['OI_T3'][k]['v2'][i]/
                                                    res['WL']]), axis=0)
                     res[key][t[1]]['B/wl'] = np.append(res[key][t[1]]['B/wl'],
                                                  np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
@@ -664,11 +664,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     res[key][t[2]]['MJD'] = np.append(res[key][t[2]]['MJD'], mjd)
                     res[key][t[2]]['u'] = np.append(res[key][t[2]]['u'],
-                                                   -res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])
+                                                   -s[2]*res['OI_T3'][k]['u1'][i]
+                                                   -s[2]*res['OI_T3'][k]['u2'][i])
                     res[key][t[2]]['v'] = np.append(res[key][t[2]]['v'],
-                                                   -res['OI_T3'][k]['v2'][i]-res['OI_T3'][k]['v2'][i])
+                                                   -s[2]*res['OI_T3'][k]['v2'][i]
+                                                   -s[2]*res['OI_T3'][k]['v2'][i])
                     res[key][t[2]]['u/wl'] = np.append(res[key][t[2]]['u/wl'],
-                                                   np.array([(-res['OI_T3'][k]['u1'][i]-res['OI_T3'][k]['u2'][i])/
+                                                   s[2]*np.array([(-res['OI_T3'][k]['u1'][i]
+                                                                   -res['OI_T3'][k]['u2'][i])/
                                                    res['WL']]), axis=0)
                     res[key][t[2]]['v/wl'] = np.append(res[key][t[2]]['v/wl'],
                                                    np.array([(-res['OI_T3'][k]['v1'][i]-res['OI_T3'][k]['v2'][i])/
