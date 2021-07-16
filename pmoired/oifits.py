@@ -144,8 +144,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print(' | dWL', res['dWL'])
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
-    oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
-                   np.char.strip(h['OI_ARRAY'].data['STA_NAME'])))
+    oiarrays = {}
+    for ih, hdu in enumerate(h):
+        if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_ARRAY':
+            oiarrays[hdu.header['ARRNAME']] = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
+                           np.char.strip(h['OI_ARRAY'].data['STA_NAME'])))
+
+    # -- assumes there is only one array!
+    #oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
+    #               np.char.strip(h['OI_ARRAY'].data['STA_NAME'])))
+
 
     # -- V2 baselines == telescopes pairs
     res['OI_VIS2'] = {}
@@ -163,7 +171,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_FLUX [HDU #%d]  for target="%s"/target_id='%(
                       ih, targname), targets[targname])
                 continue
-
+            oiarray = oiarrays[hdu.header['ARRNAME']]
             sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
@@ -213,6 +221,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 [HDU #%d]  for target="%s"/target_id='%(
                             ih, targname), targets[targname])
                 continue
+            oiarray = oiarrays[hdu.header['ARRNAME']]
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
                 print('DEBUG: loading OI_VIS2', set(sta2))
@@ -285,6 +294,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_VIS [HDU #%d]  for target="%s"/target_id='%(
                             ih, targname), targets[targname])
                 continue
+            oiarray = oiarrays[hdu.header['ARRNAME']]
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
                 print('DEBUG: loading OI_VIS', set(sta2))
@@ -403,6 +413,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             ih, targname), targets[targname])
                 continue
             # -- T3 baselines == telescopes pairs
+            oiarray = oiarrays[hdu.header['ARRNAME']]
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
