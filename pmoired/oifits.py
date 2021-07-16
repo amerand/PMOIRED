@@ -544,8 +544,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         u = res['OI_T3'][k]['u2']
                         v = res['OI_T3'][k]['v2']
                     elif t.index(m)==2:
-                        u = res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2']
-                        v = res['OI_T3'][k]['v2']+res['OI_T3'][k]['v2']
+                        u = -res['OI_T3'][k]['u1']-res['OI_T3'][k]['u2']
+                        v = -res['OI_T3'][k]['v2']-res['OI_T3'][k]['v2']
                     # -- add data
                     tmp = {}
                     if key=='OI_VIS':
