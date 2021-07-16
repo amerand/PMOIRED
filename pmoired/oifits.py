@@ -667,7 +667,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                    -s[2]*res['OI_T3'][k]['u1'][i]
                                                    -s[2]*res['OI_T3'][k]['u2'][i])
                     res[key][t[2]]['v'] = np.append(res[key][t[2]]['v'],
-                                                   -s[2]*res['OI_T3'][k]['v2'][i]
+                                                   -s[2]*res['OI_T3'][k]['v1'][i]
                                                    -s[2]*res['OI_T3'][k]['v2'][i])
                     res[key][t[2]]['u/wl'] = np.append(res[key][t[2]]['u/wl'],
                                                    s[2]*np.array([(-res['OI_T3'][k]['u1'][i]
