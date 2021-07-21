@@ -738,7 +738,7 @@ class OI:
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
                     obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
-                    #imFov=imFov, imPix=imPix, imPow=imPow, imMax=imMax,
+                    imFov=None, #imPix=imPix, imPow=imPow, imMax=imMax,
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=checkImVis, vLambda0=vLambda0, showChi2=showChi2,
@@ -800,9 +800,9 @@ class OI:
             #print('showing best fit model')
             model = self.bestfit['best']
         assert type(model)==dict, 'model should be a dictionnary!'
-
-        self.computeModelImages(imFov, model=model, imPix=imPix,
-                                imX=imX, imY=imY)
+        if not imFov is None:
+            self.computeModelImages(imFov, model=model, imPix=imPix,
+                                    imX=imX, imY=imY)
         self.computeModelSpectra(model=model, uncer=False)
 
         if imWl0 is None and showIM:

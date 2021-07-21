@@ -2705,18 +2705,24 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
 def showGrid(res, px, py, color='chi2', logV=False,
             fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
+    """
+    res: results from a gridFitOI
+    px, py: the two parameters to show (default 2 first alphabeticaly)
+    color: color for the plot (default is chi2)
 
+    """
     plt.close(fig)
     plt.figure(fig)
 
     if not aspect is None:
         ax = plt.subplot(111, aspect=aspect)
-    # -- local minima
+    # -- color of local minima
     if not color=='chi2':
         c = [r['best'][color] for r in res if ~r['bad']]
     else:
         c = [r[color] for r in res if ~r['bad']]
 
+    # -- coordinates: keep only valid minima
     x = [r['best'][px] for r in res if ~r['bad']]
     y = [r['best'][py] for r in res if ~r['bad']]
 
@@ -2747,7 +2753,6 @@ def showGrid(res, px, py, color='chi2', logV=False,
         color = 'log10['+color+']'
         vmin = np.log10(vmin)
         vmax = np.log10(vmax)
-
 
     plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap)
     plt.colorbar(label=color)
@@ -3337,10 +3342,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     data = {
             'FLUX':{'ext':'OI_FLUX', 'var':'FLUX'},
             'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalized'},
-            #'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
-            #'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
-            'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
-            'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
+            'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
+            'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
+            #'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
+            #'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
             'DPHI':{'ext':'DPHI', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
             'PHI':{'ext':'OI_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
             '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
@@ -3349,10 +3354,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     imdata = {
              'FLUX':{'ext':'IM_FLUX', 'var':'FLUX'},
              'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalized'},
-             #'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
-             #'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
-             'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
-             'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
+             'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
+             'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
+             #'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
+             #'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
              'DPHI':{'ext':'IM_VIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
              'PHI':{'ext':'IM_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
              '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
@@ -4366,13 +4371,14 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         _p = np.ones(len(_r))
     elif param[comp+',profile'] == 'doughnut':
         _p = 1-((_r-_r.mean())/_r.ptp()*2)**2
-    elif _param['profile'].startswith('doughnut'):
-        tmp = float(_param['profile'].split('doughnut')[1])
+    elif param['profile'].startswith('doughnut'):
+        tmp = float(param['profile'].split('doughnut')[1])
         _p = 1-np.abs((_r-np.mean(_r))/np.ptp(_r)*2)**tmp
     elif param[comp+',profile'] == 'uniform':
         _p = np.ones(len(_r))
     else:
         _p = eval(param[comp+',profile'].replace('$R', '_r'))
+        
     _cf = np.array([np.trapz((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
     _cf /= _cf.max()
     rh = np.interp(0.5, _cf, _r)
