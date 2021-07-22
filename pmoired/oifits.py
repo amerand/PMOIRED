@@ -266,7 +266,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS2'][k]['B/wl'] = np.sqrt(res['OI_VIS2'][k]['u/wl']**2+
                                                         res['OI_VIS2'][k]['v/wl']**2)
                     res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
-                                                       1j*res['OI_VIS2'][k]['u/wl'], deg=True)
+                                                    1j*res['OI_VIS2'][k]['u/wl'], deg=True)
                     if not binning is None:
                         res['OI_VIS2'][k]['V2'], flag =\
                                                    binOI(res['WL'], _WL,
@@ -340,7 +340,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
                                                         res['OI_VIS'][k]['v/wl']**2)
                     res['OI_VIS'][k]['PA'] = np.angle(res['OI_VIS'][k]['v/wl']+
-                                                      1j*res['OI_VIS'][k]['u/wl'], deg=True)
+                                                   1j*res['OI_VIS'][k]['u/wl'], deg=True)
 
                     res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
                                                              ~np.isfinite(res['OI_VIS'][k]['|V|']))
@@ -609,6 +609,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res[key][t[0]]['v/wl'] = np.append(res[key][t[0]]['v/wl'],
                                                    s[0]*np.array([res['OI_T3'][k]['v1'][i]/
                                                    res['WL']]), axis=0)
+                    res[key][t[0]]['PA'] = np.angle(res[key][t[0]]['v/wl']+
+                                                 1j*res[key][t[0]]['u/wl'], deg=True)
+
                     res[key][t[0]]['B/wl'] = np.append(res[key][t[0]]['B/wl'],
                                                  np.array([np.sqrt(res['OI_T3'][k]['u1'][i]**2+
                                                          res['OI_T3'][k]['v1'][i]**2)/
@@ -647,6 +650,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res[key][t[1]]['v/wl'] = np.append(res[key][t[1]]['v/wl'],
                                                    s[1]*np.array([res['OI_T3'][k]['v2'][i]/
                                                    res['WL']]), axis=0)
+                    res[key][t[1]]['PA'] = np.angle(res[key][t[1]]['v/wl']+
+                                                 1j*res[key][t[1]]['u/wl'], deg=True)
+
                     res[key][t[1]]['B/wl'] = np.append(res[key][t[1]]['B/wl'],
                                                  np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
                                                          res['OI_T3'][k]['v2'][i]**2)/
@@ -687,6 +693,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res[key][t[2]]['v/wl'] = np.append(res[key][t[2]]['v/wl'],
                                                    np.array([(-res['OI_T3'][k]['v1'][i]-res['OI_T3'][k]['v2'][i])/
                                                    res['WL']]), axis=0)
+                    res[key][t[2]]['PA'] = np.angle(res[key][t[2]]['v/wl']+
+                                                 1j*res[key][t[2]]['u/wl'], deg=True)
+
                     res[key][t[2]]['B/wl'] = np.append(res[key][t[2]]['B/wl'],
                                                  np.array([np.sqrt((res['OI_T3'][k]['u1'][i]+res['OI_T3'][k]['u2'][i])**2+
                                                          (res['OI_T3'][k]['v1'][i]+res['OI_T3'][k]['v2'][i])**2)/
