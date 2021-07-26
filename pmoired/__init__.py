@@ -599,6 +599,10 @@ class OI:
 
         See Also: bootstrapFit
         """
+        if self.boot==None or len(self.boot)==0:
+            print('run bootstrapping first!')
+            return
+
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
                                 sigmaClipping=sigmaClipping, verbose=0)
@@ -614,7 +618,7 @@ class OI:
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
-             allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1,
+             allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={}, showSED=True):
         """
@@ -712,7 +716,7 @@ class OI:
                 self.showModel(model=model, imFov=imFov, imPix=imPix,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED)
+                               cmap=cmap, logS=logS, showSED=showSED, imPlx=imPlx)
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -748,7 +752,7 @@ class OI:
             else:
                 self.fig += len(self.data)
             if not imFov is None:
-                self.showModel(model=model, imFov=imFov, imPix=imPix,
+                self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS)
@@ -768,7 +772,7 @@ class OI:
                         showChi2=showChi2))
                 self.fig += 1
             if not imFov is None:
-                self.showModel(model=model, imFov=imFov, imPix=imPix,
+                self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED)
@@ -776,7 +780,7 @@ class OI:
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
-                  logS=False):
+                  logS=False, imPlx=None):
         """
         oi: result from loadOI for mergeOI,
             or a wavelength vector in um (must be a np.ndarray)
@@ -793,6 +797,7 @@ class OI:
         imX, imY: center of image (in mas)
         imWl0: list of wavelength (um) to show the image default (min, max)
         cmap: color map (default 'bone')
+        imPlx: parallax (in mas) optional, will add sec axis in AU
         """
 
         if model=='best' and type(self.bestfit) is dict and \
@@ -834,6 +839,18 @@ class OI:
 
         for i,wl0 in enumerate(imWl0):
             ax = plt.subplot(1, nplot, i+1, aspect='equal')
+            if not imPlx is None:
+                mas2au = lambda x: x/imPlx
+                au2mas = lambda x: x*imPlx
+                axx = ax.secondary_xaxis('top', functions=(mas2au, au2mas))
+                axy = ax.secondary_yaxis('right', functions=(mas2au, au2mas))
+                axx.tick_params(axis='x', labelsize=6, labelcolor=(0.7,0.5,0.2),
+                                pad=0)
+                axy.tick_params(axis='y', labelsize=6, labelcolor=(0.7,0.5,0.2),
+                                pad=0, labelrotation=-90)
+                axx.set_xlabel('(AU)\nplx=%.2fmas'%imPlx,
+                                color=(0.7,0.5,0.2), x=0, fontsize=6)
+
             i0 = np.argmin(np.abs(self.images['WL']-wl0))
             im = np.abs(self.images['cube'][i0]/np.max(self.images['cube'][i0]))
             if not imMax is None:
@@ -845,8 +862,8 @@ class OI:
                 _imMax = np.max(imMax**imPow)
 
             pc = plt.pcolormesh(self.images['X'], self.images['Y'],
-                        im**imPow, cmap=cmap, vmax=_imMax, vmin=0,
-                        shading='auto')
+                                im**imPow, cmap=cmap, vmax=_imMax, vmin=0,
+                                shading='auto')
             cb = plt.colorbar(pc, ax=ax,
                               orientation='horizontal' if len(imWl0)>1 else
                               'vertical')
@@ -861,6 +878,7 @@ class OI:
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
             ax.set_xlabel(r'$\leftarrow$ E (mas)')
+
             if i==0:
                 ax.set_ylabel(r'N $\rightarrow$ (mas)')
             if not imPow == 1:
@@ -871,7 +889,7 @@ class OI:
 
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
-            plt.title(title, fontsize=9)
+            plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
         symbols = {}
         a, b, c = 0.9, 0.6, 0.1

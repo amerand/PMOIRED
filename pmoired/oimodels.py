@@ -2855,7 +2855,11 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000,
     print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
-    print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+
+    try:
+        print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+    except:
+        print(time)
 
     try:
         res = analyseBootstrap(res, sigmaClipping=sigmaClipping)
@@ -2875,10 +2879,13 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
         Boot = Boot['all fits']
     else:
         fit = None
+    try:
+        res = {'best':{}, 'uncer':{}, 'fitOnly':Boot[0]['fitOnly'],
+               'all best':{}, 'all best ignored':{}, 'sigmaClipping':sigmaClipping,
+               'all fits':Boot}
+    except:
+        print(Boot)
 
-    res = {'best':{}, 'uncer':{}, 'fitOnly':Boot[0]['fitOnly'],
-           'all best':{}, 'all best ignored':{}, 'sigmaClipping':sigmaClipping,
-           'all fits':Boot}
     if not fit is None:
         res['fit to all data'] = fit
     mask = np.ones(len(Boot), dtype=bool)
@@ -3994,7 +4001,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               imFov=None, imPix=None, imPow=1.0, imX=0., imY=0., imWl0=None,
               cmap='bone', imMax=None, logS=False, showSED=True, legend=True,
-              cColors={}, cMarkers={}):
+              cColors={}, cMarkers={}, imPlx=None):
     """
     oi: result from loadOI for mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
@@ -4003,15 +4010,21 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
     fig: which figure to plot on (default 1)
     figHeight: height of the figure, in inch
 
-    imFov: field of view in mas
-    imPix: imPixel size in mas
+    imFov: field of view in mas (AU if parallax is given)
+    imPix: imPixel size in mas (AU if parallax is given)
     imMax: cutoff for image display (0..1) or in percentile ('0'..'100')
     imPow: power law applied to image for display. use 0<imPow<1 to show low
         surface brightness features
-    imX, imY: center of image (in mas)
+    imX, imY: center of image (in mas, AU if parallax is given)
     imWl0: list of wavelength (um) to show the image default (min, max)
     cmap: color map (default 'bone')
     """
+    if imPlx is None:
+        imScale = 1.0
+    else:
+        imScale = 1./imPlx
+
+
     param = computeLambdaParams(param)
     # -- catch case were OI is just a wavelength vector:
     if type(oi)==np.ndarray:
@@ -4020,7 +4033,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               }
 
     if m is None:
-        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+        m = VmodelOI(oi, param, imFov=imFov/imScale, imPix=imPix,
+                    imX=imX/imScale, imY=imY/imScale,
                     debug=False)
         #print(m['MODEL'].keys())
         #if not 'WL mask' in oi and 'WL mask' in m:
@@ -4170,7 +4184,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
         #print('    Xmin , Xmax =', m['MODEL']['X'].min(), ',', m['MODEL']['X'].max())
         #print('    Ymin , Ymax =', m['MODEL']['Y'].min(), ',', m['MODEL']['Y'].max())
 
-        pc = plt.pcolormesh(m['MODEL']['X'], m['MODEL']['Y'],
+        pc = plt.pcolormesh(m['MODEL']['X']*imScale, m['MODEL']['Y']*imScale,
                             im, vmin=vmin, vmax=vmax,
                             cmap=cmap, shading='auto')
         cb = plt.colorbar(pc, ax=axs[-1],
@@ -4199,7 +4213,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                 y = 0.0
 
             if legend:
-                plt.plot(x, y, symbols[c]['m'], color=symbols[c]['c'], label=c,
+                plt.plot(x*imScale, y*imScale, symbols[c]['m'],
+                        color=symbols[c]['c'], label=c,
                         markersize=8)
             #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
@@ -4378,7 +4393,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         _p = np.ones(len(_r))
     else:
         _p = eval(param[comp+',profile'].replace('$R', '_r'))
-        
+
     _cf = np.array([np.trapz((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
     _cf /= _cf.max()
     rh = np.interp(0.5, _cf, _r)
