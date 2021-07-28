@@ -4361,8 +4361,11 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
                     print(f%(c,res['best'][c], res['uncer'][c]))
                 except:
                     print('#', c, res['best'][c])
-
-            dpfit.dispCor(res, pre='#  ')
+            try:
+                dpfit.dispCor(res, pre='#  ')
+            except:
+                print('error showing correlation matrix!')
+                
         #res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
