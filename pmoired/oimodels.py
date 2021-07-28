@@ -4365,7 +4365,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
                 dpfit.dispCor(res, pre='#  ')
             except:
                 print('error showing correlation matrix!')
-                
+
         #res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
@@ -4389,8 +4389,8 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         _p = np.ones(len(_r))
     elif param[comp+',profile'] == 'doughnut':
         _p = 1-((_r-_r.mean())/_r.ptp()*2)**2
-    elif param['profile'].startswith('doughnut'):
-        tmp = float(param['profile'].split('doughnut')[1])
+    elif param[comp+',profile'].startswith('doughnut'):
+        tmp = float(param[comp+',profile'].split('doughnut')[1])
         _p = 1-np.abs((_r-np.mean(_r))/np.ptp(_r)*2)**tmp
     elif param[comp+',profile'] == 'uniform':
         _p = np.ones(len(_r))
