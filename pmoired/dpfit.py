@@ -1200,6 +1200,8 @@ def subp(N, imax=None):
     """
     gives the dimensions of a gird of plots for N plots, allow up to imax empty plots to have a squarish grid
     """
+    if N==2:
+        return (1,2)
     if imax is None:
         imax = max(2, N//5)
     S = {}

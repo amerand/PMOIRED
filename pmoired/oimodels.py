@@ -1317,6 +1317,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res['OI_VIS'][b]['|V|'] = np.abs(res['MOD_VIS'][b])
             res['OI_VIS'][b]['PHI'] = (np.angle(res['MOD_VIS'][b])*180/np.pi+180)%360-180
         if 'OI_VIS2' in res and b in res['OI_VIS2']:
+            # -- assume OI_VIS and OI_VIS2 have same structure!!!
             res['OI_VIS2'][b]['V2'] = np.abs(res['MOD_VIS'][b])**2
 
     res['OI_FLUX'] = {}
@@ -2052,7 +2053,7 @@ def residualsOI(oi, param, timeit=False):
             for k in oi[ext[f]].keys():
                 test = testTelescopes(k, ignoreTelescope) or testBaselines(k, ignoreBaseline)
                 if not test:
-                    mask = w[None,:]*~oi[ext[f]][k]['FLAG']
+                    mask = np.logical_and(w[None,:], ~oi[ext[f]][k]['FLAG'])
                     err = oi[ext[f]][k]['E'+f].copy()
                     if 'max error' in oi['fit'] and f in oi['fit']['max error']:
                         # -- ignore data with large error bars
@@ -2074,13 +2075,14 @@ def residualsOI(oi, param, timeit=False):
 
                     try:
                         tmp = rf(oi[ext[f]][k][f][mask] -
-                                 m[ext[f]][k][f][mask])/err[mask]
+                                  m[ext[f]][k][f][mask])/err[mask]
                         res = np.append(res, tmp.flatten())
                     except:
-                        print('!!!', f, ext[f], k, f,
-                                len(oi[ext[f]][k][f]),
-                                len(m[ext[f]][k][f]),
-                                len(err) )
+                        print('cannot compute residuals', f, ext[f], k, f,
+                                'data:', oi[ext[f]][k][f].shape,
+                                'errors:', err.shape,
+                                'model:', m[ext[f]][k][f].shape,
+                                )
                 else:
                     pass
                     #print('ignoring', ext[f], k)
@@ -2097,7 +2099,6 @@ def residualsOI(oi, param, timeit=False):
         tmp = computePriorL(computeLambdaParams(param), oi['fit']['prior'])
         # -- approximate equal weight as rest of data
         res = np.append(res, tmp*np.sqrt(len(res)))
-
     #print(len(res))
     return res
 

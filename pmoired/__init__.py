@@ -620,7 +620,8 @@ class OI:
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
-             imX=0, imY=0, showChi2=False, cColors={}, cMarkers={}, showSED=True):
+             imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
+             showSED=None):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -651,15 +652,31 @@ class OI:
             fov is too small)
         - cColors: an optional dictionary to set the color of each components in
             the SED plot
+        - showSED: True
         """
         t0 = time.time()
 
         if not imFov is None and imPix is None:
             imPix = imFov/100.
 
-        if not imFov is None:
-            assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
+        if showSED:
+            # -- show *only* SED
+            showIM = False
+            if imFov is None:
+                imFov = 1.0
+                imPix = 0.1
+        else:
+            showIM = True
 
+        if not imFov is None:
+            if showSED is None:
+                showSED = True
+            assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
+        else:
+            if showSED is None:
+                showSED = False
+        #print('debug:', 'imFov', imFov, 'imPix', imPix,
+        #        'showIM', showIM, 'showSED', showSED)
         if spectro is None:
             N = [len(d['WL']) for d in self.data]
             spectro = max(N)>20
@@ -685,6 +702,9 @@ class OI:
         elif not type(model) is dict:
             #print('no model to show...')
             model = None
+            showSED = False
+            showIM = False
+            imFov = None
 
         if perSetup:
             if perSetup == 'insname':
@@ -712,11 +732,12 @@ class OI:
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
-            if not imFov is None:
-                self.showModel(model=model, imFov=imFov, imPix=imPix,
+            if not imFov is None or showSED:
+                self.showModel(model=model, imFov=imFov, imPix=imPix,imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, imPlx=imPlx)
+                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM
+                               )
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -751,11 +772,11 @@ class OI:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
-            if not imFov is None:
+            if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS)
+                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM)
 
         else:
             self._model = []
@@ -771,11 +792,11 @@ class OI:
                         checkImVis=checkImVis, vLambda0=vLambda0,
                         showChi2=showChi2))
                 self.fig += 1
-            if not imFov is None:
+            if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED)
+                               cmap=cmap, logS=logS, showSED=showSED,showIM=showIM)
         return
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
@@ -799,7 +820,6 @@ class OI:
         cmap: color map (default 'bone')
         imPlx: parallax (in mas) optional, will add sec axis in AU
         """
-
         if model=='best' and type(self.bestfit) is dict and \
                     'best' in self.bestfit:
             #print('showing best fit model')
@@ -815,9 +835,11 @@ class OI:
             imWl0 = [np.mean(self.images['WL'])]
 
         if not type(imWl0)==list and not type(imWl0)==tuple and \
-            not type(imWl0)==set and not type(imWl0)==np.ndarray:
+            not type(imWl0)==set and not type(imWl0)==np.ndarray and \
+            not imWl0 is None:
             imWl0 = [imWl0]
-
+        if imWl0 is None:
+            imWl0 = []
         if showSED:
             nplot = len(imWl0)+1
         else:
@@ -836,7 +858,7 @@ class OI:
             figHeight =  max(figWidth/nplot, 6)
         plt.close(fig)
         plt.figure(fig, figsize=(figWidth, figHeight))
-
+        i = -1 # default, in case only SED
         for i,wl0 in enumerate(imWl0):
             ax = plt.subplot(1, nplot, i+1, aspect='equal')
             if not imPlx is None:
@@ -901,7 +923,7 @@ class OI:
         markers = ['1', '2', '3', '4'] # 3 branches crosses
         _ic = 0
         _im =  0
-
+        #print('debug', 'i', i, 'nplot', nplot)
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
             if len(self.spectra['normalised spectrum WL']):
