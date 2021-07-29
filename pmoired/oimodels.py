@@ -473,7 +473,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         # -- offset of inner disk / outer disk
         _off = _param['croff']*(_crout-_crin)/2
         if 'crprojang' in _param:
-            crpa = - _param['crprojang']*np.pi/180
+            crpa = _param['crprojang']*np.pi/180
         else:
             crpa = 0.0
         # == share offset between the 2 disks

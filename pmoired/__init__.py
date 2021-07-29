@@ -870,8 +870,8 @@ class OI:
                                 pad=0)
                 axy.tick_params(axis='y', labelsize=6, labelcolor=(0.7,0.5,0.2),
                                 pad=0, labelrotation=-90)
-                axx.set_xlabel('(AU)\nplx=%.2fmas'%imPlx,
-                                color=(0.7,0.5,0.2), x=0, fontsize=6)
+                axx.set_xlabel('(AU)\nplx=\n%.2fmas'%imPlx,
+                                color=(0.7,0.5,0.2), x=0, fontsize=5)
 
             i0 = np.argmin(np.abs(self.images['WL']-wl0))
             im = np.abs(self.images['cube'][i0]/np.max(self.images['cube'][i0]))
