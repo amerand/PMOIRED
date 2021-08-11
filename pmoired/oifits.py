@@ -669,8 +669,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS2'][m] = copy.deepcopy(A[m])
                     for _k in ['|V|', 'E|V|', 'PHI', 'EPHI']:
                         res['OI_VIS2'][m].pop(_k)
-                    print(m, 'VIS ', res['OI_VIS'][m].keys())
-                    print(m, 'VIS2', res['OI_VIS2'][m].keys())
+                    #print(m, 'VIS ', res['OI_VIS'][m].keys())
+                    #print(m, 'VIS2', res['OI_VIS2'][m].keys())
 
                     M.remove(m)
 
