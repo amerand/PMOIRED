@@ -48,3 +48,23 @@ def checkT3formula(oi, tol=1e-9):
                     msg += [(F, tri, k)]
                     err = True
     return not err, msg
+
+def checkShapes(oi):
+    test = {}
+    for i,D in enumerate(oi.data):
+        test[D['filename']] = {}
+        nWL = len(D['WL'])
+        for e in ['OI_VIS', 'OI_VIS2', 'OI_T3']:
+            for k in D[e]:
+                nMJD = len(D[e][k]['MJD'])
+                for x in D[e][k]:
+                    if type(D[e][k][x]) == np.ndarray:
+                        s = D[e][k][x].shape
+                        #print(s, nWL, nMJD)
+                        if len(s)==1 and s[0]==nMJD:
+                            pass
+                        elif len(s)==2 and s[0]==nMJD and s[1]==nWL:
+                            pass
+                        else:
+                            test[D['filename']][e+k+x] = (s, nWL, nMJD)
+    return test
