@@ -174,6 +174,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             oiarray = oiarrays[hdu.header['ARRNAME']]
             sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
+                # --
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
                 try:
                     # GRAVITY Data have non-standard naming :(
@@ -385,7 +386,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
         for k in kz:
             if not k in res['OI_VIS']:
-                print(k, 'is in OI_VIS2 but missing from OI_VIS!')
+                #print(k, 'is in OI_VIS2 but missing from OI_VIS!')
                 res['OI_VIS'][k] = {}
                 for x in res['OI_VIS2'][k].keys():
                     if not 'V2' in x:
@@ -396,9 +397,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 res['OI_VIS'][k]['E|V|'] = 1 + 0*res['OI_VIS2'][k]['EV2']
                 res['OI_VIS'][k]['PHI'] = 0*res['OI_VIS2'][k]['V2']
                 res['OI_VIS'][k]['EPHI'] = 360 + 0*res['OI_VIS2'][k]['EV2']
-                print('missing VIS', k, res['OI_VIS'][k].keys())
+                #print('missing VIS', k, res['OI_VIS'][k].keys())
             elif not k in res['OI_VIS2']:
-                print(k, 'is in OI_VIS but missing from OI_VIS2!')
+                #print(k, 'is in OI_VIS but missing from OI_VIS2!')
                 res['OI_VIS2'][k] = {}
                 for x in res['OI_VIS'][k].keys():
                     if not '|V|' in x and not 'PHI' in x:
@@ -409,7 +410,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 res['OI_VIS2'][k]['EV2'] = 1+0*res['OI_VIS'][k]['E|V|']
 
             if sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
-                print(k, 'mismatched coverage VIS/VIS2!')
+                #print(k, 'mismatched coverage VIS/VIS2!')
                 #print(' VIS :',  res['OI_VIS'][k]['MJD'])
                 #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
                 # -- all encountered MJDs:
@@ -616,8 +617,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if res['OI_T3']=={}:
         res.pop('OI_T3')
     else:
-        if len(M):
-            print('    warning: missing baselines', M, 'to define T3')
+        #if len(M):
+        #    print('    warning: missing baselines', M, 'to define T3')
         # -- match MJDs for T3 computations:
         for k in res['OI_T3'].keys():
             s, t = res['OI_T3'][k]['formula']
@@ -888,7 +889,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         Kz = sorted(list(filter(lambda x: x.startswith('OI_'), res.keys())))
         print(dict(zip(Kz, [len(res[k].keys()) for k in Kz])), end=' | ')
 
-        print('| TELLURICS:', res['TELLURICS'].min()<1)
+        print('| TELL:', res['TELLURICS'].min()<1)
         # print('  >', 'telescopes:', res['telescopes'],
         #       'baselines:', res['baselines'],
         #       'triangles:', res['triangles'])
