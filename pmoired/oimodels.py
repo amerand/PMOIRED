@@ -295,15 +295,15 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     if 'x' in _param.keys() and 'y' in _param.keys():
         _xs, _ys = _param['x'], _param['y']
         if type(_xs)==str and '$MJD' in _xs:
-            x = lambda o: eval(_xs.replace('$MJD', 'np.'+
-                                np.array_repr(o['MJD'][:,None]+0*oi['WL'][None,:])))
+            x = lambda o: eval(_xs.replace('$MJD', "o['MJD2']"))
         else:
             x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
+
         if type(_ys)==str and '$MJD' in _ys:
-            y = lambda o: eval(_ys.replace('$MJD', 'np.'+
-                                np.array_repr(o['MJD'][:,None]+0*oi['WL'][None,:])))
+            y = lambda o: eval(_ys.replace('$MJD', "o['MJD2']"))
         else:
             y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
+
     else:
         #x, y = lambda o: 0.0, lambda o: 0.0
         x = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
@@ -356,10 +356,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
         if not I is None:
             _X = (np.cos(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                    np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
+                   np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
             _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                    np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
+                   np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
             R = np.sqrt(_X**2+_Y**2)
+
     else:
         _uwl = lambda z: z['u/wl'][:,wwl]/cwl
         _vwl = lambda z: z['v/wl'][:,wwl]/cwl
@@ -374,22 +375,24 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
         if not I is None:
             _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
-            R = np.sqrt(_X**2+_Y**2)
 
+            R = np.sqrt(_X**2+_Y**2)
 
     # -- phase offset
     #phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
-    #print('debug:', x, y)
-    PHI = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(z)[:,wwl] +
-                                   z['v/wl'][:,wwl]/cwl*y(z)[:,wwl]))
+    #print('debug: _xs=', _xs)
+    #print('debug: _xs=', _ys)
+    PHI = lambda o: np.exp(-2j*_c*(o['u/wl'][:,wwl]/cwl*x(o)[:,wwl] +
+                                   o['v/wl'][:,wwl]/cwl*y(o)[:,wwl]))
+
     if du:
         #dPHIdu = lambda z: -2j*_c*x*PHI(z)/oi['WL']
         #dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
-        PHIdu = lambda z: np.exp(-2j*_c*((z['u/wl'][:,wwl]/cwl +
-                                         du/res['WL'][:,wwl])*x(z)[:,wwl] +
-                                          z['v/wl'][:,wwl]/cwl*y(z)[:,wwl]))
-        PHIdv = lambda z: np.exp(-2j*_c*(z['u/wl'][:,wwl]/cwl*x(z)[:,wwl] +
-                                        (z['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(z)[:,wwl]))
+        PHIdu = lambda o: np.exp(-2j*_c*((o['u/wl'][:,wwl]/cwl +
+                                         du/res['WL'][:,wwl])*x(o)[:,wwl] +
+                                          z['v/wl'][:,wwl]/cwl*y(o)[:,wwl]))
+        PHIdv = lambda o: np.exp(-2j*_c*(o['u/wl'][:,wwl]/cwl*x(o)[:,wwl] +
+                                        (o['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(o)[:,wwl]))
 
     # -- guess which visibility function
     if 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
@@ -707,10 +710,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                        np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
             V[:,wwl] *= PHI(oi[key][k])
         else:
-            #print('!!', key, oi[key][k].keys())
-            #print('!! x:', x, 'y', y)
-            #print(V[:,wwl].shape, Vf(oi[key][k]).shape, PHI(oi[key][k]).shape)
-            V[:,wwl] = Vf(oi[key][k])*PHI(oi[key][k])
+            V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
+
 
         tmp['|V|'] = np.abs(V)
         #print(k, Vf(oi[key][k]), tmp['|V|'])

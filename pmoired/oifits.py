@@ -182,6 +182,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
+                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
+
                                          }
 
                 except:
@@ -189,6 +191,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
+                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          }
 
                 if any(w):
@@ -247,12 +250,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['EV2']))
+                    res['OI_VIS2'][k]['MJD2'] = res['OI_VIS2'][k]['MJD'][:,None]+0*res['WL'][None,:]
                 elif any(w):
                     res['OI_VIS2'][k] = {'V2':hdu.data['VIS2DATA'][w].reshape(w.sum(), -1),
                                          'EV2':hdu.data['VIS2ERR'][w].reshape(w.sum(), -1),
                                          'u':hdu.data['UCOORD'][w],
                                          'v':hdu.data['VCOORD'][w],
                                          'MJD':hdu.data['MJD'][w],
+                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          'u/wl': hdu.data['UCOORD'][w][:,None]/
                                                 res['WL'][None,:],
                                          'v/wl': hdu.data['VCOORD'][w][:,None]/
@@ -329,6 +334,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'PHI':hdu.data['VISPHI'][w].reshape(w.sum(), -1),
                                         'EPHI':hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
+                                        'MJD2':hdu.data['MJD'][w]+0*res['WL'][None,:],
                                         'u':hdu.data['UCOORD'][w],
                                         'v':hdu.data['VCOORD'][w],
                                         'u/wl': hdu.data['UCOORD'][w][:,None]/
@@ -429,7 +435,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     if x in res['OI_VIS2'][k]:
                         tmp[wv2] = res['OI_VIS2'][k][x]
                     res['OI_VIS'][k][x] = tmp
-                for x in ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA']:
+                for x in ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
                     if x=='FLAG':
                         tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
                     else:
@@ -448,7 +454,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         tmp = np.zeros(len(allMJD))
                     tmp[wv2] = res['OI_VIS2'][k][x]
                     res['OI_VIS2'][k][x] = tmp
-                for x in ['V2', 'EV2', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA']:
+                for x in ['V2', 'EV2', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
                     if x in res['OI_VIS'][k] and x!='FLAG':
                         tmp = res['OI_VIS'][k][x].copy()
                     elif x=='FLAG':
@@ -546,6 +552,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                             ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                     res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                                                             ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
+                    res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+
                 elif any(w):
                     res['OI_T3'][k] = {'T3AMP':hdu.data['T3AMP'][w].reshape(w.sum(), -1),
                                        'ET3AMP':hdu.data['T3AMPERR'][w].reshape(w.sum(), -1),
@@ -606,6 +614,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
                         res['OI_T3'][k]['FLAG'] = flag
+                res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+
     key = 'OI_VIS'
     if res['OI_VIS']=={}:
         res.pop('OI_VIS')
@@ -655,6 +665,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     tmp['FLAG'] = np.ones((len(res['OI_T3'][k]['MJD']),
                                            len(res['WL'])), dtype=bool)
                     tmp['MJD'] = 1.0*res['OI_T3'][k]['MJD']
+                    tmp['MJD2'] = tmp['MJD'][:,None] + 0*res['WL'][None,:]
                     tmp['PA'] = np.angle(tmp['v/wl']+1j*tmp['u/wl'], deg=True)
 
                     A[m] = tmp
@@ -690,6 +701,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
                         res[_key][t[0]]['MJD'] = np.append(res[_key][t[0]]['MJD'], mjd)
+                        res[_key][t[0]]['MJD2'] = res[_key][t[0]]['MJD'][:,None] + 0*res['WL'][None,:]
                         res[_key][t[0]]['u'] = np.append(res[_key][t[0]]['u'],
                                                        s[0]*res['OI_T3'][k]['u1'][i])
                         res[_key][t[0]]['v'] = np.append(res[_key][t[0]]['v'],
@@ -735,6 +747,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
                         res[_key][t[1]]['MJD'] = np.append(res[_key][t[1]]['MJD'], mjd)
+                        res[_key][t[1]]['MJD2'] = res[_key][t[1]]['MJD'][:,None] + 0*res['WL'][None,:]
+
                         res[_key][t[1]]['u'] = np.append(res[_key][t[1]]['u'],
                                                        s[1]*res['OI_T3'][k]['u2'][i])
                         res[_key][t[1]]['v'] = np.append(res[_key][t[1]]['v'],
@@ -780,6 +794,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
                         res[_key][t[2]]['MJD'] = np.append(res[_key][t[2]]['MJD'], mjd)
+                        res[_key][t[2]]['MJD2'] = res[_key][t[2]]['MJD'][:,None] + 0*res['WL'][None,:]
+
                         res[_key][t[2]]['u'] = np.append(res[_key][t[2]]['u'],
                                                        -s[2]*res['OI_T3'][k]['u1'][i]
                                                        -s[2]*res['OI_T3'][k]['u2'][i])
@@ -1050,17 +1066,17 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     # -- ext2 are vector of length WL
                     if l=='OI_FLUX':
                         ext1 = ['MJD']
-                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX']
+                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX', 'MJD2']
                     elif l=='OI_VIS2':
                         ext1 = ['u', 'v', 'MJD']
-                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA']
+                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
                     elif l=='OI_VIS':
                         ext1 = ['u', 'v', 'MJD']
-                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA']
+                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
-                                'FLAG', 'Bmax/wl', 'Bavg/wl']
+                                'FLAG', 'Bmax/wl', 'Bavg/wl', 'MJD2']
                     if debug:
                         print(l, k, res[i0][l][k].keys())
                     for t in ext1:
@@ -1353,6 +1369,8 @@ def _allInOneOI(oi, verbose=False, debug=False):
             'NAME': np.array([names[mjd] for mjd in fluxes.keys()]),
             'MJD': np.array(list(fluxes.keys())),
             }
+        oi['OI_FLUX']['all']['MJD2'] = oi['OI_FLUX']['all']['MJD'][:,None]+\
+                            0*oi['WL'][None,:]
 
     for e in filter(lambda x: x in oi.keys(), ['OI_VIS', 'OI_VIS2', 'OI_T3']):
         tmp = {'NAME':[]}
