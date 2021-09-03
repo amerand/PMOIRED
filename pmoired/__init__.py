@@ -33,6 +33,14 @@ __versions__={'python':sys.version,
               'matplotlib':matplotlib.__version__
               }
 
+try:
+    jup = os.popen('jupyter --version').readlines()
+    for j in jup:
+        __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
+except:
+    # -- cannot get versions of jupyter tools    
+    pass
+
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
