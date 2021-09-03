@@ -140,7 +140,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
         return
 
-    # -- HARDWIRED, DANGEROUS!!!
+    # -- HARDWIRED, DANGEROUS!!! -> works for POLA and JOINED
     wl = f[4].data['EFF_WAVE']*1e6
     if len(wl)<10:
         wl = f[3].data['EFF_WAVE']*1e6
@@ -148,10 +148,15 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     if not quiet:
         print('WL:', wl.shape)
 
+    pola = f[0].header['HIERARCH ESO FT POLA MODE'].strip()=='SPLIT'
     # -- sum of fluxes, remove outliers -----------------------------
     sp, n = 0.0, 3
     for i in range(4):
-        s = f[12].data['FLUX'][i,:]
+        if pola:
+            s = f[18].data['FLUX'][i,:]+f[22].data['FLUX'][i,:]
+        else:
+            s = f[12].data['FLUX'][i,:]
+
         for j in range(len(s))[n+1:-n-1]:
             t = s[j-n:j]
             t = np.append(t, s[j+1:j+n+1])

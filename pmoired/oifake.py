@@ -858,7 +858,7 @@ def fluxCube(cube, wl):
 
 def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             diam=None, cube=None, noise=None, thres=None,
-            model=None):
+            model=None, insname='fake'):
     """
     t = list of stations
     targe = name of target, or (ra, dec) in (in hours, degs)
@@ -902,7 +902,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
     # -- fake MJD
     tmp['MJD'] = (np.array(lst)-lst0)/24 + mjd0
-    res = {'insname':'fake_%.3f_%.3fum_R%.0f'%(min(wl), max(wl),
+    res = {'insname':'%s_%.3f_%.3fum_R%.0f'%(insname, min(wl), max(wl),
                         np.mean(wl/np.gradient(wl))),
            'filename':'synthetic',
            'targname':target if type(target)==str else

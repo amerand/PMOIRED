@@ -934,26 +934,16 @@ def _binVec(x, X, Y, E=None, medFilt=None):
     if E is None:
         E = np.ones(len(Y))
 
-    # -- X can be irregular...
+    # -- X can be irregular, so traditionnal convultion may not work
     y = np.zeros(len(x))
     for i,x0 in enumerate(x):
         k = np.exp(-(X-x0)**2/(0.6*dx)**2)
-        #print(k.shape, Y.shape, E.shape)
-        y[i] = np.sum(k*Y/E)/np.sum(k/E)
+        no = np.sum(k/E) # normalisation
+        if no!=0 and np.isfinite(no):
+            y[i] = np.sum(k*Y/E)/no
+        else:
+            y[i] = np.sum(k*Y)/np.sum(k)
     return y
-
-    # -- kernel of FWHM dx
-    k = np.exp(-(X-np.mean(X))**2/(0.6*dx)**2)
-    #k = np.float_(np.abs(X-np.mean(X))<=dx/2)
-    k /= np.sum(k)
-    W = np.convolve(1/E, k, 'same')
-    s = np.argsort(X)
-
-    if not medFilt is None:
-        return np.interp(x, X[s], np.convolve(scipy.signal.medfilt(Y/E,
-                                        kernel_size=medFilt)[s], k, 'same')/W[s])
-    else:
-        return np.interp(x, X[s], np.convolve(Y/E, k, "same")[s]/W[s])
 
 def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
     """

@@ -60,6 +60,7 @@ def Ssingle(oi, param, noLambda=False):
     # -- list of fluxes of emission/absorption lines
     lines = filter(lambda x: x.startswith('line_') and x.endswith('_f'),
                     _param.keys())
+    #print('lines', list(lines))
     for l in lines:
         i = l.split('_')[1] # should not start with f!!!!
         wl0 = _param['line_'+i+'_wl0'] # in um
@@ -73,8 +74,13 @@ def Ssingle(oi, param, noLambda=False):
                 _pow = _param['line_'+i+'_power']
             else:
                 _pow = 2.0
-            f += _param[l]*np.exp(-4*np.log(2)*np.abs(oi['WL']-wl0)**_pow/
+            _tmp = _param[l]*np.exp(-4*np.log(2)*np.abs(oi['WL']-wl0)**_pow/
                                   (dwl/1000)**_pow)
+            #print('_tmp', _tmp.max(), _param[l])
+            #print(_param[l])
+            f += _tmp
+    #print('f', f.min(), f.max())
+
     # == cubic splines fspl_wli, fspl_fi
     sw = sorted(list(filter(lambda x: x.startswith('fspl_wl'), _param.keys())))
     sf = sorted(list(filter(lambda x: x.startswith('fspl_f'), _param.keys())))
@@ -122,7 +128,6 @@ def Ssingle(oi, param, noLambda=False):
             f += eval(sp)
         except:
             print('!!!', sp)
-
     return f
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
@@ -145,6 +150,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     position:
     ---------
     'x', 'y': define position in the field, in mas
+    Note that 'x' and 'y' can be expressed in terms of the MJD, e.g.:
+        'x': '$x0 + ($MJD-57200)*$dx' which requires 'x0' and 'dx' to be defined
 
     size (will decide the model):
     -----------------------------
@@ -369,6 +376,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
             R = np.sqrt(_X**2+_Y**2)
 
+
     # -- phase offset
     #phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
     #print('debug:', x, y)
@@ -476,20 +484,22 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             crpa = _param['crprojang']*np.pi/180
         else:
             crpa = 0.0
-        # == share offset between the 2 disks
-        # -- offset of outer disk
-        _offXo = -_off/2*np.sin(crpa)
-        _offYo = -_off/2*np.cos(crpa)
-        # -- offset of inner disk
-        _offXi = _off/2*np.sin(crpa)
-        _offYi = _off/2*np.cos(crpa)
-        # == offset only inner disk
-        # # -- offset of outer disk
-        # _offXo = 0
-        # _offYo = 0
-        # # -- offset of inner disk
-        # _offXi = _off*np.sin(crpa)
-        # _offYi = _off*np.cos(crpa)
+        if True:
+            # == share offset between the 2 disks
+            # -- offset of outer disk
+            _offXo = -_off/2*np.sin(crpa)
+            _offYo = -_off/2*np.cos(crpa)
+            # -- offset of inner disk
+            _offXi = _off/2*np.sin(crpa)
+            _offYi = _off/2*np.cos(crpa)
+        else:
+            # == offset only inner disk
+            # -- offset of outer disk
+            _offXo = 0
+            _offYo = 0
+            # -- offset of inner disk
+            _offXi = _off*np.sin(crpa)
+            _offYi = _off*np.cos(crpa)
 
         Vf = lambda z: (np.exp(-2j*_c*_uwl(z)*_offXo
                                -2j*_c*_vwl(z)*_offYo
@@ -778,6 +788,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     if _dwl!=0:
         # -- offset
         res['WL'] -= _dwl
+
     return res
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
