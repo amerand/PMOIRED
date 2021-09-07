@@ -334,7 +334,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'PHI':hdu.data['VISPHI'][w].reshape(w.sum(), -1),
                                         'EPHI':hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
-                                        'MJD2':hdu.data['MJD'][w]+0*res['WL'][None,:],
+                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                         'u':hdu.data['UCOORD'][w],
                                         'v':hdu.data['VCOORD'][w],
                                         'u/wl': hdu.data['UCOORD'][w][:,None]/

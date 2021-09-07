@@ -2630,8 +2630,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                                                     end=' ')
     print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
 
-    if dLimParam is None:
-        res = analyseGrid(res, expl, verbose=1)
+    #if dLimParam is None:
+    #    res = analyseGrid(res, expl, verbose=1)
     return res
 
 def analyseGrid(fits, expl, debug=False, verbose=1):
@@ -2640,14 +2640,15 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     # -- remove bad fit (no uncertainties)
     for f in fits:
         if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
-            res.append(f)
+            res.append(f.copy())
             res[-1]['bad'] = False
         else:
-            bad.append(f)
+            bad.append(f.copy())
             bad[-1]['bad'] = True
 
     if debug or verbose:
         print('fit converged:', len(res), '/', len(fits))
+
     # -- unique fits:
     tmp = []
     ignore = []
@@ -2655,23 +2656,23 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     map = {}
     uncer = [r['uncer'].copy() for r in res]
     fitOnly = [r['fitOnly'].copy() for r in res]
+
     # -- for grid parameters, if not fitted, uncer is the step
     if 'grid' in expl:
         for k in expl['grid']:
             for i,u in enumerate(uncer):
-                if u[k]==0:
+                if u[k]==0 or uncer[i][k]>0.5*expl['grid'][k][2]:
                     # -- step of grid
                     uncer[i][k] = 0.5*expl['grid'][k][2]
-
-                    # -- for distance computation later
-                    fitOnly[i].append(k)
+                    if not k in fitOnly[i]:
+                        # -- for distance computation later
+                        fitOnly[i].append(k)
 
     for i,f in enumerate(res):
         if i in ignore:
             continue
         # -- compute distance between minima, based on fitted parameters
-        d = [np.sum([(f['best'][k]-g['best'][k])**2/
-                     min(uncer[i][k]**2, uncer[j][k]**2)
+        d = [np.mean([(f['best'][k]-g['best'][k])**2/(uncer[i][k]*uncer[j][k])
                      for k in fitOnly[i]]) for j,g in enumerate(res)]
         # -- group solutions with closeby ones
         w = np.array(d)/len(fitOnly[i])<1
@@ -2690,7 +2691,14 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
     # -- keep track of all initial values leading to the local minimum
     for i,t in enumerate(tmp):
-        t['firstGuess'] = [res[j]['firstGuess'] for j in map[t['index']]]
+        _fG = []
+        for j in map[t['index']]:
+            if type(res[j]['firstGuess'])==list:
+                _fG.extend(res[j]['firstGuess'])
+            else:
+                _fG.append(res[j]['firstGuess'].copy())
+        t['firstGuess'] = _fG
+
         # t['firstGuess'] = []
         # for j in map[t['index']]:
         #     if type(res[j]['firstGuess'])==list:
@@ -2704,7 +2712,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     # -- add bad fits:
     for b in bad:
         res.append(b)
-        res[-1]['firstGuess'] = [res[-1]['firstGuess']]
+        if type(res[-1]['firstGuess'])!=list:
+            res[-1]['firstGuess'] = [res[-1]['firstGuess'].copy()]
         res[-1]['bad'] = True
 
     print('-'*12)
@@ -2724,6 +2733,7 @@ def showGrid(res, px, py, color='chi2', logV=False,
     color: color for the plot (default is chi2)
 
     """
+    #print('debug sG:', '"'+px+'"', '"'+py+'"')
     plt.close(fig)
     plt.figure(fig)
 
@@ -2744,13 +2754,16 @@ def showGrid(res, px, py, color='chi2', logV=False,
             if r['bad']:
                 plt.plot(f[px], f[py], 'x', color='0.5')
             else:
-                try:
+                if type(f)==dict:
                     plt.plot(f[px], f[py], '+', color='k')
                     plt.plot([f[px], r['best'][px]],
                              [f[py], r['best'][py]], '-k', alpha=0.1)
-                except:
-                    #print(r['firstGuess'])
-                    pass
+                elif type(f)==list:
+                    for _f in f:
+                        plt.plot(_f[px], _f[py], '+', color='k')
+                        plt.plot([_f[px], r['best'][px]],
+                                 [_f[py], r['best'][py]], '-k', alpha=0.1)
+
     if type(vmax)==str:
         vmax = np.percentile(c, float(vmax))
     if type(vmin)==str:

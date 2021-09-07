@@ -38,7 +38,7 @@ try:
     for j in jup:
         __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
 except:
-    # -- cannot get versions of jupyter tools    
+    # -- cannot get versions of jupyter tools
     pass
 
 class OI:
@@ -525,14 +525,15 @@ class OI:
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         prior = self._setPrior(model, prior, autoPrior)
-        self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
+        self._grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn)
+        self._expl = expl
+        self.grid = oimodels.analyseGrid(self._grid, self._expl)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
         #self.computeModelSpectra()
-        self._expl = expl
         return
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
@@ -579,6 +580,27 @@ class OI:
         if xy:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
+            # -- find other components:
+            tmp = oimodels.computeLambdaParams(self.grid[0]['best'])
+            C = [k.split(',')[0] for k in tmp if ',' in k]
+            C = list(set(C))
+            leg = False
+            for c in C:
+                if c+',x' in tmp and c+',y' in tmp:
+                    if c+',x' != px and c+',y' != py:
+                        try:
+                            plt.plot(tmp[c+',x'], tmp[c+',y'], '*', label=c,
+                                    markersize=10, alpha=0.5)
+                            leg = True
+                        except:
+                            print('error:', c, tmp[c+',x'], tmp[c+',y'])
+                else:
+                    plt.plot(0,0,'*', label=c,
+                            markersize=10, alpha=0.5)
+                    leg = True
+
+            if leg:
+                plt.legend(fontsize=7)
         return
 
     def bootstrapFit(self, Nfits=None, multi=True):
