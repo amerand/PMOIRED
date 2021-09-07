@@ -2637,18 +2637,35 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 def analyseGrid(fits, expl, debug=False, verbose=1):
     res = []
     bad = []
+    errTooLarge = []
     # -- remove bad fit (no uncertainties)
-    for f in fits:
+    for i,f in enumerate(fits):
         if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
-            res.append(f.copy())
-            res[-1]['bad'] = False
+            # -- all uncertainties are >0
+            # -- check errors are reasonable / grid:
+            test = False
+            if 'grid' in expl:
+                for k in expl['grid']:
+                    test = test or f['uncer'][k]>0.5*expl['grid'][k][2]
+            if test:
+                bad.append(f.copy())
+                bad[-1]['bad'] = True
+                errTooLarge.append(i)
+            else:
+                res.append(f.copy())
+                res[-1]['bad'] = False
         else:
             bad.append(f.copy())
             bad[-1]['bad'] = True
 
-    if debug or verbose:
-        print('fit converged:', len(res), '/', len(fits))
 
+    if debug or verbose:
+        print('fits to be taken into account:', len(res), '/', len(fits))
+        if len(bad)-len(errTooLarge):
+            print(' ', len(bad)-len(errTooLarge), 'did not numerically converge')
+        if len(errTooLarge):
+            print(' \033[43mWARNING!\033[0m', len(errTooLarge),
+              "fit[s] have uncertainties larger than the grid's step[s] and will be ignored")
     # -- unique fits:
     tmp = []
     ignore = []
@@ -2661,13 +2678,14 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     if 'grid' in expl:
         for k in expl['grid']:
             for i,u in enumerate(uncer):
-                if u[k]==0 or uncer[i][k]>0.5*expl['grid'][k][2]:
+                if u[k]==0:# or uncer[i][k]>0.5*expl['grid'][k][2]:
                     # -- step of grid
                     uncer[i][k] = 0.5*expl['grid'][k][2]
                     if not k in fitOnly[i]:
                         # -- for distance computation later
                         fitOnly[i].append(k)
 
+    # -- create list of unique minima
     for i,f in enumerate(res):
         if i in ignore:
             continue
@@ -2687,7 +2705,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         ignore.extend(list(np.arange(len(res))[w]))
 
     if debug or verbose:
-        print('unique minima:', len(tmp), '/', len(res))
+        print('unique minima in chi2:', len(tmp), '/', len(res))
 
     # -- keep track of all initial values leading to the local minimum
     for i,t in enumerate(tmp):
@@ -2741,18 +2759,19 @@ def showGrid(res, px, py, color='chi2', logV=False,
         ax = plt.subplot(111, aspect=aspect)
     # -- color of local minima
     if not color=='chi2':
-        c = [r['best'][color] for r in res if ~r['bad']]
+        c = np.array([r['best'][color] for r in res if ~r['bad']])
     else:
-        c = [r[color] for r in res if ~r['bad']]
+        c = np.array([r[color] for r in res if ~r['bad']])
 
     # -- coordinates: keep only valid minima
     x = [r['best'][px] for r in res if ~r['bad']]
     y = [r['best'][py] for r in res if ~r['bad']]
 
+    # -- initial positions
     for r in res:
         for f in r['firstGuess']:
             if r['bad']:
-                plt.plot(f[px], f[py], 'x', color='0.5')
+                plt.plot(f[px], f[py], 'x', color='r', alpha=0.5)
             else:
                 if type(f)==dict:
                     plt.plot(f[px], f[py], '+', color='k')
@@ -2780,7 +2799,13 @@ def showGrid(res, px, py, color='chi2', logV=False,
         vmin = np.log10(vmin)
         vmax = np.log10(vmax)
 
-    plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap)
+    # c[c>vmax] += np.inf
+    # if type(cmap)==str:
+    #     cmap = matplotlib.cm.__dict__[cmap]
+    #     cmap.set_bad(color='k', alpha=0.25)
+
+    plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap,
+                plotnonfinite=True)
     plt.colorbar(label=color)
     # -- global minimum
     plt.plot(x[0], y[0], marker=r'$\bigodot$',
