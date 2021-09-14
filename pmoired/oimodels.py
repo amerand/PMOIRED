@@ -1939,11 +1939,11 @@ def computePriorD(param, prior):
         form = p+''
         val = str(prior[p][1])+''
         for i in range(3):
-            for k in param.keys():
+            for k in tmp.keys():
                 if k in form:
-                    form = form.replace(k, str(param[k]))
+                    form = form.replace(k, '('+str(tmp[k])+')')
                 if k in val:
-                    val = val.replace(k, str(param[k]))
+                    val = val.replace(k, '('+str(tmp[k])+')')
         # -- residual
         if len(prior[p])==2:
             resi = '('+form+'-'+str(val)+')'
@@ -2508,7 +2508,7 @@ def get_processor_info():
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
-              dLimParam=None, dLimSigma=3, debug=False):
+              dLimParam=None, dLimSigma=3, debug=False, constrain=None):
     """
     perform "N" fit on "oi", starting from "param", with grid / randomised
     parameters. N can be determined from "expl" if
@@ -2525,6 +2525,10 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     if "grid" are defined, they will define N as:
     N = prod_i((max_i-min_i)/step_i + 1)
 
+
+    constrain: list of conditions, with same syntax as priors (see computePriorL).
+
+
     """
     assert type(expl)==dict, "expl must be a dict"
     assert 'grid' in expl or 'rand' in expl or 'randn' in expl
@@ -2540,6 +2544,9 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 R[l] = R[l].flatten()
     assert not N is None, 'cannot assert N, must be explicitly given!'
 
+    if constrain is None:
+        constrain = []
+
     # -- Prepare list of starting parameters' dict:
     PARAM = []
     for i in range(N):
@@ -2554,8 +2561,33 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         if 'randn' in expl:
             for k in expl['randn']:
                 tmp[k] = expl['randn'][k][0] + np.random.randn()*expl['randn'][k][1]
-        #print(i, tmp)
-        PARAM.append(tmp)
+
+        for p in constrain:
+            res = []
+            form = p[0]
+            val = str(p[2])
+            for i in range(3):
+                for k in tmp.keys():
+                    if k in form:
+                        form = form.replace(k, '('+str(tmp[k])+')')
+                    if k in val:
+                        val = val.replace(k, '('+str(tmp[k])+')')
+            # -- residual
+            if len(p)==3:
+                resi = '('+form+'-'+str(val)+')'
+            elif len(p)==4:
+                resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
+            if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
+                resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
+            try:
+                res.append(eval(resi))
+            except:
+                print('WARNING: could not compute exclusion "'+resi+'"')
+        if not np.sum(res):
+            PARAM.append(tmp)
+    if len(PARAM)<N:
+        print(N-len(PARAM), 'grid points were excluded')
+    N = len(PARAM)
     #print('PARAM:', PARAM)
     # -- run all fits
 

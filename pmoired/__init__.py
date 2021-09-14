@@ -491,7 +491,7 @@ class OI:
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
                 maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8, prior=None,
-                autoPrior=True):
+                autoPrior=True, constrain=None):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
@@ -509,6 +509,9 @@ class OI:
 
         if "grid" are defined, they will define N as:
         Nfits = prod_i (max_i-min_i)/step_i + 1
+
+        constain: set of conditions on the grid search. same as prior's syntax,
+        but wille exclude some initial guesses.
 
         See Also: showGrid, detectionLimit
         """
@@ -528,7 +531,7 @@ class OI:
         self._grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
-                                       epsfcn=epsfcn)
+                                       epsfcn=epsfcn, constrain=constrain)
         self._expl = expl
         self.grid = oimodels.analyseGrid(self._grid, self._expl)
         self.bestfit = self.grid[0]
