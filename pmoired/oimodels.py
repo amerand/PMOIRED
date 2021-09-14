@@ -2561,9 +2561,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         if 'randn' in expl:
             for k in expl['randn']:
                 tmp[k] = expl['randn'][k][0] + np.random.randn()*expl['randn'][k][1]
-
+        res = [0]
         for p in constrain:
-            res = []
             form = p[0]
             val = str(p[2])
             for i in range(3):
@@ -2583,7 +2582,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 res.append(eval(resi))
             except:
                 print('WARNING: could not compute exclusion "'+resi+'"')
-        if not np.sum(res):
+        if all(np.array(res)==0):
             PARAM.append(tmp)
     if len(PARAM)<N:
         print(N-len(PARAM), 'grid points were excluded')
