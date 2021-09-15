@@ -2581,15 +2581,14 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
             try:
                 res.append(eval(resi))
             except:
-                print('WARNING: could not compute exclusion "'+resi+'"')
+                print('WARNING: could not compute constraint "'+resi+'"')
         if all(np.array(res)==0):
             PARAM.append(tmp)
     if len(PARAM)<N:
-        print(N-len(PARAM), 'grid points were excluded')
-    N = len(PARAM)
-    #print('PARAM:', PARAM)
-    # -- run all fits
+        print(N-len(PARAM), 'grid points were not within constraints')
 
+    N = len(PARAM)
+    # -- run all fits
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'iter':-1}
@@ -2695,7 +2694,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         if len(bad)-len(errTooLarge):
             print(' ', len(bad)-len(errTooLarge), 'did not numerically converge')
         if len(errTooLarge):
-            print(' \033[43mWARNING!\033[0m', len(errTooLarge),
+            print(' ', len(errTooLarge),
               "fit[s] have uncertainties larger than the grid's step[s] and will be ignored")
     # -- unique fits:
     tmp = []
@@ -2736,7 +2735,15 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         ignore.extend(list(np.arange(len(res))[w]))
 
     if debug or verbose:
-        print('unique minima in chi2:', len(tmp), '/', len(res))
+        print('unique minima:', len(tmp), '/', len(res), end=' ')
+        print('[~%.1f first guesses / minima]'%(len(res)/len(tmp)))
+        if len(tmp)<len(res)/4:
+            print('  few unique minima -> the grid may be too fine')
+        elif len(tmp)<=len(res)/2:
+            print('  number of minima is OK compared to grid coarseness')
+    if len(tmp)>len(res)/2:
+        print('  \033[43mWARNING!\033[0m: too many unique minima -> the grid is too coarse', end='')
+        print(' \033[43mFINDING THE GLOBAL MINIMUM IS UNRELIABLE\033[0m')
 
     # -- keep track of all initial values leading to the local minimum
     for i,t in enumerate(tmp):
@@ -2802,17 +2809,17 @@ def showGrid(res, px, py, color='chi2', logV=False,
     for r in res:
         for f in r['firstGuess']:
             if r['bad']:
-                plt.plot(f[px], f[py], 'x', color='r', alpha=0.5)
+                plt.plot(f[px], f[py], 'x', color='r', alpha=0.3)
             else:
                 if type(f)==dict:
-                    plt.plot(f[px], f[py], '+', color='k')
+                    plt.plot(f[px], f[py], '+', color='k', alpha=0.3)
                     plt.plot([f[px], r['best'][px]],
-                             [f[py], r['best'][py]], '-k', alpha=0.1)
+                             [f[py], r['best'][py]], '-k', alpha=0.2)
                 elif type(f)==list:
                     for _f in f:
-                        plt.plot(_f[px], _f[py], '+', color='k')
+                        plt.plot(_f[px], _f[py], '+', color='k', alpha=0.3)
                         plt.plot([_f[px], r['best'][px]],
-                                 [_f[py], r['best'][py]], '-k', alpha=0.1)
+                                 [_f[py], r['best'][py]], '-k', alpha=0.2)
 
     if type(vmax)==str:
         vmax = np.percentile(c, float(vmax))

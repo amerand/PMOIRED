@@ -654,7 +654,7 @@ class OI:
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
-             showSED=None):
+             showSED=None, showPhotCent=False):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -769,8 +769,8 @@ class OI:
                 self.showModel(model=model, imFov=imFov, imPix=imPix,imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM
-                               )
+                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                               imPhotCent=showPhotCent)
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -809,7 +809,8 @@ class OI:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM)
+                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                               imPhotCent=showPhotCent)
 
         else:
             self._model = []
@@ -829,12 +830,14 @@ class OI:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED,showIM=showIM)
+                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                               imPhotCent=showPhotCent)
         return
+
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
-                  logS=False, imPlx=None):
+                  logS=False, imPlx=None, imPhotCent=False):
         """
         oi: result from loadOI for mergeOI,
             or a wavelength vector in um (must be a np.ndarray)
@@ -905,9 +908,14 @@ class OI:
                                 pad=0, labelrotation=-90)
                 axx.set_xlabel('(AU)\nplx=\n%.2fmas'%imPlx,
                                 color=(0.7,0.5,0.2), x=0, fontsize=5)
-
+            # -- index of image in cube, closest wavelength
             i0 = np.argmin(np.abs(self.images['WL']-wl0))
+            # -- normalised image
             im = np.abs(self.images['cube'][i0]/np.max(self.images['cube'][i0]))
+            # -- photocenter:
+            xphot = np.sum(im*self.images['X'])/np.sum(im)
+            yphot = np.sum(im*self.images['Y'])/np.sum(im)
+
             if not imMax is None:
                 if type(imMax)==str:
                     _imMax = np.percentile(im**imPow, float(imMax))
@@ -922,6 +930,10 @@ class OI:
             cb = plt.colorbar(pc, ax=ax,
                               orientation='horizontal' if len(imWl0)>1 else
                               'vertical')
+            if imPhotCent:
+                plt.plot(xphot, yphot, color='w', marker=r'$\bigotimes$',
+                        alpha=0.5, label='photo centre', linestyle='none')
+                plt.legend(fontsize=6)
 
             Xcb = np.linspace(0,1,5)*_imMax
             XcbL = ['%.1e'%(xcb**(1./imPow)) for xcb in Xcb]
@@ -945,7 +957,6 @@ class OI:
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
-
         symbols = {}
         a, b, c = 0.9, 0.6, 0.1
         colors = [(c,a,b), (a,b,c), (b,c,a),
@@ -1014,6 +1025,7 @@ class OI:
         else:
             print('no best fit model to compute half light radii!')
         return
+
     def deprojectImages(self, incl=0, projang=0, x0=0, y0=0):
         """
         deproject coordinates of synthetic images with inc, projang (in degrees),
@@ -1132,6 +1144,14 @@ class OI:
                         res['cube'].append(t['MODEL']['image'])
         res['cube'] = np.array([res['cube'][i] for i in np.argsort(res['WL'])])
         res['WL'] = np.array(sorted(res['WL']))
+
+        # -- photocenter
+        res['photcent x'] = np.sum(res['X'][None,:,:]*res['cube'], axis=(1,2))/\
+                        np.sum(res['cube'], axis=(1,2))
+
+        res['photcent y'] = np.sum(res['Y'][None,:,:]*res['cube'], axis=(1,2))/\
+                        np.sum(res['cube'], axis=(1,2))
+
         self.images = res
         return
 
