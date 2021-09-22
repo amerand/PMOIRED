@@ -360,7 +360,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
                    np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
             R = np.sqrt(_X**2+_Y**2)
-
     else:
         _uwl = lambda z: z['u/wl'][:,wwl]/cwl
         _vwl = lambda z: z['v/wl'][:,wwl]/cwl
@@ -712,7 +711,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         else:
             V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
 
-
         tmp['|V|'] = np.abs(V)
         #print(k, Vf(oi[key][k]), tmp['|V|'])
         # -- force -180 -> 180
@@ -720,17 +718,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         # -- not needed, strictly speaking, takes a long time!
         for l in ['B/wl', 'FLAG']:
             if '/wl' in l and cwl!=1:
-                tmp[l] = oi[key][k][l].copy()/cwl
+                tmp[l] = oi[key][k][l]/cwl
             else:
-                tmp[l] = oi[key][k][l]
+                tmp[l] = oi[key][k][l].copy()
 
         if fullOutput or not imFov is None:
             # -- slow down the code!
             for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                 if '/wl' in l and cwl!=1:
-                    tmp[l] = oi[key][k][l].copy()/cwl
+                    tmp[l] = oi[key][k][l]/cwl
                 else:
-                    tmp[l] = oi[key][k][l]
+                    tmp[l] = oi[key][k][l].copy()
 
             tmp['EV'] = np.zeros(tmp['|V|'].shape)
             tmp['EPHI'] = np.zeros(tmp['PHI'].shape)
@@ -742,18 +740,18 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             # -- not needed, strictly speaking, takes a long time!
             for l in ['B/wl', 'FLAG']:
                 if '/wl' in l and cwl!=1:
-                    tmp[l] = oi['OI_VIS2'][k][l].copy()/cwl
+                    tmp[l] = oi['OI_VIS2'][k][l]/cwl
                 else:
-                    tmp[l] = oi['OI_VIS2'][k][l]
+                    tmp[l] = oi['OI_VIS2'][k][l].copy()
 
             tmp['V2'] = np.abs(V)**2
             if fullOutput or not imFov is None:
                 # -- slow down the code!
                 for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
                     if '/wl' in l and cwl!=1:
-                        tmp[l] = oi['OI_VIS2'][k][l].copy()/cwl
+                        tmp[l] = oi['OI_VIS2'][k][l]/cwl
                     else:
-                        tmp[l] = oi['OI_VIS2'][k][l]
+                        tmp[l] = oi['OI_VIS2'][k][l].copy()
                 tmp['EV2'] = np.zeros(tmp['V2'].shape)
             res['OI_VIS2'][k] = tmp
 
@@ -766,10 +764,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             res['OI_T3'][k] = {}
             for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl']:
                 if '/wl' in l and cwl!=1:
-                    res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()/cwl
+                    res['OI_T3'][k][l] = oi['OI_T3'][k][l]/cwl
                 else:
-                    res['OI_T3'][k][l] = oi['OI_T3'][k][l]
-
+                    res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
         res = computeT3fromVisOI(res)
         if timeit:
             print(' '*indent+'VsingleOI > T3 from V %.3fms'%(1000*(time.time()-t3)))
@@ -789,7 +786,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
     if _dwl!=0:
         # -- offset
         res['WL'] -= _dwl
-
     return res
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
@@ -1356,8 +1352,28 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
                 else:
                     res['OI_T3'][k][l] = None
+        # if debug:
+        #     for k in res['OI_T3']:
+        #         wwl = np.abs(res['WL']-2.1667)<0.005
+        #         s,t,w0,w1,w2=res['OI_T3'][k]['formula']
+        #         print(' PHI for k', k,
+        #             s[0]*np.mean(res['OI_VIS'][t[0]]['PHI'][w0][:,wwl]),
+        #             s[1]*np.mean(res['OI_VIS'][t[1]]['PHI'][w1][:,wwl]),
+        #             s[2]*np.mean(res['OI_VIS'][t[2]]['PHI'][w2][:,wwl]),
+        #             )
+        if debug:
+            print('VmodelOI: computing T3')
 
         res = computeT3fromVisOI(res)
+        # if debug:
+        #     for k in res['OI_T3']:
+        #         s,t,w0,w1,w2=res['OI_T3'][k]['formula']
+        #         print(' PHI: for', k,
+        #             s[0]*np.mean(res['OI_VIS'][t[0]]['PHI'][w0][:,wwl]),
+        #             s[1]*np.mean(res['OI_VIS'][t[1]]['PHI'][w1][:,wwl]),
+        #             s[2]*np.mean(res['OI_VIS'][t[2]]['PHI'][w2][:,wwl]),
+        #             '=', np.mean(res['OI_T3'][k]['T3PHI'][:,wwl]))
+
         if timeit:
             print(' '*indent+'VmodelOI > T3 %.3fms'%(1000*(time.time()-t0)))
 
@@ -1820,10 +1836,29 @@ def computeT3fromVisOI(oi):
             if oi['OI_T3'][k]['formula'] is None:
                 break
             s, t, w0, w1, w2 = oi['OI_T3'][k]['formula']
+            # print('T3', k, s, t, w0, w1, w2)
+            # print(' MJD:', oi['OI_T3'][k]['MJD'], end=' -> ')
+            # print(oi['OI_VIS'][t[0]]['MJD'][w0], end=', ')
+            # print(oi['OI_VIS'][t[1]]['MJD'][w1], end=', ')
+            # print(oi['OI_VIS'][t[2]]['MJD'][w2])
+            # print(' u1   :', oi['OI_T3'][k]['u1'], '->', s[0]*oi['OI_VIS'][t[0]]['u'][w0])
+            # print(' v1   :', oi['OI_T3'][k]['v1'], '->', s[0]*oi['OI_VIS'][t[0]]['v'][w0])
+            # print(' u2   :', oi['OI_T3'][k]['u2'], '->', s[1]*oi['OI_VIS'][t[1]]['u'][w1])
+            # print(' v2   :', oi['OI_T3'][k]['v2'], '->', s[1]*oi['OI_VIS'][t[1]]['v'][w1])
+            # print(' u3   :', -oi['OI_T3'][k]['u1']-oi['OI_T3'][k]['u2'], '->',
+            #     s[2]*oi['OI_VIS'][t[2]]['u'][w2])
+            # print(' v3   :', -oi['OI_T3'][k]['v1']-oi['OI_T3'][k]['v2'], '->',
+            #     s[2]*oi['OI_VIS'][t[2]]['v'][w2])
+
             if np.isscalar(s[0]):
                 oi['OI_T3'][k]['T3PHI'] = s[0]*oi['OI_VIS'][t[0]]['PHI'][w0,:]+\
                                           s[1]*oi['OI_VIS'][t[1]]['PHI'][w1,:]+\
                                           s[2]*oi['OI_VIS'][t[2]]['PHI'][w2,:]
+                # print('test:', k, t,
+                #         np.mean(s[0]*oi['OI_VIS'][t[0]]['PHI'][w0,:]), '+',
+                #         np.mean(s[1]*oi['OI_VIS'][t[1]]['PHI'][w1,:]), '+',
+                #         np.mean(s[2]*oi['OI_VIS'][t[2]]['PHI'][w2,:]), '=',
+                #         np.mean(oi['OI_T3'][k]['T3PHI']))
             else:
                 oi['OI_T3'][k]['T3PHI'] = s[0][:,None]*oi['OI_VIS'][t[0]]['PHI'][w0,:]+\
                                           s[1][:,None]*oi['OI_VIS'][t[1]]['PHI'][w1,:]+\
@@ -1832,6 +1867,7 @@ def computeT3fromVisOI(oi):
             # -- force -180 -> 180 degrees
             oi['OI_T3'][k]['T3PHI'] = (oi['OI_T3'][k]['T3PHI']+180)%360-180
             oi['OI_T3'][k]['ET3PHI'] = np.zeros(oi['OI_T3'][k]['T3PHI'].shape)
+
             oi['OI_T3'][k]['T3AMP'] = np.abs(oi['OI_VIS'][t[0]]['|V|'][w0,:])*\
                                       np.abs(oi['OI_VIS'][t[1]]['|V|'][w1,:])*\
                                       np.abs(oi['OI_VIS'][t[2]]['|V|'][w2,:])
@@ -1857,7 +1893,6 @@ def computeT3fromVisOI(oi):
 
             # -- force -180 -> 180 degrees
             oi['IM_T3'][k]['T3PHI'] = (oi['IM_T3'][k]['T3PHI']+180)%360-180
-
             oi['IM_T3'][k]['T3AMP'] = np.abs(oi['IM_VIS'][t[0]]['|V|'][w0,:])*\
                                       np.abs(oi['IM_VIS'][t[1]]['|V|'][w1,:])*\
                                       np.abs(oi['IM_VIS'][t[2]]['|V|'][w2,:])
@@ -2738,12 +2773,12 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         print('unique minima:', len(tmp), '/', len(res), end=' ')
         print('[~%.1f first guesses / minima]'%(len(res)/len(tmp)))
         if len(tmp)<len(res)/4:
-            print('  few unique minima -> the grid may be too fine')
+            print('  few unique minima -> grid too fine / Nfits too large?')
         elif len(tmp)<=len(res)/2:
             print('  number of minima is OK compared to grid coarseness')
     if len(tmp)>len(res)/2:
-        print('  \033[43mWARNING!\033[0m: too many unique minima -> the grid is too coarse', end='')
-        print(' \033[43mFINDING THE GLOBAL MINIMUM IS UNRELIABLE\033[0m')
+        print('  \033[43mWARNING!\033[0m: too many unique minima -> grid too coarse / Nfits too small?', end=' ')
+        print(' \033[33mfinding the global minimum may be unreliable\033[0m')
 
     # -- keep track of all initial values leading to the local minimum
     for i,t in enumerate(tmp):
@@ -3148,32 +3183,6 @@ def _sigmaclip(x, s=4.0, n=3, maxiter=5):
         iter += 1
     return np.array(res)
 
-# def showUV(oi, fig=0, polar=False):
-#     plt.close(fig)
-#     plt.figure(fig)
-#     ax = plt.subplot(111, aspect='equal', polar=polar)
-#     if not type(oi)==list:
-#         oi = [oi]
-#     for o in oi:
-#         key = 'OI_VIS'
-#         if not key in o.keys():
-#             key = 'OI_VIS2'
-#         for k in o[key].keys():
-#             R =  o[key][k]['u/wl']**2 + o[key][k]['v/wl']**2
-#             PA = np.arctan2(o[key][k]['v/wl'], o[key][k]['u/wl'])
-#             if polar:
-#                 plt.plot(PA, R, '.k')
-#                 plt.plot(PA+np.pi, R, '.k')
-#             else:
-#                 plt.plot(o[key][k]['u/wl'], o[key][k]['v/wl'], '.k', alpha=0.5)
-#                 plt.plot(-o[key][k]['u/wl'], -o[key][k]['v/wl'], '.k', alpha=0.5)
-#     if polar:
-#         ax.spines['polar'].set_visible(False)
-#         X = [0, np.pi/2, np.pi, 3*np.pi/2]
-#         ax.set_xticks([0, np.pi/2, np.pi, 3*np.pi/2])
-#         ax.set_xticklabels(['270', '0', '90', '180'])
-#     return
-
 ai1mcB = {'i':0} # initialize global marker/color for baselines
 ai1mcT = {'i':0} # initialize global marker/color for triangles
 ai1ax = {} # initialise global list of axes
@@ -3264,11 +3273,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     else:
                         allWLc.extend(list(m['WL']))
             models.append(m)
+
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
-
-        #print('allWLc', allWLc)
-        #print('allWLs', allWLs)
 
         if showIm or not imFov is None:
             fluxes = {}
@@ -3299,6 +3306,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 #print('debug: computing fluxes dict')
                 m['spectra'] = fluxes
                 m['specral WL'] = allWLs
+
         if allInOne:
             title = []
             for o in oi:
@@ -3322,6 +3330,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1ax = {} # initialise global list of axes
             ai1i = [] # initialise global list of axes
         return models
+    # == actual plotting starts here
+    if debug:
+        print('starting plotting in showOI')
 
     #print('->', computeLambdaParams(param))
     if not vLambda0 is None:
@@ -3352,7 +3363,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         # -- weird but necessary to avoid a global 'fit'
         fit.update(oi['fit'])
         oi['fit'] = fit.copy()
-
 
     if 'ignore telescope' in oi['fit']:
         ignoreTelescope = oi['fit']['ignore telescope']
@@ -3393,19 +3403,21 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         obsfit = oi['fit']['obs']
     else:
         obsfit = obs
-
-    #print('obs:', obs)
-    #print('obsfit:', obsfit)
+    if debug:
+        print(' obs:', obs)
+        print(' obsfit:', obsfit)
 
     # -- force recomputing differential quantities
     if 'WL cont' in oi.keys():
         oi.pop('WL cont')
     if 'DPHI' in obs:
+        if debug:
+            print(' (re-)compute DiffPhi in data')
         oi = computeDiffPhiOI(oi, computeLambdaParams(param))
-        #oi = computeDiffPhiOI(oi, param)
     if 'NFLUX' in obs:
+        if debug:
+            print(' (re-)compute NormFlux in data')
         oi = computeNormFluxOI(oi, computeLambdaParams(param))
-        #oi = computeNormFluxOI(oi, param)
 
     if wlMin is None:
         wlMin = min(oi['WL'][oi['WL mask']])
@@ -3420,11 +3432,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         elif not 'obs' in oi['fit']:
             oi['fit']['obs'] = obsfit
             remObs = True
-        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY, )
+        if debug:
+            print(' computing Vmodel')
+        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+            debug=debug)
         if remObs:
             oi['fit'].pop('obs')
         if not imFov is None and checkImVis:
-            #print('compute V from Image, imFov=', imFov)
+            if debug:
+                print(' computing V from Image, imFov=', imFov)
             m = VfromImageOI(m)
         #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
         #    print('bandwidth smearing spectral channel(s):', m['smearing'])
@@ -3460,12 +3476,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
              }
 
-
     # -- plot in a certain order
     obs = list(filter(lambda x: x in obs,
             ['FLUX', 'NFLUX', 'T3PHI', 'PHI', 'DPHI', 'T3AMP', '|V|', 'V2']))
     ncol = len(obs)
-
 
     if showUV:
         obs = obs[::-1]
@@ -3503,6 +3517,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     i_col = 0
     yoffset = 0
     #print('#', oi['filename'], obsfit, obs)
+
     for c,l in enumerate(obs):
         # -- for each observable to plot
         if l=='UV': # special case for UV plot
@@ -3523,12 +3538,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             # -- for each observables per baselines
             ext = [e for e in ['OI_VIS', 'OI_VIS2'] if e in oi]
             for e in ext:
-                if debug:
-                    print(e, sorted(oi[e].keys()))
+                #if debug:
+                #    print(e, sorted(oi[e].keys()))
                 #for k in sorted(oi[e].keys()): # alphabetical order
                 for k in sorted(oi[e].keys(), key=lambda x: np.mean(oi[e][x]['B/wl'])): # lengh
-                    if debug:
-                        print(len(oi[e][k]['MJD']))
+                    #if debug:
+                    #    print(len(oi[e][k]['MJD']))
                     if not k in mcB.keys():
                         mcB[k] = markers[i%len(markers)], colors[i%len(colors)]
                         i+=1
@@ -3549,6 +3564,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         MJDs = [m for m in allMJDs if m in onlyMJD]
                     for mjd in MJDs:
                         w = allMJDs==mjd
+                        # -- check if any valid observables?
+                        # -- pretty tricky!!!
+
                         b = np.sqrt(oi[e][k]['u'][w]**2+
                                     oi[e][k]['v'][w]**2)
                         try:
@@ -3556,6 +3574,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             bmax.extend(list(b))
                         except:
                             bmax.append(b)
+
                         ax.plot(oi[e][k]['u'][w], oi[e][k]['v'][w],
                                 color=col, marker=mark,
                                 label=k if showLabel else '',
@@ -3565,6 +3584,24 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 linestyle='none', markersize=5)
                         label = ''
                         showLabel=False
+            # -- test T3 u,v recomputation
+            if False and 'OI_T3' in oi:
+                for k in oi['OI_T3']:
+                    plt.plot(oi['OI_T3'][k]['u1'], oi['OI_T3'][k]['v1'],
+                            '1m')
+                    plt.plot(-oi['OI_T3'][k]['u1'], -oi['OI_T3'][k]['v1'],
+                            '1m')
+                    plt.plot(oi['OI_T3'][k]['u2'], oi['OI_T3'][k]['v2'],
+                            '2r')
+                    plt.plot(-oi['OI_T3'][k]['u2'], -oi['OI_T3'][k]['v2'],
+                            '2r')
+                    plt.plot(oi['OI_T3'][k]['u1']+oi['OI_T3'][k]['u2'],
+                             oi['OI_T3'][k]['v1']+oi['OI_T3'][k]['v2'],
+                            '3g')
+                    plt.plot(-oi['OI_T3'][k]['u1']-oi['OI_T3'][k]['u2'],
+                             -oi['OI_T3'][k]['v1']-oi['OI_T3'][k]['v2'],
+                            '3g')
+
             bmax = np.array(bmax)
             Bc = []
             for b in [10, 20, 50, 100, 150, 200, 250, 300]:

@@ -22,6 +22,8 @@ import os
 import pickle
 import time
 
+np.warnings.filterwarnings('ignore')
+
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
@@ -761,7 +763,7 @@ class OI:
                         logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None,  checkImVis=checkImVis, vLambda0=vLambda0,
-                        showChi2=showChi2)
+                        showChi2=showChi2, debug=self.debug)
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -770,7 +772,7 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent)
+                               imPhotCent=showPhotCent, debug=self.debug)
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -800,6 +802,7 @@ class OI:
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=checkImVis, vLambda0=vLambda0, showChi2=showChi2,
+                    debug=self.debug
                     )
             if allInOne:
                 self.fig += 1
@@ -810,7 +813,7 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent)
+                               imPhotCent=showPhotCent, debug=self.debug)
 
         else:
             self._model = []
@@ -824,20 +827,20 @@ class OI:
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        showChi2=showChi2))
+                        showChi2=showChi2, debug=self.debug))
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent)
+                               imPhotCent=showPhotCent, debug=self.debug)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
-                  logS=False, imPlx=None, imPhotCent=False):
+                  logS=False, imPlx=None, imPhotCent=False, debug=False):
         """
         oi: result from loadOI for mergeOI,
             or a wavelength vector in um (must be a np.ndarray)

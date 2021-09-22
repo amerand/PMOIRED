@@ -860,6 +860,8 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
             diam=None, cube=None, noise=None, thres=None,
             model=None, insname='fake'):
     """
+    for VLTI!
+
     t = list of stations
     targe = name of target, or (ra, dec) in (in hours, degs)
     lst = np.array of LST (in hours)

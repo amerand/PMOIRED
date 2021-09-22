@@ -97,6 +97,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     else:
         res['pipeline'] = ''
 
+    if 'LST' in h[0].header:
+        res['LST'] = h[0].header['LST']/3600.
+    else:
+        res['LST'] = None
+
     if withHeader:
         res['header'] = h[0].header
 
@@ -382,17 +387,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          medFilt=medFilt)
                         res['OI_VIS'][k]['FLAG'] = flag
 
-        elif debug and 'EXTNAME' in hdu.header:
-            print('DEBUG:', hdu.header['EXTNAME'])
-        elif debug:
-            print('DEBUG: skipping HDU')
+        #elif debug and 'EXTNAME' in hdu.header:
+        #    print('DEBUG:', hdu.header['EXTNAME'])
+        #elif debug:
+        #    print('DEBUG: skipping HDU')
 
     # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
     if 'OI_VIS' in res and 'OI_VIS2' in res:
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
         for k in kz:
             if not k in res['OI_VIS']:
-                #print(k, 'is in OI_VIS2 but missing from OI_VIS!')
+                if debug:
+                    print(k, 'is in OI_VIS2 but \033[43mmissing from OI_VIS!\033[0m')
                 res['OI_VIS'][k] = {}
                 for x in res['OI_VIS2'][k].keys():
                     if not 'V2' in x:
@@ -405,7 +411,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 res['OI_VIS'][k]['EPHI'] = 360 + 0*res['OI_VIS2'][k]['EV2']
                 #print('missing VIS', k, res['OI_VIS'][k].keys())
             elif not k in res['OI_VIS2']:
-                #print(k, 'is in OI_VIS but missing from OI_VIS2!')
+                if debug:
+                    print(k, 'is in OI_VIS but \033[43mmissing from OI_VIS2!\033[0m')
                 res['OI_VIS2'][k] = {}
                 for x in res['OI_VIS'][k].keys():
                     if not '|V|' in x and not 'PHI' in x:
@@ -416,9 +423,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 res['OI_VIS2'][k]['EV2'] = 1+0*res['OI_VIS'][k]['E|V|']
 
             if sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
-                #print(k, 'mismatched coverage VIS/VIS2!')
-                #print(' VIS :',  res['OI_VIS'][k]['MJD'])
-                #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+                if debug:
+                    print(k, '\033[43mmismatched coverage VIS/VIS2!\033[0m')
+                    print(' VIS :',  res['OI_VIS'][k]['MJD'])
+                    print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
                 # -- all encountered MJDs:
                 allMJD = sorted(list(res['OI_VIS'][k]['MJD'])+list(res['OI_VIS2'][k]['MJD']))
                 # -- ones from VIS
@@ -627,25 +635,32 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if res['OI_T3']=={}:
         res.pop('OI_T3')
     else:
-        #if len(M):
-        #    print('    warning: missing baselines', M, 'to define T3')
+        if len(M) and debug:
+            print('    warning: \033[43mmissing baselines\033[0m', M, 'to define T3')
         # -- match MJDs for T3 computations:
         for k in res['OI_T3'].keys():
             s, t = res['OI_T3'][k]['formula']
             w0, w1, w2 = [], [], []
+            if debug:
+                print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
+                #for i in range(3):
+                #    print(' VIS :', t[i], res['OI_VIS'][t[i]]['MJD'])
+                #    print(' VIS2:', t[i], res['OI_VIS'][t[i]]['MJD'])
+
             # -- add missing baselines
             A = {}
             for m in M:
                 if m in t:
+                    # -- added sign on 2021/09/22
                     if t.index(m)==0:
-                        u = res['OI_T3'][k]['u1']
-                        v = res['OI_T3'][k]['v1']
+                        u = s[0]*res['OI_T3'][k]['u1']
+                        v = s[0]*res['OI_T3'][k]['v1']
                     elif t.index(m)==1:
-                        u = res['OI_T3'][k]['u2']
-                        v = res['OI_T3'][k]['v2']
+                        u = s[1]*res['OI_T3'][k]['u2']
+                        v = s[1]*res['OI_T3'][k]['v2']
                     elif t.index(m)==2:
-                        u = -res['OI_T3'][k]['u1']-res['OI_T3'][k]['u2']
-                        v = -res['OI_T3'][k]['v2']-res['OI_T3'][k]['v2']
+                        u = -s[2]*(res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2'])
+                        v = -s[2]*(res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])
                     # -- add data
                     tmp = {}
                     #if key=='OI_VIS':
@@ -667,12 +682,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     tmp['MJD'] = 1.0*res['OI_T3'][k]['MJD']
                     tmp['MJD2'] = tmp['MJD'][:,None] + 0*res['WL'][None,:]
                     tmp['PA'] = np.angle(tmp['v/wl']+1j*tmp['u/wl'], deg=True)
-
                     A[m] = tmp
+
             if len(A):
                 for m in A:
-                    #print('    adding fake', m, 'to', key, end=' ')
-                    #print(A[m].keys())
+                    if debug:
+                        print('    adding fake', m, 'to', key, end=' ')
+                        print(A[m].keys())
                     #res[key][m] = A[m]
 
                     res['OI_VIS'][m] = copy.deepcopy(A[m])
@@ -683,11 +699,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_VIS2'][m].pop(_k)
                     #print(m, 'VIS ', res['OI_VIS'][m].keys())
                     #print(m, 'VIS2', res['OI_VIS2'][m].keys())
-
                     M.remove(m)
 
-            if debug:
-                print('DEBUG: OI_T3', k, t, res['OI_T3'][k]['MJD'])
+
             for i, mjd in enumerate(res['OI_T3'][k]['MJD']):
                 # check data are within ~10s
                 if min(np.abs(res[key][t[0]]['MJD']-mjd))<1e-4:
@@ -697,7 +711,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                 else:
                     w0.append(len(res[key][t[0]]['MJD']))
-                    #print('WARNING: missing MJD [0]', mjd, k, key, t[0])
+                    if debug:
+                        print('\033[43mWARNING\033[0m: missing MJD [0]', mjd, k, key, t[0])
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
                         res[_key][t[0]]['MJD'] = np.append(res[_key][t[0]]['MJD'], mjd)
@@ -736,6 +751,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                             np.array([res['WL']*0]), axis=0)
                     res['OI_VIS2'][t[0]]['EV2'] = np.append(res['OI_VIS2'][t[0]]['EV2'],
                                             np.array([res['WL']*0+1]), axis=0)
+                    if debug:
+                        print(' test:', mjd, t[0], res['OI_VIS'][t[0]]['MJD'], w0)
+
                 if min(np.abs(res[key][t[1]]['MJD']-mjd))<1e-4:
                     #w1.append(np.argmin(np.abs(res[key][t[1]]['MJD']-mjd)))
                     w1.append(np.argmin((res[key][t[1]]['MJD']-mjd)**2+
@@ -743,7 +761,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         (res[key][t[1]]['v']-s[1]*res['OI_T3'][k]['v2'][i])**2))
                 else:
                     w1.append(len(res[key][t[1]]['MJD']))
-                    #print('WARNING: missing MJD [1]', mjd, k, key, t[1])
+                    if debug:
+                        print('\033[43mWARNING\033[0m: missing MJD [1]', mjd, k, key, t[1])
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
                         res[_key][t[1]]['MJD'] = np.append(res[_key][t[1]]['MJD'], mjd)
@@ -782,6 +801,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                             np.array([res['WL']*0]), axis=0)
                     res['OI_VIS2'][t[1]]['EV2'] = np.append(res['OI_VIS2'][t[1]]['EV2'],
                                             np.array([res['WL']*0+1]), axis=0)
+                    if debug:
+                        print(' test:', mjd, t[1], res['OI_VIS'][t[1]]['MJD'], w1)
+
                 if min(np.abs(res[key][t[2]]['MJD']-mjd))<1e-4:
                     #w2.append(np.argmin(np.abs(res[key][t[2]]['MJD']-mjd)))
                     w2.append(np.argmin((res[key][t[2]]['MJD']-mjd)**2+
@@ -789,25 +811,29 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         (res[key][t[2]]['v']+s[2]*res['OI_T3'][k]['v1'][i]+s[2]*res['OI_T3'][k]['v2'][i])**2))
 
                 else:
+                    # -- will be added at the end
                     w2.append(len(res[key][t[2]]['MJD']))
-                    #print('WARNING: missing MJD [2]', mjd, k, key, t[2])
+                    if debug:
+                        print('\033[43mWARNING\033[0m: missing MJD [2]', mjd, k, key, t[2])
                     # -- add fake data for MJD
                     for _key in ['OI_VIS', 'OI_VIS2']:
+                        kldg = 1
                         res[_key][t[2]]['MJD'] = np.append(res[_key][t[2]]['MJD'], mjd)
                         res[_key][t[2]]['MJD2'] = res[_key][t[2]]['MJD'][:,None] + 0*res['WL'][None,:]
 
                         res[_key][t[2]]['u'] = np.append(res[_key][t[2]]['u'],
-                                                       -s[2]*res['OI_T3'][k]['u1'][i]
-                                                       -s[2]*res['OI_T3'][k]['u2'][i])
+                                                       -kldg*s[2]*res['OI_T3'][k]['u1'][i]
+                                                       -kldg*s[2]*res['OI_T3'][k]['u2'][i])
                         res[_key][t[2]]['v'] = np.append(res[_key][t[2]]['v'],
-                                                       -s[2]*res['OI_T3'][k]['v1'][i]
-                                                       -s[2]*res['OI_T3'][k]['v2'][i])
+                                                       -kldg*s[2]*res['OI_T3'][k]['v1'][i]
+                                                       -kldg*s[2]*res['OI_T3'][k]['v2'][i])
                         res[_key][t[2]]['u/wl'] = np.append(res[_key][t[2]]['u/wl'],
-                                                       s[2]*np.array([(-res['OI_T3'][k]['u1'][i]
+                                                       kldg*s[2]*np.array([(-res['OI_T3'][k]['u1'][i]
                                                                        -res['OI_T3'][k]['u2'][i])/
                                                        res['WL']]), axis=0)
                         res[_key][t[2]]['v/wl'] = np.append(res[_key][t[2]]['v/wl'],
-                                                       np.array([(-res['OI_T3'][k]['v1'][i]-res['OI_T3'][k]['v2'][i])/
+                                                       kldg*s[2]*np.array([(-res['OI_T3'][k]['v1'][i]
+                                                                       -res['OI_T3'][k]['v2'][i])/
                                                        res['WL']]), axis=0)
                         res[_key][t[2]]['PA'] = np.angle(res[_key][t[2]]['v/wl']+
                                                      1j*res[_key][t[2]]['u/wl'], deg=True)
@@ -830,6 +856,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                             np.array([res['WL']*0]), axis=0)
                     res['OI_VIS2'][t[2]]['EV2'] = np.append(res['OI_VIS2'][t[2]]['EV2'],
                                             np.array([res['WL']*0+1]), axis=0)
+                    if debug:
+                        print(' test:', mjd, t[2], res['OI_VIS'][t[2]]['MJD'], w2)
 
             res['OI_T3'][k]['formula'] = [s, t, w0, w1, w2]
             # except:
