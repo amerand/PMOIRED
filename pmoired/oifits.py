@@ -1094,7 +1094,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     # -- ext2 are vector of length WL
                     if l=='OI_FLUX':
                         ext1 = ['MJD']
-                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX', 'MJD2']
+                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX']
                     elif l=='OI_VIS2':
                         ext1 = ['u', 'v', 'MJD']
                         ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
@@ -1112,8 +1112,11 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                             res[i0][l][k][t] = np.append(res[i0][l][k][t], oi[l][k][t])
                     for t in ext2:
                         # -- append (len(MJDs),len(WL)) data
-                        s1 = res[i0][l][k][t].shape # = (len(MJDs),len(WL))
-                        s2 = oi[l][k][t].shape # = (len(MJDs),len(WL))
+                        try:
+                            s1 = res[i0][l][k][t].shape # = (len(MJDs),len(WL))
+                            s2 = oi[l][k][t].shape # = (len(MJDs),len(WL))
+                        except:
+                            print('ERROR!', l, k)
                         if t.startswith('E') and t[1:] in oi[l][k] and 'fit' in oi:
                             # -- errors -> allow editing
                             tmp = _filtErr(t[1:], oi[l][k], oi['fit'])

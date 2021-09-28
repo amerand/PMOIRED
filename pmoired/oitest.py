@@ -24,7 +24,7 @@ def checkT3formula(oi, tol=1e-9):
     checks if each OI_T3 is proprly associated
 
     """
-    test = {}
+    test = {} # keyed by filename
     for D in oi.data:
         if 'OI_T3' in D:
             test[D['filename']] = {}
@@ -41,11 +41,11 @@ def checkT3formula(oi, tol=1e-9):
         pass
 
     err, msg = False, []
-    for F in test:
-        for tri in test[F]:
+    for F in test: # for each filename
+        for tri in test[F]: # for each triangle
             for k in test[F][tri]:
                 if any(np.abs(test[F][tri][k])>tol):
-                    msg += [(F, tri, k)]
+                    msg += [(F, tri, k, np.abs(test[F][tri][k]))]
                     err = True
     return not err, msg
 

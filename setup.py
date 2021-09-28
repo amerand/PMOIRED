@@ -7,7 +7,7 @@ requirements = ["astropy>=4", "numpy>=1.18", "scipy>=1.4", "matplotlib>=3.1",
                 "astroquery>=0.4"]
 
 setup(name="pmoired",
-      version="0.1dev",
+      version="2021.09.28",
       author="Antoine Merand",
       author_email="amerand@eso.org",
       description="Read/Display/Fit astronomical interferometric data in OIFITS format",

@@ -27,7 +27,8 @@ np.warnings.filterwarnings('ignore')
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__versions__={'python':sys.version,
+__versions__={'pmoired':'20210928',
+              'python':sys.version,
               'numpy':np.__version__,
               'scipy':scipy.__version__,
               'astropy': astropy.__version__,
@@ -347,6 +348,9 @@ class OI:
         autoPrior: (default: True). Set automaticaly priors such as "diam>0" or
             "diamout>diamin".
         """
+        if not prior is None:
+            assert _checkPrior(prior), 'ill formed "prior"'
+
         if model is None:
             try:
                 model = self.bestfit['best']
@@ -397,7 +401,8 @@ class OI:
     #     self.computeModelSpectra
     #     return
 
-    def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True):
+    def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True,
+                        prior=None):
         """
         check the detection limit for parameter "param" from "model" (default
         bestfit), using an exploration grid "expl" (see gridFit for a description),
@@ -406,6 +411,9 @@ class OI:
 
         See Also: gridFit, showLimGrid
         """
+        if not prior is None:
+            assert _checkPrior(prior), 'ill formed "prior"'
+
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
         assert not model is None, 'first guess should be provided: model={...}'
@@ -413,7 +421,7 @@ class OI:
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.limgrid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        multi=multi, dLimParam=param,
-                                       dLimSigma=nsigma)
+                                       dLimSigma=nsigma, prior=prior)
         #self.limgrid = [{'best':g} for g in self.limgrid]
         self._limexpl = expl
         self._limexpl['param'] = param
@@ -517,6 +525,9 @@ class OI:
 
         See Also: showGrid, detectionLimit
         """
+        if not prior is None:
+            assert _checkPrior(prior), 'ill formed "prior"'
+
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
             if doNotFit is None:
@@ -1325,3 +1336,23 @@ def _checkSetupFit(fit):
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
     return ok
+
+def _checkPrior(prior):
+    if not type(prior)==list:
+        print('\033[31mERROR\033[0m: "prior" should be a list of tuples')
+        return False
+    if not all([type(p)==tuple for p in prior]):
+        print('\033[31mERROR\033[0m: "prior" should be a list of tuples')
+        return False
+    if not all([len(p) in [3,4] for p in prior]):
+        print('\033[31mERROR\033[0m: priors should be tuples of length 3 or 4')
+        return False
+    test = [type(p[0])==str and p[1] in ['=', '<', '>', '<=', '>='] for p in prior]
+    if not all(test):
+        print('\033[31mERROR\033[0m: ill formed tuple(s) in the "prior" list')
+        for i,p in enumerate(prior):
+            if not test[i]:
+                print(' ->', p)
+
+        return False
+    return True

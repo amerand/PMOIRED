@@ -1564,7 +1564,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
                 if k.replace('_wl0', '_gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
-                    dwl = 2*_param[k.replace('wl0', 'lorentzian')]/1000.
+                    dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
 
                 vel = 0.0
                 if ',' in k:
@@ -1673,7 +1673,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
             wc += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
         w *= np.bool_(wc)
 
-    # -- exclude where lines are in the models
+    # -- continuum: exclude where lines are in the models
     if not _param is None:
         for k in _param.keys():
             if 'line_' in k and 'wl0' in k:
@@ -1681,7 +1681,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in _param.keys():
-                    dwl = 2*_param[k.replace('wl0', 'lorentzian')]/1000.
+                    dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
@@ -2120,16 +2120,20 @@ def residualsOI(oi, param, timeit=False):
                         err = np.maximum(oi['fit']['min relative error'][f]*
                                          np.abs(oi[ext[f]][k][f]), err)
 
-                    try:
+                    if ext[f] in oi and ext[f] in m:
+                        # -- sometimes computation of DPHI fails :(
                         tmp = rf(oi[ext[f]][k][f][mask] -
                                   m[ext[f]][k][f][mask])/err[mask]
                         res = np.append(res, tmp.flatten())
-                    except:
-                        print('cannot compute residuals', f, ext[f], k, f,
-                                'data:', oi[ext[f]][k][f].shape,
-                                'errors:', err.shape,
-                                'model:', m[ext[f]][k][f].shape,
-                                )
+                    else:
+                        res = np.append(res, (err[mask]*0+1).flatten())
+
+                    # else:
+                    #     print('cannot compute residuals', f, ext[f], k, f,
+                    #             'data:', oi[ext[f]][k][f].shape,
+                    #             'errors:', err.shape,
+                    #             'model:', m[ext[f]][k][f].shape,
+                    #             )
                 else:
                     pass
                     #print('ignoring', ext[f], k)
@@ -2417,11 +2421,29 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
     z = 0.0
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
-    fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z, verbose=verbose,
-                           maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
-                           doNotFit=doNotFit, follow=follow, epsfcn=1e-7)
-    fit['prior'] = prior
 
+
+    fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z, verbose=verbose,
+                        maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
+                        doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
+
+    # fit = pfix= {'func':None,
+    #        'best':firstGuess, 'uncer':{k:0 for k in firstGuess},
+    #        'chi2':np.Nan, 'model':None,
+    #        'cov':None, 'fitOnly':fitOnly,
+    #        'epsfcn':epsfcn, 'ftol':ftol,
+    #        'info':'Failed', 'cor':None, 'x':None, 'y':None, 'ndof':None,
+    #        'doNotFit':doNotFit,
+    #        'covd':{ki:{kj:0 for j,kj in enumerate(fitOnly)}
+    #                  for i,ki in enumerate(fitOnly)},
+    #        'cord':{ki:{kj:0 for j,kj in enumerate(fitOnly)}
+    #                  for i,ki in enumerate(fitOnly)},
+    #        'normalized uncertainties':True,
+    #        'maxfev':maxfev, 'firstGuess':firstGuess,
+    #        'track':None, 'mesg':['Failes'],
+    #        }
+
+    fit['prior'] = prior
     return fit
 
 def _chi2(oi, param):
@@ -3118,7 +3140,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if k.replace('wl0', 'gaussian') in param.keys():
                     dwl = 1.5*param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in param.keys():
-                    dwl = 2*param[k.replace('wl0', 'lorentzian')]/1000.
+                    dwl = 3*param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
