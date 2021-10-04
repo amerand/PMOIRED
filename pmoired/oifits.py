@@ -1289,7 +1289,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                         else:
                             tmp[k] = {p:r['fit'][k][p]}
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges',
-                                                'continuum ranges', 'prior']
+                                                'continuum ranges', 'prior', 'Nr']
                         if k in r['fit']}
             r['fit'].update(tmp)
 

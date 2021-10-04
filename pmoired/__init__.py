@@ -667,7 +667,7 @@ class OI:
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
-             showSED=None, showPhotCent=False):
+             showSED=None, showPhotCent=False, imLegend=True):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -783,7 +783,8 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug)
             return
         elif allInOne:
             # -- figure out the list of obs, could be heteregenous
@@ -824,7 +825,8 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug)
 
         else:
             self._model = []
@@ -845,20 +847,17 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
-                  logS=False, imPlx=None, imPhotCent=False, debug=False):
+                  logS=False, imPlx=None, imPhotCent=False, debug=False,
+                  imLegend=True):
         """
-        oi: result from loadOI for mergeOI,
-            or a wavelength vector in um (must be a np.ndarray)
-        param: parameter dictionnary, describing the model
-        m: result from Vmodel, if none given, computed from 'oi' and 'param'
-        fig: which figure to plot on (default 1)
-        figHeight: height of the figure, in inch
+        model: parameter dictionnary, describing the model
 
         imFov: field of view in mas
         imPix: imPixel size in mas
@@ -873,12 +872,29 @@ class OI:
         if model=='best' and type(self.bestfit) is dict and \
                     'best' in self.bestfit:
             #print('showing best fit model')
-            model = self.bestfit['best']
+            model = oimodels.computeLambdaParams(self.bestfit['best'])
+
         assert type(model)==dict, 'model should be a dictionnary!'
         if not imFov is None:
             self.computeModelImages(imFov, model=model, imPix=imPix,
                                     imX=imX, imY=imY)
         self.computeModelSpectra(model=model, uncer=False)
+
+        # -- components
+        comps = set([k.split(',')[0].strip() for k in model.keys() if ',' in k and not '&dwl' in k])
+        symbols = {}
+        a, b, c = 0.9, 0.6, 0.1
+        colors = [(c,a,b), (a,b,c), (b,c,a),
+                  (a,c,b), (c,b,a), (b,a,c),
+                  (a,c,c), (c,a,c), (c,c,a),
+                  (b,b,c), (b,c,b), (c,b,b),
+                  (b,b,b)]
+        markers = ['1', '2', '3', '4'] # 3 branches crosses
+        for i, c in enumerate(comps):
+            symbols[c] = {'m':markers[i%len(markers)],
+                          'c':colors[i%len(colors)]}
+            if c in cColors:
+                symbols[c]['c'] = cColors[c]
 
         if imWl0 is None and showIM:
             #imWl0 = self.images['WL'].min(), self.images['WL'].max()
@@ -971,17 +987,27 @@ class OI:
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
-        symbols = {}
-        a, b, c = 0.9, 0.6, 0.1
-        colors = [(c,a,b), (a,b,c), (b,c,a),
-                  (a,c,b), (c,b,a), (b,a,c),
-                  (a,c,c), (c,a,c), (c,c,a),
-                  (b,b,c), (b,c,b), (c,b,b),
-                  (b,b,b)]
-        markers = ['1', '2', '3', '4'] # 3 branches crosses
-        _ic = 0
-        _im =  0
-        #print('debug', 'i', i, 'nplot', nplot)
+
+            if imLegend:
+                # -- show position of each components
+                for c in sorted(comps):
+                    if c+',x' in model.keys():
+                        x = model[c+',x']
+                    else:
+                        x = 0.0
+                    if c+',y' in model.keys():
+                        y = model[c+',y']
+                    else:
+                        y = 0.0
+                    if np.isreal(x) and np.isreal(y):
+                        plt.plot(x, y, symbols[c]['m'],
+                                color=symbols[c]['c'], label=c,
+                                markersize=8)
+                    #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
+
+                    if i==0:
+                       plt.legend(fontsize=5, ncol=2)
+
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
             if len(self.spectra['normalised spectrum WL']):
@@ -989,11 +1015,7 @@ class OI:
             else:
                 key = 'flux '
             for c in sorted(self.spectra[key+'COMP']):
-                if c in cColors:
-                    col = cColors[c]
-                else:
-                    col = colors[_ic%len(colors)]
-                    _ic+=1
+                col = symbols[c]['c']
                 w = self.spectra[key+'COMP'][c]>0
                 plt.plot(self.spectra[key+'WL'][w], self.spectra[key+'COMP'][c][w],
                         '.-', label=c, color=col)
@@ -1205,6 +1227,7 @@ class OI:
 
         allCont = []
 
+        Nr = None
         for i,o in enumerate(self.data):
             # -- user-defined wavelength range
             fit = {'wl ranges':[(min(o['WL']), max(o['WL']))]}
@@ -1213,13 +1236,18 @@ class OI:
                 for c in o['fit']['continuum ranges']:
                     if not c in allCont:
                         allCont.append(c)
-
             if not 'fit' in o:
                 o['fit'] = fit.copy()
             elif not 'wl ranges' in o['fit']:
                 # -- weird but necessary to avoid a global 'fit'
                 fit.update(o['fit'])
                 o['fit'] = fit.copy()
+
+            if 'fit' in o and 'Nr' in o['fit']:
+                if Nr is None:
+                    Nr = o['fit']['Nr']
+                else:
+                    Nr = max(Nr, o['fit']['Nr'])
 
             w = np.zeros(o['WL'].shape)
             closest = []
@@ -1242,6 +1270,8 @@ class OI:
         M = {'model':model}
         if len(allWLc):
             allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
+            if not Nr is None:
+                allWL['fit']['Nr'] = Nr
             tmp = oimodels.VmodelOI(allWL, model)
             try:
                 fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
@@ -1274,6 +1304,9 @@ class OI:
         if len(allWLs):
             allWL = {'WL':allWLs, 'fit':{'obs':['NFLUX'],
                                     'continuum ranges':allCont}} # minimum required
+            if not Nr is None:
+                allWL['fit']['Nr'] = Nr
+
             tmp = oimodels.VmodelOI(allWL, model, timeit=False)
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}

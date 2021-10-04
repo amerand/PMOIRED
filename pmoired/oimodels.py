@@ -305,7 +305,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
 
     else:
-        #x, y = lambda o: 0.0, lambda o: 0.0
+        _xs, _ys = 0, 0
         x = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
         y = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
 
@@ -355,10 +355,15 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Bdv = lambda z: np.sqrt(_udv(z)**2 + _vdv(z)**2)
 
         if not I is None:
-            _X = (np.cos(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                   np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
-            _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                   np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
+            if len(baselines):
+                _X = (np.cos(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
+                       np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
+                _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
+                       np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
+            else:
+                _X = (np.cos(rot)*(X-_xs) + np.sin(rot)*(Y-_ys))/np.cos(_param['incl']*np.pi/180)
+                _Y = -np.sin(rot)*(X-_xs) + np.cos(rot)*(Y-_ys)
+
             R = np.sqrt(_X**2+_Y**2)
     else:
         _uwl = lambda z: z['u/wl'][:,wwl]/cwl
@@ -373,7 +378,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             _Bdv = lambda z: np.sqrt(_udv(z)**2 + _vdv(z)**2)
 
         if not I is None:
-            _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
+            if len(baselines):
+                _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
+            else:
+                _X, _Y = X-_xs, Y-_ys
 
             R = np.sqrt(_X**2+_Y**2)
 
@@ -641,9 +649,14 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             Vfdu = lambda z: _Vazvar(_udu(z), _vdu(z), Ir, _r, _n, _phi, _amp,)
             Vfdv = lambda z: _Vazvar(_udv(z), _vdv(z), Ir, _r, _n, _phi, _amp,)
         if not I is None:
+            if len(baselines):
+                XY = (X-np.mean(x(oi[key][baselines[0]])),
+                      Y-np.mean(y(oi[key][baselines[0]])))
+            else:
+                XY = (X-_xs, Y-_ys)
+
             I = _Vazvar(None, None, Ir, _r, _n, _phi, _amp,
-                        stretch=stretch, numerical=1, XY=(X-np.mean(x(oi[key][baselines[0]])),
-                                                          Y-np.mean(y(oi[key][baselines[0]]))))
+                        stretch=stretch, numerical=1, XY=XY)
             if np.sum(I)==0:
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
@@ -3456,6 +3469,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             remObs = True
         if debug:
             print(' computing Vmodel')
+        #if 'fit' in oi and 'Nr' in oi['fit']:
+        #    print('model Nr:', oi['fit']['Nr'])
         m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
             debug=debug)
         if remObs:
@@ -4367,7 +4382,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
             #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
             if i==0 and legend:
-                plt.legend(fontsize=5, ncol=2)
+               plt.legend(fontsize=5, ncol=2)
         axs[-1].tick_params(axis='x', labelsize=6)
         axs[-1].tick_params(axis='y', labelsize=6)
 
