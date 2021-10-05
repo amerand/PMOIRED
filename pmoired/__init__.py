@@ -889,10 +889,12 @@ class OI:
                   (a,c,c), (c,a,c), (c,c,a),
                   (b,b,c), (b,c,b), (c,b,b),
                   (b,b,b)]
-        markers = ['1', '2', '3', '4'] # 3 branches crosses
-        for i, c in enumerate(comps):
+        markers = ['1', '2', '3', '4', '+', 'x'] # 3 branches crosses
+        msizes  = [ 8,   8,   8,   8,   6,   6]
+        for i, c in enumerate(sorted(comps)):
             symbols[c] = {'m':markers[i%len(markers)],
-                          'c':colors[i%len(colors)]}
+                          'c':colors[i%len(colors)],
+                          's':msizes[i%len(markers)]}
             if c in cColors:
                 symbols[c]['c'] = cColors[c]
 
@@ -978,10 +980,21 @@ class OI:
 
             if i==0:
                 ax.set_ylabel(r'N $\rightarrow$ (mas)')
+            title = ''
             if not imPow == 1:
-                title = 'Image$^{%.2f}$ '%imPow
+                if imPow==0.5:
+                    #title = r'$\sqrt{\mathrm{I}} at $'
+                    cb.set_label('$\sqrt{Flux}$')
+                elif np.abs(imPow-1/int(1/imPow))<1e-3 and int(1/imPow)<6:
+                    #title = 'Image$^{1/%d}$ '%int(1/imPow)
+                    #title = r'$\sqrt[%d]{\mathrm{I}}$ at '%int(1/imPow)
+                    cb.set_label('$\sqrt[%d]{Flux}$'%int(1/imPow))
+                else:
+                    #title = '$\mathrm{I}^{%.2f}$ at '%imPow
+                    cb.set_label('$Flux^{%.2f}$'%imPow)
             else:
-                title ='Image '
+                cb.set_label('linear scale')
+                title =''
             n = 2-np.log10(np.median(np.abs(np.diff(self.images['WL']))))
 
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
@@ -1004,7 +1017,7 @@ class OI:
                     if np.isreal(x) and np.isreal(y):
                         plt.plot(x, y, symbols[c]['m'],
                                 color=symbols[c]['c'], label=c,
-                                markersize=8)
+                                markersize=symbols[c]['s'])
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
                 if i==0:
