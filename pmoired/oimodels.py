@@ -3657,6 +3657,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             bmax = 1.1*np.max(bmax)
             ax.legend(fontsize=4, loc='upper left', ncol=3)
             ax.set_title('u,v (m)', fontsize=10)
+            #ax.set_xlabel('u')
+            #ax.set_ylabel('v')
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
             if np.abs(ax.get_xlim())[1]<bmax or ax.get_ylim()[1]<bmax:

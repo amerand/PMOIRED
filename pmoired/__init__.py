@@ -783,7 +783,7 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
                                debug=self.debug)
             return
         elif allInOne:
@@ -825,7 +825,7 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
                                debug=self.debug)
 
         else:
@@ -847,7 +847,7 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
                                debug=self.debug)
         return
 
@@ -855,7 +855,7 @@ class OI:
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
-                  imLegend=True):
+                  imLegend=True, vLambda0=None):
         """
         model: parameter dictionnary, describing the model
 
@@ -986,6 +986,8 @@ class OI:
 
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
+            if not vLambda0 is None:
+                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vLambda0)/self.images['WL'][i0]*2.998e5)
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
             if imLegend:
@@ -1010,6 +1012,16 @@ class OI:
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
+            if not vLambda0 is None:
+                um2kms = lambda um: (um-vLambda0)/um*2.998e5
+                kms2um = lambda kms: vLambda0*(1 + kms/2.998e5)
+                axv = ax.secondary_xaxis('top', functions=(um2kms, kms2um),
+                                         color='0.6')
+                axv.tick_params(axis='x', labelsize=5,
+                                labelbottom=True,
+                                labeltop=False,)
+                axv.set_xlabel('velocity (km/s)', fontsize=6)
+
             if len(self.spectra['normalised spectrum WL']):
                 key = 'normalised spectrum '
             else:
@@ -1036,7 +1048,8 @@ class OI:
                 #             self.spectra[key+'TOTAL'][w],
                 #             'sc', label='cont.', alpha=0.5)
             plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
-            plt.legend(fontsize=6)
+            if not imLegend:
+                plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
 
