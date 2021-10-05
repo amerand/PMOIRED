@@ -1007,8 +1007,12 @@ class OI:
                                 markersize=8)
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
-                    if i==0:
-                       plt.legend(fontsize=5, ncol=2)
+                if i==0:
+                    if len(imWl0)<4 and max([len(c) for c in comps])<10:
+                        ncol=3
+                    else:
+                        ncol=2
+                    plt.legend(fontsize=5, ncol=ncol)
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
