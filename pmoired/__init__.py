@@ -99,7 +99,7 @@ class OI:
         else:
             self.data = []
 
-    def save(self, name=None, override=False):
+    def save(self, name=None, overwrite=False):
         """
         save session as binary file (not OIFITS :()
 
@@ -109,14 +109,19 @@ class OI:
             name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
         if not name.endswith('.pmrd'):
             name += '.pmrd'
-        assert not (os.path.exists(name) and not override), 'file "'+name+'" already exists'
+        assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists'
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
                 'images']
         with open(name, 'wb') as f:
             data = {k:self.__dict__[k] for k in ext}
+            if type(data['bestfit'])==dict and 'func' in data['bestfit']:
+                data['bestfit']['func'] = None # avoid potential problems...
+                data['bestfit']['x'] = None # takes too much space
+                data['bestfit']['y'] = None # takes too much space
+
             pickle.dump(data, f)
         print('object saved as "'+name+'"', end=' ')
-        print('[size %.1fM]'%(os.stat('HD163296_all_star+rim+disk.pmrd').st_size/2**20))
+        print('[size %.1fM]'%(os.stat(name).st_size/2**20))
         return
 
     def load(self, name, debug=False):
@@ -500,7 +505,7 @@ class OI:
         return
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
-                maxfev=5000, ftol=1e-5, multi=True, epsfcn=1e-8, prior=None,
+                maxfev=None, ftol=None, multi=True, epsfcn=None, prior=None,
                 autoPrior=True, constrain=None):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
@@ -536,7 +541,18 @@ class OI:
                 fitOnly = self.bestfit['fitOnly']
             if prior is None and 'prior' in self.bestfit:
                 prior = self.bestfit['prior']
-                print('prior:', prior)
+            if ftol is None:
+                ftol = self.bestfit['ftol']
+            if maxfev is None:
+                maxfev = self.bestfit['maxfev']
+            if epsfcn is None:
+                epsfcn = self.bestfit['epsfcn']
+        if maxfev is None:
+            maxfev=5000
+        if ftol is None:
+            ftol=1e-5
+        if epsfcn is None:
+            epsfcn=1e-8
 
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
@@ -871,8 +887,8 @@ class OI:
         """
         if model=='best' and type(self.bestfit) is dict and \
                     'best' in self.bestfit:
-            #print('showing best fit model')
-            model = oimodels.computeLambdaParams(self.bestfit['best'])
+            model = self.bestfit['best']
+        model = oimodels.computeLambdaParams(model)
 
         assert type(model)==dict, 'model should be a dictionnary!'
         if not imFov is None:
@@ -938,8 +954,9 @@ class OI:
                                 pad=0)
                 axy.tick_params(axis='y', labelsize=6, labelcolor=(0.7,0.5,0.2),
                                 pad=0, labelrotation=-90)
-                axx.set_xlabel('(AU)\nplx=\n%.2fmas'%imPlx,
-                                color=(0.7,0.5,0.2), x=0, fontsize=5)
+                if i==0:
+                    axx.set_xlabel(r'AU at\n$\varpi$=%.2fmas'%imPlx,
+                                    color=(0.7,0.5,0.2), x=0, fontsize=5)
             # -- index of image in cube, closest wavelength
             i0 = np.argmin(np.abs(self.images['WL']-wl0))
             # -- normalised image
@@ -1000,7 +1017,7 @@ class OI:
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
             if not vLambda0 is None:
-                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vLambda0)/self.images['WL'][i0]*2.998e5)
+                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vLambda0)/self.images['WL'][i0]*299792)
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
             if imLegend:
@@ -1030,8 +1047,8 @@ class OI:
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
             if not vLambda0 is None:
-                um2kms = lambda um: (um-vLambda0)/um*2.998e5
-                kms2um = lambda kms: vLambda0*(1 + kms/2.998e5)
+                um2kms = lambda um: (um-vLambda0)/um*299792
+                kms2um = lambda kms: vLambda0*(1 + kms/299792)
                 axv = ax.secondary_xaxis('top', functions=(um2kms, kms2um),
                                          color='0.6')
                 axv.tick_params(axis='x', labelsize=5,
@@ -1047,9 +1064,9 @@ class OI:
                 col = symbols[c]['c']
                 w = self.spectra[key+'COMP'][c]>0
                 plt.plot(self.spectra[key+'WL'][w], self.spectra[key+'COMP'][c][w],
-                        '.-', label=c, color=col)
+                        '-', label=c, color=col, linewidth=1.5)
             plt.plot(self.spectra[key+'WL'], self.spectra[key+'TOTAL'],
-                    '.-k', label='TOTAL')
+                    '-k', label='TOTAL', linewidth=3)
             if logS:
                 plt.yscale('log')
             else:
@@ -1065,7 +1082,7 @@ class OI:
                 #             self.spectra[key+'TOTAL'][w],
                 #             'sc', label='cont.', alpha=0.5)
             plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
-            if not imLegend:
+            if not imLegend or len(imWl0)==0:
                 plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
@@ -1080,6 +1097,40 @@ class OI:
             oimodels.dpfit.dispCor(self.bestfit)
         else:
             print('no fit to show')
+        return
+
+    def sparseFitFluxes(self, firstGuess, N={}, initFlux={}, refFlux=None,
+                    significance=3.5, fitOnly=None, doNotFit=None,
+                    maxfev=5000, ftol=1e-3, epsfcn=1e-8, prior=[]):
+        """
+        Sparse Discrete Wavelet Transform to model spectrum of components.
+
+        firstGuess: initial model, do not include DWT parameters!
+        N: interger or dictionnary. The number of DWT coefficients. These should
+            be a power of 2, and no more than half the number of spectral
+            channels fitted. The keys of the dictionnary are the components we
+            wish to model this way. It is advised to keep both components with
+            the same numbers of coefficients, since we do not know a priori which
+            component is responsible for the spectral features.
+        initFlux: dictionary keyed by components to pass an initial value for
+            the average flux. Default is 1 for every component
+        refFlux: name of reference component (string) to fix on the wavelet
+            spectrum. Its average will be fixed to the given value (1 of value
+            given by initFlux). By default, it assumes there is no reference flux
+            in the DWT spectra.
+        significance: (in sigma) each fit will trim from the fit the DWT
+            coefficient with less than that (default=4)
+
+        other parameters: see 'doFit'
+        """
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self.bestfit = oimodels.sparseFitFluxes(self._merged, firstGuess, N=N,
+                                        initFlux=initFlux, refFlux=refFlux,
+                                        significance=significance, fitOnly=fitOnly,
+                                        doNotFit=doNotFit, maxfev=maxfev, ftol=ftol,
+                                        epsfcn=epsfcn, prior=prior)
+        self.computeModelSpectra(uncer=False)
+        self.bestfit['prior'] = prior
         return
 
     def computeHalfLightRadiiFromParam(self):
@@ -1389,7 +1440,9 @@ def _checkSetupFit(fit):
             'Nr':int, 'spec res pix':float,
             'continuum ranges':list,
             'ignore negative flux':bool,
-            'prior':list}
+            'prior':list,
+            'DPHI order':int,
+            'NFLUX order': int}
     ok = True
     for k in fit.keys():
         if not k in keys.keys():

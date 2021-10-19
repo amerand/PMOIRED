@@ -1610,6 +1610,8 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.2)
         order = max(order, 1)
+    if 'fit' in oi and 'DPHI order' in oi['fit']:
+        order = oi['fit']['DPHI order']
 
     if np.sum(oi['WL cont'])<order+1:
         print('WARNING: not enough WL to compute continuum!')
@@ -1724,6 +1726,9 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.15)
         order = max(order, 1)
+
+    if 'fit' in oi and 'NFLUX order' in oi['fit']:
+        order = oi['fit']['NFLUX order']
 
     if np.sum(oi['WL cont'])<order+1:
         print('ERROR: not enough WL to compute continuum!')
@@ -2166,8 +2171,9 @@ def residualsOI(oi, param, timeit=False):
     #print(len(res))
     return res
 
-def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None, doNotFit=None,
-                maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8, verbose=False):
+def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
+                doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8,
+                verbose=False, prior=[]):
     """
     sparse=[] list of parameters to sparse fit. Should also be fitted according
         to "fitOnly" and/or "doNotFit"!
@@ -2182,7 +2188,8 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None, doNotFi
         print('Sparse fit %s: running fit #%d, for %d parameters'%(time.asctime(),
                                                                    N, len(fitOnly)))
         fit = fitOI(oi, firstGuess, fitOnly=fitOnly, verbose=verbose,
-                    maxfev=maxfev, ftol=ftol, follow=follow, epsfcn=epsfcn)
+                    maxfev=maxfev, ftol=ftol, follow=follow, epsfcn=epsfcn,
+                    prior=prior)
         #print('   chi2=', fit['chi2'])
         if len(fit['not significant']):
             print('  WARNING, ['+','.join(fit['not significant'])+'] do not change chi2')
@@ -2191,7 +2198,8 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None, doNotFi
             print('Sparse fit %s: re-running fit #%d, for %d parameters'%(time.asctime(),
                                                                         N, len(fitOnly)))
             fit = fitOI(oi, firstGuess, fitOnly=fitOnly, verbose=verbose,
-                        maxfev=maxfev, ftol=ftol, follow=follow, epsfcn=epsfcn)
+                        maxfev=maxfev, ftol=ftol, follow=follow, epsfcn=epsfcn,
+                        prior=prior)
         N += 1
         # -- actually, 2 fits is enough: subsequent fit reject only 1 or 2 params...
         if N<=2:
@@ -2224,7 +2232,7 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None, doNotFi
 
 def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
                 significance=4, fitOnly=None, doNotFit=None,
-                maxfev=5000, ftol=1e-3, epsfcn=1e-8):
+                maxfev=5000, ftol=1e-3, epsfcn=1e-8, prior=[]):
     """
     use discrete wavelets (WVL) to model spectra of different components.
 
@@ -2364,7 +2372,6 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
             print(firstGuess[p], tmp, fact)
 
     return firstGuess
-
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
           maxfev=5000, ftol=1e-6, follow=None, prior=None,
@@ -3489,7 +3496,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     c = 1 # column
     ax0 = None
     data = {
-            'FLUX':{'ext':'OI_FLUX', 'var':'FLUX'},
+            'FLUX':{'ext':'OI_FLUX', 'var':'FLUX', 'unit':'detector counts'},
             'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalized'},
             'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
             'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
@@ -3501,7 +3508,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA'},
             }
     imdata = {
-             'FLUX':{'ext':'IM_FLUX', 'var':'FLUX'},
+             'FLUX':{'ext':'IM_FLUX', 'var':'FLUX', 'unit':'detector counts'},
              'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalized'},
              'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
              'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
@@ -3656,9 +3663,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
             bmax = 1.1*np.max(bmax)
             ax.legend(fontsize=4, loc='upper left', ncol=3)
-            ax.set_title('u,v (m)', fontsize=10)
+            #ax.set_title('u,v (m)', fontsize=10)
             #ax.set_xlabel('u')
             #ax.set_ylabel('v')
+            ax.set_title(r'u [$\leftarrow$E], v [$\uparrow$N] (m)', fontsize=10)
+
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
             if np.abs(ax.get_xlim())[1]<bmax or ax.get_ylim()[1]<bmax:

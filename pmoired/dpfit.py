@@ -255,7 +255,7 @@ trackP={}
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
-               follow=None, maxfev=200, bounds={}):
+               follow=None, maxfev=5000, bounds={}):
     """
     - params is a Dict containing the first guess.
 
@@ -327,18 +327,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         print('[dpfit] %d FITTED parameters:'%len(fitOnly), end=' ')
         if len(fitOnly)<100 or (type(verbose)==int and verbose>1):
              print(fitOnly)
+             print('[dpfit] epsfcn=', epsfcn)
         else:
             print(' ')
-        # if iterable(x):
-        #     print('[dpfit] %d FITTED X'%len(x))
-        # else:
-        #     print('[dpfit] 1 FITTED X')
-        #
-        # if iterable(y):
-        #     print('[dpfit] %d FITTED Y'%len(Y))
-        # else:
-        #     print('[dpfit] 1 FITTED Y')
-
 
     # -- actual fit
     Ncalls=0
