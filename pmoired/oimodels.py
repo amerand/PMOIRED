@@ -2457,7 +2457,8 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
                     fit['best'][k]<0:
                 # -- correct negative amplitudes
                 fit['best'][k] = np.abs(fit['best'][k])
-                fit['best'][k.replace('az amp', 'az projang')] -= 180
+                n = int(k.split('az amp')[1])
+                fit['best'][k.replace('az amp', 'az projang')] -= 180/n
             if type(fit['best'][k.replace('az amp', 'az projang')])!=str:
                 # -- force projection angles -180 -> 180
                 #fit['best'][k.replace('az amp', ',az projang')] =\
@@ -3487,6 +3488,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         if remObs:
             oi['fit'].pop('obs')
         if not imFov is None and checkImVis:
+            # == FIX THIS! does not work anymore bcause images are computed elsewhere
             if debug:
                 print(' computing V from Image, imFov=', imFov)
             m = VfromImageOI(m)
@@ -5115,7 +5117,7 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             # -- should be consistent with Visibility computation below!
             #PAvar += amp[k]*np.cos(n[k]*(PA + 3*np.pi/2 + phi[k]*np.pi/180))
             # -- changed on 2021-10-21
-            PAvar += amp[k]*np.cos(n[k]*PA + phi[k]*np.pi/180 - np.pi/2)
+            PAvar += amp[k]*np.cos(n[k]*(PA + phi[k]*np.pi/180 - np.pi/2))
 
         Im *= PAvar
         # -- normalize image to total flux
@@ -5187,7 +5189,7 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             #        np.cos(n[i]*(_PA+3*np.pi/2+phi[i]*np.pi/180))
             # -- changed on 2021-10-21
             Vis += amp[i]*(-1j)**n[i]*Hankel(n[i])*\
-                    np.cos(n[i]*_PA + phi[i]*np.pi/180 - np.pi/2)
+                    np.cos(n[i]*(_PA + phi[i]*np.pi/180 - np.pi/2))
 
     # -- return complex visibility
     return Vis
