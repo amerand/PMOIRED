@@ -252,6 +252,7 @@ def iterable(obj):
 Ncalls=0
 Tcalls=0
 trackP={}
+
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
@@ -288,6 +289,11 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
     - bounds = dictionnary with lower/upper bounds. if bounds are not specified,
         (-inf/inf will be used)
+
+    - verbose:
+        True (or 1): show progress
+        2: show progress and best fit with errors
+        3: show progress, best fit with errors and correlations
 
     returns dictionary with:
     'best': bestparam,
@@ -327,7 +333,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         print('[dpfit] %d FITTED parameters:'%len(fitOnly), end=' ')
         if len(fitOnly)<100 or (type(verbose)==int and verbose>1):
              print(fitOnly)
-             print('[dpfit] epsfcn=', epsfcn)
+             print('[dpfit] epsfcn=', epsfcn, 'ftol=', ftol)
         else:
             print(' ')
 
@@ -467,46 +473,13 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             else:
                 uncer[k]= np.sqrt(np.abs(np.diag(cov)[i]))
 
-    if verbose:
+    if type(verbose)==int and verbose>1:
         #print('-'*30)
         print('# --     CHI2=', chi2)
         print('# -- red CHI2=', reducedChi2)
         print('# --     NDOF=', int(chi2/reducedChi2))
         #print('-'*30)
         dispBest({'best':pfix, 'uncer':uncer, 'fitOnly':fitOnly})
-
-        # tmp = list(pfix.keys()); tmp.sort()
-        # maxLength = np.max(np.array([len(k) for k in tmp]))
-        # format_ = "'%s':"
-        # # -- write each parameter and its best fit, as well as error
-        # # -- writes directly a dictionary
-        # if len(tmp)<100 or type(verbose)==int and verbose>1:
-        #     #print('') # leave some space to the eye
-        #     #print('{ # -- chi2=%.4f'%chi2)
-        #     for ik,k in enumerate(tmp):
-        #         padding = ' '*(maxLength-len(k))
-        #         formatS = format_+padding
-        #         if ik==0:
-        #             formatS = '{'+formatS
-        #         if uncer[k]>0:
-        #             ndigit = max(-int(np.log10(uncer[k]))+2, 0)
-        #             fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
-        #             #print(formatS%k , round(pfix[k], ndigit), ',', end='')
-        #             #print('# +/-', round(uncer[k], ndigit))
-        #             print(formatS%k, fmt%(pfix[k], uncer[k]))
-        #         elif uncer[k]==0:
-        #             if isinstance(pfix[k], str):
-        #                 print(formatS%k , "'"+pfix[k]+"'", ',')
-        #             else:
-        #                 print(formatS%k , pfix[k], ',')
-        #         else:
-        #             print(formatS%k , pfix[k], ',', end='')
-        #             print('# +/-', uncer[k])
-        #     print('}') # end of the dictionnary
-        #     if normalizedUncer:
-        #         print('(uncertainty normalized to data dispersion)')
-        #     else:
-        #         print('(uncertainty assuming error bars are correct)')
 
     # -- result:
     if fullOutput:
@@ -533,7 +506,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                'track':trackP, 'mesg':mesg,
                'not significant':notsig,
         }
-        if type(verbose)==int and verbose>1 and np.size(cor)>1:
+        if type(verbose)==int and verbose>2 and np.size(cor)>1:
             dispCor(pfix)
     return pfix
 
@@ -607,6 +580,99 @@ def bootstrap(func, x, params, y, err=None, fitOnly=None,
                                      ftol=ftol, fullOutput=True,
                                      normalizedUncer=True))
     return fits
+
+def showBootstrap(boot, fig=1, fontsize=8):
+    global _AX, _AY
+    plt.close(fig); plt.figure(fig)
+    n = len(boot[0]['fitOnly'])
+    _AX, _AY = {}, {}
+    for i1, k1 in enumerate(sorted(boot[0]['fitOnly'])):
+        _AX[k1] = plt.subplot(n,n,i1*n+i1+1)
+        _AX[k1].yaxis.set_visible(False)
+        X = [b['best'][k1] for b in boot]
+        bins = max(int(np.sqrt(len(X))), 10)
+        # -- bootstraped fits
+        h = plt.hist(X[1:], color='k', histtype='step', density=True, bins=bins)
+        h = plt.hist(X[1:], color='0.9', density=True, bins=bins)
+        # -- fit to all data
+        plt.errorbar(X[0], 0.45*np.max(h[0]), xerr=boot[0]['uncer'][k1], color='orange',
+                     marker='s', capsize=5, label='all data')
+        # -- 1 sigma asymetric uncertainties
+        X0, Xm, XM = np.percentile(X[1:], 50), np.percentile(X[1:], 16), np.percentile(X[1:], 100-16)
+        Xm, XM = X0-Xm, XM-X0
+        plt.errorbar(X0, 0.55*np.max(h[0]), xerr=([Xm], [XM]), color='blue',
+                     marker='d', capsize=5, label='bootstrapped')
+        d = int(2-np.round(.5*(np.log10(Xm)+np.log10(XM)), 0))
+        fmt = '%s=\n$%.'+str(d)+'f^{+%.'+str(d)+'f}_{-%.'+str(d)+'f}$'
+        plt.title(fmt%(k1, X0, Xm, XM), fontsize=1.2*fontsize)
+        if i1!=len(sorted(boot[0]['fitOnly']))-1:
+            _AX[k1].xaxis.set_visible(False)
+        else:
+            _AX[k1].tick_params(axis='x', labelsize=fontsize)
+            #_AX[k1].callbacks.connect('xlim_changed', _callbackAxesBoot)
+
+        plt.legend(loc='upper right', fontsize=0.6*fontsize)
+
+    for i1, k1 in enumerate(sorted(boot[0]['fitOnly'])):
+        for i2, k2 in enumerate(sorted(boot[0]['fitOnly'])):
+            if i1<i2:
+                if i1==0:
+                    _AY[k2] = plt.subplot(n,n,i2*n+i1+1, sharex=_AX[k1])
+                    _AY[k2].callbacks.connect('ylim_changed', _callbackAxesBoot)
+                    plt.ylabel(k2, fontsize=1.2*fontsize)
+                    ax = _AY[k2]
+                    ax.tick_params(axis='y', labelsize=fontsize)
+                else:
+                    ax = plt.subplot(n,n,i2*n+i1+1, #sharex=_AX[k1],
+                                     sharey=_AY[k2])
+                    ax.yaxis.set_visible(False)
+
+                X, Y = [b['best'][k1] for b in boot], [b['best'][k2] for b in boot]
+
+                # -- bootstrap
+                plt.plot(X[1:], Y[1:], '.k', alpha=0.1)
+                plt.plot(np.median(X[1:]), np.median(Y[1:]), 'db', alpha=0.5)
+                # -- error ellipse
+                cov = np.cov([X[1:], Y[1:]])
+                t = np.linspace(0,2*np.pi,100)
+                sMa, sma, a = _ellParam(cov[0,0], cov[1,1], cov[0,1])
+                Xe,Ye = sMa*np.cos(t), sma*np.sin(t)
+                Xe,Ye = Xe*np.cos(a)+Ye*np.sin(a),-Xe*np.sin(a)+Ye*np.cos(a)
+                plt.plot(np.median(X[1:])+Xe, np.median(Y[1:])+Ye, '-b', alpha=0.5)
+
+                # -- fit to all data:
+                plt.plot(X[0], Y[0], marker='s', color='orange', alpha=0.5)
+                # -- err ellipse
+                ell = errorEllipse(boot[0], k1, k2)
+                plt.plot(ell[0], ell[1], '-', color='orange', alpha=0.5)
+
+                if i2!=len(sorted(boot[0]['fitOnly']))-1:
+                    ax.xaxis.set_visible(False)
+                else:
+                    ax.tick_params(axis='x', labelsize=fontsize)
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+
+def _callbackAxesBoot(ax):
+    global _AX, _AY
+    i = None
+    for k in _AY.keys():
+        if ax==_AY[k]:
+            i = k
+    if not i is None:
+        _AX[i].set_xlim(ax.get_ylim())
+    else:
+        pass
+    i = None
+    for k in _AX.keys():
+        if ax==_AX[k]:
+            i = k
+    if not i is None:
+        _AY[i].set_ylim(ax.get_xlim())
+    else:
+        pass
+    return
+
 
 def randomize(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,

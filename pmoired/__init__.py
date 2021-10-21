@@ -27,7 +27,7 @@ np.warnings.filterwarnings('ignore')
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__versions__={'pmoired':'20210928',
+__versions__={'pmoired':'20211021',
               'python':sys.version,
               'numpy':np.__version__,
               'scipy':scipy.__version__,
@@ -993,10 +993,10 @@ class OI:
             ax.invert_xaxis()
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
-            ax.set_xlabel(r'$\leftarrow$ E (mas)')
+            ax.set_xlabel(r'E $\leftarrow$ x (mas)')
 
             if i==0:
-                ax.set_ylabel(r'N $\rightarrow$ (mas)')
+                ax.set_ylabel(r'y $\rightarrow$ N (mas)')
             title = ''
             if not imPow == 1:
                 if imPow==0.5:
@@ -1038,7 +1038,10 @@ class OI:
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
                 if i==0:
-                    if len(imWl0)<4 and max([len(c) for c in comps])<10:
+                    maxc = 0
+                    if len(comps)>0:
+                        maxc = max([len(c) for c in comps])
+                    if len(imWl0)<4 and maxc<10:
                         ncol=3
                     else:
                         ncol=2

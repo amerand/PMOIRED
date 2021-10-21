@@ -2373,7 +2373,7 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 
     return firstGuess
 
-def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
+def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8):
     """
@@ -2443,27 +2443,31 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=2,
         fitOnly = list(firstGuess.keys())
 
 
-    fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z, verbose=verbose,
+    fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z,
+                        verbose=bool(verbose),
                         maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
                         doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
 
-    # fit = pfix= {'func':None,
-    #        'best':firstGuess, 'uncer':{k:0 for k in firstGuess},
-    #        'chi2':np.Nan, 'model':None,
-    #        'cov':None, 'fitOnly':fitOnly,
-    #        'epsfcn':epsfcn, 'ftol':ftol,
-    #        'info':'Failed', 'cor':None, 'x':None, 'y':None, 'ndof':None,
-    #        'doNotFit':doNotFit,
-    #        'covd':{ki:{kj:0 for j,kj in enumerate(fitOnly)}
-    #                  for i,ki in enumerate(fitOnly)},
-    #        'cord':{ki:{kj:0 for j,kj in enumerate(fitOnly)}
-    #                  for i,ki in enumerate(fitOnly)},
-    #        'normalized uncertainties':True,
-    #        'maxfev':maxfev, 'firstGuess':firstGuess,
-    #        'track':None, 'mesg':['Failes'],
-    #        }
-
     fit['prior'] = prior
+
+    for k in fit['best']:
+        if 'az amp' in k:
+            if type(fit['best'][k])!=str and \
+                    type(fit['best'][k.replace('az amp', 'az projang')])!=str and \
+                    fit['best'][k]<0:
+                # -- correct negative amplitudes
+                fit['best'][k] = np.abs(fit['best'][k])
+                fit['best'][k.replace('az amp', 'az projang')] -= 180
+            if type(fit['best'][k.replace('az amp', 'az projang')])!=str:
+                # -- force projection angles -180 -> 180
+                #fit['best'][k.replace('az amp', ',az projang')] =\
+                #    (fit['best'][k.replace('az amp', ',az projang')]+180)%360-180
+                pass
+    if type(verbose)==int and verbose>=1:
+        dpfit.dispBest(fit)
+    if type(verbose)==int and verbose>=2:
+        dpfit.dispCor(fit)
+
     return fit
 
 def _chi2(oi, param):
@@ -4481,11 +4485,18 @@ def _callbackAxes(ax):
             i = k
     #print('callback:', i)
     if not i is None:
-        #print('callback:', i, ax.get_ylim())
         _AX[i].set_xlim(ax.get_ylim())
-        #_AX[i].figure.canvas.draw()
     else:
-        print('could not find axes')
+        pass
+
+    i = None
+    for k in _AX.keys():
+        if ax==_AX[k]:
+            i = k
+    if not i is None:
+        _AY[i].set_ylim(ax.get_xlim())
+    else:
+        pass
     return
 
 def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
@@ -4801,6 +4812,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             elif offs[k1]>0:
                 _AX[i1].set_xlabel(k1+'\n-%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
                                     fontsize=fontsize)
+            _AX[i1].callbacks.connect('ylim_changed', _callbackAxes)
         # -- end histogram
 
     _AY = {}
@@ -4819,7 +4831,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                 ax = plt.subplot(len(showP),
                             len(showP),
                             1+i2*len(showP)+i1,
-                            sharex=_AX[i1],
+                            #sharex=_AX[i1],
                             sharey=_AY[i2])
 
             #if k1=='chi2' or k2=='chi2':
@@ -5100,7 +5112,11 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
 
         PAvar = np.ones(PA.shape)
         for k in range(len(n)):
-            PAvar += amp[k]*np.cos(n[k]*(PA + 3*np.pi/2 + phi[k]*np.pi/180))
+            # -- should be consistent with Visibility computation below!
+            #PAvar += amp[k]*np.cos(n[k]*(PA + 3*np.pi/2 + phi[k]*np.pi/180))
+            # -- changed on 2021-10-21
+            PAvar += amp[k]*np.cos(n[k]*PA + phi[k]*np.pi/180 - np.pi/2)
+
         Im *= PAvar
         # -- normalize image to total flux
         if np.sum(Im)>0:
@@ -5167,8 +5183,11 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
 
     for i in range(len(n)):
         if np.abs(amp[i])>0:
+            #Vis += amp[i]*(-1j)**n[i]*Hankel(n[i])*\
+            #        np.cos(n[i]*(_PA+3*np.pi/2+phi[i]*np.pi/180))
+            # -- changed on 2021-10-21
             Vis += amp[i]*(-1j)**n[i]*Hankel(n[i])*\
-                    np.cos(n[i]*(_PA+3*np.pi/2+phi[i]*np.pi/180))
+                    np.cos(n[i]*_PA + phi[i]*np.pi/180 - np.pi/2)
 
     # -- return complex visibility
     return Vis
