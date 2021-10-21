@@ -2450,26 +2450,64 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
 
     fit['prior'] = prior
 
-    for k in fit['best']:
-        if 'az amp' in k:
-            if type(fit['best'][k])!=str and \
-                    type(fit['best'][k.replace('az amp', 'az projang')])!=str and \
-                    fit['best'][k]<0:
-                # -- correct negative amplitudes
-                fit['best'][k] = np.abs(fit['best'][k])
-                n = int(k.split('az amp')[1])
-                fit['best'][k.replace('az amp', 'az projang')] -= 180/n
-            if type(fit['best'][k.replace('az amp', 'az projang')])!=str:
-                # -- force projection angles -180 -> 180
-                #fit['best'][k.replace('az amp', ',az projang')] =\
-                #    (fit['best'][k.replace('az amp', ',az projang')]+180)%360-180
-                pass
+    fit['best'] = _updateAzAmpsProjangs(fit['best'])
+
     if type(verbose)==int and verbose>=1:
         dpfit.dispBest(fit)
     if type(verbose)==int and verbose>=2:
         dpfit.dispCor(fit)
 
     return fit
+
+def _updateAzAmpsProjangs(params):
+    # -- changing parameters can have some nasty side effects if "az amp" or
+    # -- "az projang" are defined as a function of one another!
+    comps = set([k.split(',')[0] for k in params if ',' in k])
+    if len(comps)>0:
+        _safe = {c:True for c in comps}
+        for k in params:
+            if ',az amp' in k:
+                c = k.split(',')[0]
+                if type(params[k])==str or \
+                        type(params[k.replace('az amp', 'az projang')])==str:
+                    _safe[c] = False
+                for kp in params:
+                    if type(params)==str and \
+                         ('$'+k in params or
+                          '$'+k.replace('az amp', 'az projang') in params):
+                          _safe[c] = False
+        safe = lambda k: _safe[k.split(',')[0]]
+    else:
+        _safe = True
+        for k in params:
+            if 'az amp' in k:
+                if type(params[k])==str or \
+                        type(params[k.replace('az amp', 'az projang')])==str:
+                    _safe = False
+                for kp in params:
+                    if type(params)==str and \
+                        ('$'+k in params or
+                          '$'+k.replace('az amp', 'az projang') in params):
+                          _safe = False
+        safe = lambda k: _safe
+    #print('_safe:', _safe)
+
+    for k in params:
+        if safe(k) and 'az amp' in k:
+            if type(params[k])!=str and \
+                    type(params[k.replace('az amp', 'az projang')])!=str and \
+                    params[k]<0:
+                # -- correct negative amplitudes
+                params[k] = np.abs(params[k])
+                n = int(k.split('az amp')[1])
+                params[k.replace('az amp', 'az projang')] -= 180/n
+            if type(params[k.replace('az amp', 'az projang')])!=str:
+                # -- force projection angles -180 -> 180
+                #fit['best'][k.replace('az amp', ',az projang')] =\
+                #    (fit['best'][k.replace('az amp', ',az projang')]+180)%360-180
+                pass
+
+    return params
 
 def _chi2(oi, param):
     res2 = residualsOI(oi, param)**2
