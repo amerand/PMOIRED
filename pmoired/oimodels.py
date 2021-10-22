@@ -2453,6 +2453,8 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     fit['best'] = _updateAzAmpsProjangs(fit['best'])
 
     if type(verbose)==int and verbose>=1:
+        print('# -- degrees of freedom:', fit['ndof'])
+        print('# -- reduced chi2:', fit['chi2'])
         dpfit.dispBest(fit)
     if type(verbose)==int and verbose>=2:
         dpfit.dispCor(fit)
@@ -2476,7 +2478,7 @@ def _updateAzAmpsProjangs(params):
                          ('$'+k in params or
                           '$'+k.replace('az amp', 'az projang') in params):
                           _safe[c] = False
-        safe = lambda k: _safe[k.split(',')[0]]
+        safe = lambda k: _safe[k.split(',')[0]] if ',' in k else True
     else:
         _safe = True
         for k in params:
