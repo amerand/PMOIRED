@@ -1093,7 +1093,7 @@ def VfromImageOI(oi):
 
     oi['IM_VIS'] = {}
     oi['IM_FLUX'] = {}
-
+    print('+++', oi['MODEL'].keys())
     for k in oi['OI_VIS'].keys():
         tmp = {}
         for l in ['u', 'v', 'u/wl', 'v/wl', 'B/wl', 'MJD', 'FLAG']:
@@ -3281,7 +3281,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vLambda0=None,
-           cColors={}, cMarkers={}):
+           cColors={}, cMarkers={}, _m=None):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -3335,6 +3335,16 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 f = fig
             else:
                 f = fig+i
+            if not _m is None and checkImVis:
+                #print('checking synthetic visibilities from images')
+                #print('recursion %d/%d: type(_m)'%(i+1, len(oi)), type(_m), end=' ')
+                if type(_m)==list:
+                    print(len(_m))
+                else:
+                    print()
+                _M = _m[i]
+            else:
+                _M = None
             # -- m is the model based in parameters
             m = showOI(o, param=param, fig=f, obs=obs,
                    imFov=imFov, imPix=imPix, imX=imX, imY=imY, imMax=imMax,
@@ -3346,7 +3356,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vLambda0=vLambda0,
-                   cColors=cColors, cMarkers=cMarkers
+                   cColors=cColors, cMarkers=cMarkers, _m=_M
                    )
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
@@ -3364,7 +3374,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
 
-        if showIm or not imFov is None:
+        if showIm and not imFov is None:
             fluxes = {}
             spectra = {}
             im = 1
@@ -3531,7 +3541,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             # == FIX THIS! does not work anymore bcause images are computed elsewhere
             if debug:
                 print(' computing V from Image, imFov=', imFov)
-            m = VfromImageOI(m)
+            if not _m is None:
+                m = VfromImageOI(m)
+        if checkImVis and not _m is None:
+                # -- this is ugly :(
+                for k in ['OI_VIS', 'OI_T3']:
+                    m[k.replace('OI_', 'IM_')] = _m[k]
+                for k in m['IM_VIS'].keys():
+                    m['IM_VIS'][k]['V2'] = _m['OI_VIS2'][k]['V2']
+
         #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
         #    print('bandwidth smearing spectral channel(s):', m['smearing'])
         #if not 'smearing' in m:
@@ -4057,19 +4075,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     pass
 
                 # -- show model: numerical FT from image
-                try:
-                    if checkImVis:
-                        if not spectro: #allInOne:
-                            ax.plot(X(m, j)[mask],
-                                 m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                                '1b', alpha=0.4)
-                        else:
-                            ax.step(X(m, j)[mask],
-                                 m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                                '--b', alpha=0.4, linewidth=2, where='mid')
-                except:
-                    #print('error: cannot show ImVis', l, k)
-                    pass
+                if checkImVis:
+                    if not spectro: #allInOne:
+                        ax.plot(X(m, j)[mask],
+                             m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
+                            '1b', alpha=0.4)
+                    else:
+                        ax.step(X(m, j)[mask],
+                             m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
+                            '--b', alpha=0.4, linewidth=2, where='mid')
 
                 # -- show continuum for differetial PHI and normalized FLUX
                 if (l=='DPHI' or l=='NFLUX') and 'WL cont' in oi:
@@ -4181,7 +4195,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             axr.set_xticks(XTICKS)
                             axr.set_xticklabels([str(x) for x in XTICKS])
                             #axr.minorticks_off()
-
             if i==0:
                 title = l
                 if 'unit' in data[l]:
@@ -4193,7 +4206,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
                 ax.legend(fontsize=4, ncol=4)
-
         i_col += 1
 
     plt.subplots_adjust(hspace=0, wspace=0.2, left=0.06, right=0.99)

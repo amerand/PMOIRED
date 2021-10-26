@@ -27,7 +27,7 @@ np.warnings.filterwarnings('ignore')
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__versions__={'pmoired':'20211021',
+__versions__={'pmoired':'20211026',
               'python':sys.version,
               'numpy':np.__version__,
               'scipy':scipy.__version__,
@@ -737,6 +737,7 @@ class OI:
         else:
             if showSED is None:
                 showSED = False
+
         #print('debug:', 'imFov', imFov, 'imPix', imPix,
         #        'showIM', showIM, 'showSED', showSED)
         if spectro is None:
@@ -768,7 +769,15 @@ class OI:
             showIM = False
             imFov = None
 
+        if not imFov is None and checkImVis and not allInOne and not perSetup:
+            # -- prepare computing model's images
+            print('computing images and visibilities')
+            self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
+                                imX=imX, imY=imY, visibilities=True)
+
         if perSetup:
+            if checkImVis:
+                print('cannot check visibilites from images with "perSetup=True"')
             if perSetup == 'insname':
                 perSetup = list(set([d['insname'] for d in self.data]))
             elif not type(perSetup)==list:
@@ -787,9 +796,9 @@ class OI:
                     _obs = obs
                 oimodels.showOI(g,
                         param=model, fig=self.fig, obs=_obs, logV=logV,
-                        logB=logB, showFlagged=showFlagged,
+                        logB=logB, showFlagged=showFlagged, showIm=False,
                         spectro=spectro, showUV=showUV, allInOne=True,
-                        imFov=None,  checkImVis=checkImVis, vLambda0=vLambda0,
+                        imFov=None, checkImVis=False, vLambda0=vLambda0,
                         showChi2=showChi2, debug=self.debug)
                 self.fig+=1
                 if type(perSetup)==list:
@@ -803,6 +812,8 @@ class OI:
                                debug=self.debug)
             return
         elif allInOne:
+            if checkImVis:
+                print('cannot check visibilites from images with "allInOne=True"')
             # -- figure out the list of obs, could be heteregenous
             if not obs is None:
                 _obs = list(obs)
@@ -822,16 +833,15 @@ class OI:
                             d['fit'] = {}
                         d['fit']['obs'] = _obs
 
-            #print('_obs', _obs)
+
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
                     obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
                     spectro=spectro, showUV=showUV, allInOne=allInOne,
-                    imFov=None, #imPix=imPix, imPow=imPow, imMax=imMax,
+                    imFov=None, showIm=False, #imPix=imPix, imPow=imPow, imMax=imMax,
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
-                    checkImVis=checkImVis, vLambda0=vLambda0, showChi2=showChi2,
-                    debug=self.debug
-                    )
+                    checkImVis=False, vLambda0=vLambda0, showChi2=showChi2,
+                    debug=self.debug)
             if allInOne:
                 self.fig += 1
             else:
@@ -843,7 +853,6 @@ class OI:
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
                                debug=self.debug)
-
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -852,11 +861,16 @@ class OI:
                     _obs = d['fit']['obs']
                 else:
                     _obs = None
+                if checkImVis:
+                    _m = [self.vfromim[i]]
+                else:
+                    _m = None
+
                 self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
-                        spectro=spectro, showUV=showUV,
+                        spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vLambda0=vLambda0,
-                        showChi2=showChi2, debug=self.debug))
+                        showChi2=showChi2, debug=self.debug, _m=_m))
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
@@ -955,7 +969,7 @@ class OI:
                 axy.tick_params(axis='y', labelsize=6, labelcolor=(0.7,0.5,0.2),
                                 pad=0, labelrotation=-90)
                 if i==0:
-                    axx.set_xlabel(r'AU at\n$\varpi$=%.2fmas'%imPlx,
+                    axx.set_xlabel('AU at\n'+r'$\varpi$=%.2fmas'%imPlx,
                                     color=(0.7,0.5,0.2), x=0, fontsize=5)
             # -- index of image in cube, closest wavelength
             i0 = np.argmin(np.abs(self.images['WL']-wl0))
@@ -1216,7 +1230,7 @@ class OI:
         return
 
     def computeModelImages(self, imFov, model='best', imPix=None,
-                           imX=0, imY=0):
+                           imX=0, imY=0, visibilities=False):
         """
         Compute an image cube of the synthetic model, for each wavelength in
         the data. By default, the model used is the best fit model
@@ -1239,7 +1253,12 @@ class OI:
         """
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
+
         assert type(model) is dict, "model must be a dictionnary"
+        if 'model' in self.images and self.images['model']==model:
+            print('-- nothing to be done')
+            return
+
         if imPix is None:
             imPix = imFov/101
         tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
@@ -1253,7 +1272,6 @@ class OI:
         scale = np.diff(X).max()
         res = {'WL':[], 'cube':[], 'X':X, 'Y':Y, 'scale':scale,
                 'model':model}
-
         for t in tmp:# for each OIFITS object
             for i, wl in enumerate(t['WL']):
                 if not wl in res['WL']:
@@ -1271,8 +1289,63 @@ class OI:
 
         res['photcent y'] = np.sum(res['Y'][None,:,:]*res['cube'], axis=(1,2))/\
                         np.sum(res['cube'], axis=(1,2))
-
         self.images = res
+
+        # -- add synthetic visibilities
+        if not visibilities:
+            return
+
+        syn = []
+        for d in self.data:
+            # -- assumes OI_VIS and OI_VIS2 have same u,v,wl,mjd structures
+            # -- this is ensured while loading data
+            if 'OI_VIS' in d:
+                key = 'OI_VIS'
+            else:
+                key = 'OI_VIS2'
+            tmp = {'OI_VIS':{}, 'OI_VIS2':{}, 'WL':d['WL']}
+            wl = np.array([np.argmin(np.abs(x-res['WL'])) for x in d['WL']])
+            norm = np.sum(res['cube'][wl,:,:], axis=(1,2))
+            _c = np.pi**2/180/3600/1000*1e6
+            for k in d[key]:
+                # -- dims are uv, wl, x, y
+                phi = -2j*_c*(res['X'][None,None,:,:]*d[key][k]['u/wl'][:,:,None,None] +
+                              res['Y'][None,None,:,:]*d[key][k]['v/wl'][:,:,None,None])
+                # -- complex visibility
+                vis = np.sum(res['cube'][wl,:,:][None,:,:,:]*np.exp(phi), axis=(2,3))/norm
+                tmp['OI_VIS'][k] = {'|V|':np.abs(vis),
+                                    'PHI':np.angle(vis)*180/np.pi,
+                                    'u/wl': d[key][k]['u/wl'],
+                                    'v/wl': d[key][k]['v/wl'],
+                                    'B/wl': d[key][k]['B/wl'],
+                                    'MJD':d[key][k]['MJD'],
+                                    }
+                if 'OI_VIS' in d:
+                    tmp['OI_VIS'][k]['FLAG'] = d['OI_VIS'][k]['FLAG']
+                else:
+                    tmp['OI_VIS'][k]['FLAG'] = d[key][k]['FLAG']
+
+                tmp['OI_VIS2'][k] = {'V2':np.abs(vis)**2,
+                                    'u/wl': d[key][k]['u/wl'],
+                                    'v/wl': d[key][k]['v/wl'],
+                                    'B/wl': d[key][k]['B/wl'],
+                                    'MJD':d[key][k]['MJD'],
+                                    }
+                if 'OI_VIS2' in d:
+                    tmp['OI_VIS2'][k]['FLAG'] = d['OI_VIS2'][k]['FLAG']
+                else:
+                    tmp['OI_VIS2'][k]['FLAG'] = d[key][k]['FLAG']
+
+            if 'OI_T3' in d:
+                tmp['OI_T3'] = {}
+                for k in d['OI_T3']:
+                    tmp['OI_T3'][k] = { x: d['OI_T3'][k][x] for x in
+                        ['formula', 'MJD', 'Bmax/wl', 'Bavg/wl', 'FLAG']}
+
+            tmp = oimodels.computeT3fromVisOI(tmp)
+            syn.append(tmp)
+        print('test', len(self.data), '->', len(syn))
+        self.vfromim = syn
         return
 
     def computeModelSpectra(self, model='best', uncer=True, Niter=100):
