@@ -1286,14 +1286,20 @@ class OI:
             model = self.bestfit['best']
 
         assert type(model) is dict, "model must be a dictionnary"
-        if 'model' in self.images and self.images['model']==model:
-            print('-- nothing to be done')
-            return
-
         if imPix is None:
             imPix = imFov/101
+
+        if 'model' in self.images and self.images['model']==model and\
+            np.abs(imFov-np.ptp(self.images['X']))<1e-6 and\
+            np.abs(imPix-np.diff(self.images['X'])[0][0])<1e-6 and\
+            np.abs(imX-np.mean(self.images['X']))<1e-6 and\
+            np.abs(imY-np.mean(self.images['Y']))<1e-6:
+            #print('-- nothing to be done')
+            pass
+            return
+
         tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
-                                imX=imX, imY=imY) for d in self.data]
+                                 imX=imX, imY=imY) for d in self.data]
 
         # -- image coordinates in mas
         X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
