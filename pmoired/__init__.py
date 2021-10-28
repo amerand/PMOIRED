@@ -46,7 +46,7 @@ def checkCurrentVersion():
     """
     global __version__
     link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
-    f = requests.get(link)
+    f = requests.get(link, verify=False, timeout=10)
     lines = f.text.split('\n')
     lines = list(filter(lambda x: x.replace(' ', '').startswith('__version__='), lines))
     if len(lines)==1:
@@ -54,16 +54,16 @@ def checkCurrentVersion():
     else:
         return None
 
-print('cheking for newer version...', end='')
+print('cheking for newer version... ', end='')
 try:
     curver = checkCurrentVersion()
     if not curver is None and curver>__version__:
-        print('\033[44mNew version available on github:', curver, end=' ')
-        print(', you have', __version__, '\033[0m')
+        print('\033[44mNew version available on github:', curver, end=']\033[0m ')
     if not curver is None and curver==__version__:
-        print('Version up to date with github')
+        print('Up to date', end=' ')
     if not curver is None and curver<__version__:
-        print('You have a newer version than github!')
+        print('You have a newer version than github!?', end=' ')
+    print('[you have '+__version__+']' )
 except:
     print('failed')
 
