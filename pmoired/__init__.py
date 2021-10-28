@@ -50,18 +50,22 @@ def checkCurrentVersion():
     lines = f.text.split('\n')
     lines = list(filter(lambda x: x.replace(' ', '').startswith('__version__='), lines))
     if len(lines)==1:
-        return lines[1].split('__version__=')[1].replace('"', '').replace("'",'')
+        return lines[0].split('__version__=')[1].replace('"', '').replace("'",'')
     else:
         return None
 
+print('cheking for newer version...', end='')
 try:
     curver = checkCurrentVersion()
-    if not curver is None and curver!=__version__:
+    if not curver is None and curver>__version__:
         print('\033[44mNew version available on github:', curver, end=' ')
         print(', you have', __version__, '\033[0m')
+    if not curver is None and curver==__version__:
+        print('Version up to date with github')
+    if not curver is None and curver<__version__:
+        print('You have a newer version than github!')
 except:
-    # cannot check version
-    pass
+    print('failed')
 
 try:
     jup = os.popen('jupyter --version').readlines()
