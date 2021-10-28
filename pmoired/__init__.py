@@ -12,6 +12,8 @@ except:
     pass
 
 import numpy as np
+np.warnings.filterwarnings('ignore')
+
 import matplotlib.pyplot as plt
 import scipy
 import astropy
@@ -21,13 +23,15 @@ import sys
 import os
 import pickle
 import time
+import requests
 
-np.warnings.filterwarnings('ignore')
 
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__versions__={'pmoired':'20211026',
+__version__='20211026'
+
+__versions__={'pmoired':__version__,
               'python':sys.version,
               'numpy':np.__version__,
               'scipy':scipy.__version__,
@@ -35,6 +39,24 @@ __versions__={'pmoired':'20211026',
               'astroquery': astroquery.__version__,
               'matplotlib':matplotlib.__version__
               }
+
+def checkCurrentVersion():
+    """
+    ugly!
+    """
+    global __version__
+    link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
+    f = requests.get(link)
+    lines = f.text.split('\n')
+    lines = filter(lambda x: x.replace(' ', '').startswith('__version__='), lines)
+    if len(lines)==1:
+        return lines[1].split('__version__=')[1].replace('"', '').replace("'",'')
+    else:
+        return None
+
+curver = checkCurrentVersion()
+if not curver is None and curver!=__version__:
+    print('\033[31mNew version available:', curver, 'you have', __version__, '\033[0m')
 
 try:
     jup = os.popen('jupyter --version').readlines()
