@@ -438,7 +438,7 @@ class OI:
     #     return
 
     def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True,
-                        prior=None):
+                        prior=None, constrain=None):
         """
         check the detection limit for parameter "param" from "model" (default
         bestfit), using an exploration grid "expl" (see gridFit for a description),
@@ -457,7 +457,8 @@ class OI:
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         self.limgrid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        multi=multi, dLimParam=param,
-                                       dLimSigma=nsigma, prior=prior)
+                                       dLimSigma=nsigma, prior=prior,
+                                       constrain=constrain)
         #self.limgrid = [{'best':g} for g in self.limgrid]
         self._limexpl = expl
         self._limexpl['param'] = param
@@ -591,7 +592,8 @@ class OI:
         self._grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
-                                       epsfcn=epsfcn, constrain=constrain)
+                                       epsfcn=epsfcn, constrain=constrain,
+                                       prior=prior)
         self._expl = expl
         self.grid = oimodels.analyseGrid(self._grid, self._expl)
         self.bestfit = self.grid[0]
@@ -628,9 +630,8 @@ class OI:
         if py is None:
             py = params[1]
         xy = False
-        if aspect is None and \
-                (px=='x' or px.endswith(',x')) and \
-                (py=='y' or py.endswith(',y')):
+        if (px=='x' or px.endswith(',x')) and \
+            (py=='y' or py.endswith(',y')):
             aspect = 'equal'
             xy = True
         if fig is None:
@@ -659,9 +660,10 @@ class OI:
                             print('error:', c, tmp[c+',x'], tmp[c+',y'])
                 else:
                     plt.plot(0,0,'*', label=c,
-                            markersize=10, alpha=0.5)
+                             markersize=10, alpha=0.5)
                     leg = True
-
+            plt.xlabel('E $\leftarrow$ '+px)
+            plt.ylabel(py+r'$\rightarrow$ N')
             if leg:
                 plt.legend(fontsize=7)
         return

@@ -2630,7 +2630,7 @@ def get_processor_info():
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
-              dLimParam=None, dLimSigma=3, debug=False, constrain=None):
+              dLimParam=None, dLimSigma=3, debug=False, constrain=None, prior=None):
     """
     perform "N" fit on "oi", starting from "param", with grid / randomised
     parameters. N can be determined from "expl" if
@@ -2713,7 +2713,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     # -- run all fits
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
-              'iter':-1}
+              'iter':-1, 'prior':prior}
     res = []
     if multi:
         if type(multi)!=int:
