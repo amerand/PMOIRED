@@ -58,7 +58,7 @@ print('cheking for newer version... ', end='')
 try:
     curver = checkCurrentVersion()
     if not curver is None and curver>__version__:
-        print('\033[44mNew version available on github:', curver, end=']\033[0m ')
+        print('\033[44mNew version available on github: ', curver, end='\033[0m ')
     if not curver is None and curver==__version__:
         print('Up to date', end=' ')
     if not curver is None and curver<__version__:
