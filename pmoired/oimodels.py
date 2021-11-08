@@ -1403,6 +1403,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             print('VmodelOI: NO NEED for differential phase', oi['fit'])
 
     if 'fit' in oi and 'obs' in oi['fit'] and 'NFLUX' in oi['fit']['obs']:
+        #print('normalised fluxes')
         res = computeNormFluxOI(res, param, debug=debug)
         if timeit:
             print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
@@ -1600,12 +1601,12 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
         print('warning: no continuum!')
         w = oi['WL']>0
 
-
     oi['WL cont'] = np.bool_(w)
     w = oi['WL cont'].copy()
 
     if debug:
         print('computeDiffPhiOI: continuum', oi['WL cont'])
+        #print(' ', oi['WL'][oi['WL cont']])
 
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.2)
@@ -1659,7 +1660,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
         return [computeNormFluxOI(o, _param, order) for o in oi]
 
     if not 'OI_FLUX' in oi.keys():
-        #print('WARNING: computeNormFluxOI, nothing to do')
+        print('WARNING: computeNormFluxOI, nothing to do')
         return oi
 
     if 'param' in oi.keys() and param is None:
@@ -1722,6 +1723,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
     if debug:
         print('computeNormFluxOI: continuum', oi['WL cont'])
+        #print(' ', oi['WL'][oi['WL cont']])
 
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.15)
@@ -1731,7 +1733,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
         order = oi['fit']['NFLUX order']
 
     if np.sum(oi['WL cont'])<order+1:
-        print('ERROR: not enough WL to compute continuum!')
+        print('WARNING: not enough WL to compute continuum!')
         return oi
 
     oi['NFLUX'] = {}
@@ -1743,8 +1745,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
             mask = w*~oi['OI_FLUX'][k]['FLAG'][i,:]
             # -- continuum
             if np.sum(mask)>order:
-                c = np.polyfit(oi['WL'][w], flux[w], order)
-                data.append(flux/np.polyval(c, oi['WL']))
+                c = np.polyfit(oi['WL'][w]-np.mean(oi['WL'][w]), flux[w], order)
+                data.append(flux/np.polyval(c, oi['WL']-np.mean(oi['WL'][w])))
             else:
                 data.append(flux/np.median(flux))
 
@@ -2060,7 +2062,9 @@ def residualsOI(oi, param, timeit=False):
             print('residualsOI > dPHI %.3fms'%(1000*(time.time()-t0)))
             t0 = time.time()
     if 'NFLUX' in fit['obs']:
+        #print('debug: flux normalisation for residuals', end=' ')
         oi = computeNormFluxOI(oi, param)
+        #_k = list(oi['NFLUX'].keys())[0]; print(oi['NFLUX'][_k]['NFLUX'])
         if timeit:
             print('residualsOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
@@ -3379,7 +3383,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             spectra = {}
             im = 1
             if len(allWLc):
-                allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
+                allWL = {'WL':allWLc,
+                         'fit':{'obs':[]}} # minimum required
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                               imWl0=imWl0, imMax=imMax, logS=logS,
@@ -3392,7 +3397,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 m['fluxes WL'] = allWLc
             if len(allWLs):
                 allWL = {'WL':allWLs, # minimum required
-                        'fit':{'obs':['NFLUX']} # force computation of continuum
+                         'fit':{'obs':['NFLUX']} # force computation of continuum
                           }
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
@@ -3554,7 +3559,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         #    print('bandwidth smearing spectral channel(s):', m['smearing'])
         #if not 'smearing' in m:
         #    print('! no smearing? !')
+        if debug:
+            print('using parameters')
     else:
+        if debug:
+            print('no parameters given')
         m = None
 
     c = 1 # column
@@ -3595,7 +3604,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         obs = obs[::-1]
         if not any(['FLUX' in o for o in obs]):
             ncol += 1
-
+    if debug:
+        print('showing:', obs)
     mcB = {'i':0} # marker/color for baselines (showUV=True)
     mcT = {'i':0} # marker/color for triangles (showUV=True)
 
@@ -3625,8 +3635,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     i_col = 0
     yoffset = 0
     #print('#', oi['filename'], obsfit, obs)
-
     for c,l in enumerate(obs):
+        if debug:
+            print('handling:', l)
         # -- for each observable to plot
         if l=='UV': # special case for UV plot
             i = 0 # indexes for color
@@ -3743,14 +3754,18 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             i_flux += 1
             if not any(['FLUX' in o for o in obs]):
                 i_col+=1
+                if debug:
+                    print('no FLUX')
             else:
-                # do NOT incremente i_col!
+                if debug:
+                    print('FLUX')
                 pass
             continue
 
         if not data[l]['ext'] in oi.keys():
             i_col += 1
-            #print('adding one colum')
+            if debug:
+                print('adding one colum')
             continue
 
         N = len(oi[data[l]['ext']].keys())
@@ -3763,8 +3778,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         else:
             keys = sorted(keys)
 
-        # -- average normalized flux
-        if l=='NFLUX' and 'UV' in obs and l in obsfit:
+        # -- average normalized flux -> is this thing still needed?!
+        if False and l=='NFLUX' and 'UV' in obs and l in obsfit:
+            if debug:
+                print('>>> NFLUX?!')
             tmp = np.zeros(len(oi['WL']))
             etmp = 1.e6*np.ones(len(oi['WL']))
             weight = np.zeros(len(oi['WL']))
@@ -3791,6 +3808,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 'FLAG':np.array([~w]), 'MJD':[MJDs[0]],
                     }
             keys = ['']
+        else:
+            pass
 
         showLegend = False
 
