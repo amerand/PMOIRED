@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20211108'
+__version__='20211111'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -714,7 +714,7 @@ class OI:
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
-             checkImVis=False, vLambda0=None, imWl0=None, cmap='inferno',
+             checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
              showSED=None, showPhotCent=False, imLegend=True):
         """
@@ -729,7 +729,7 @@ class OI:
         - showFlagged: show data flagged in the file (boolean)
         - showUV: show u,v coordinated (boolean)
         - spectro: force spectroscopic mode
-        - vLambda0: show sepctroscopic data with velocity scale,
+        - vWl0: show sepctroscopic data with velocity scale,
             around this central wavelength (in microns)
         - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
         - allInOne: all data in a single figure
@@ -831,7 +831,7 @@ class OI:
                         param=model, fig=self.fig, obs=_obs, logV=logV,
                         logB=logB, showFlagged=showFlagged, showIm=False,
                         spectro=spectro, showUV=showUV, allInOne=True,
-                        imFov=None, checkImVis=False, vLambda0=vLambda0,
+                        imFov=None, checkImVis=False, vWl0=vWl0,
                         showChi2=showChi2, debug=self.debug)
                 self.fig+=1
                 if type(perSetup)==list:
@@ -841,8 +841,8 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
-                               debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug, vWl0=vWl0)
             return
         elif allInOne:
             if checkImVis:
@@ -873,7 +873,7 @@ class OI:
                     imFov=None, showIm=False, #imPix=imPix, imPow=imPow, imMax=imMax,
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
-                    checkImVis=False, vLambda0=vLambda0, showChi2=showChi2,
+                    checkImVis=False, vWl0=vWl0, showChi2=showChi2,
                     debug=self.debug)
             if allInOne:
                 self.fig += 1
@@ -884,8 +884,8 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
-                               debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug, vWl0=vWl0)
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -902,7 +902,7 @@ class OI:
                 self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
-                        checkImVis=checkImVis, vLambda0=vLambda0,
+                        checkImVis=checkImVis, vWl0=vWl0,
                         showChi2=showChi2, debug=self.debug, _m=_m))
                 self.fig += 1
             if not imFov is None or showSED:
@@ -910,15 +910,15 @@ class OI:
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend, vLambda0=vLambda0,
-                               debug=self.debug)
+                               imPhotCent=showPhotCent, imLegend=imLegend,
+                               debug=self.debug, vWl0=vWl0)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
-                  imLegend=True, vLambda0=None):
+                  imLegend=True, vWl0=None):
         """
         model: parameter dictionnary, describing the model
 
@@ -1014,7 +1014,8 @@ class OI:
 
             if not imMax is None:
                 if type(imMax)==str:
-                    _imMax = np.percentile(im**imPow, float(imMax))
+                    _imMax = np.percentile((im**imPow)[(im**imPow)>0], float(imMax))
+                    #_imMax = np.percentile(im**imPow, float(imMax))
                 else:
                     _imMax = imMax**imPow
             else:
@@ -1063,8 +1064,8 @@ class OI:
 
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
-            if not vLambda0 is None:
-                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vLambda0)/self.images['WL'][i0]*299792)
+            if not vWl0 is None:
+                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vWl0)/self.images['WL'][i0]*299792)
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
             if imLegend:
@@ -1096,9 +1097,9 @@ class OI:
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
-            if not vLambda0 is None:
-                um2kms = lambda um: (um-vLambda0)/um*299792
-                kms2um = lambda kms: vLambda0*(1 + kms/299792)
+            if not vWl0 is None:
+                um2kms = lambda um: (um-vWl0)/um*299792
+                kms2um = lambda kms: vWl0*(1 + kms/299792)
                 axv = ax.secondary_xaxis('top', functions=(um2kms, kms2um),
                                          color='0.6')
                 axv.tick_params(axis='x', labelsize=5,
@@ -1116,7 +1117,13 @@ class OI:
                 plt.plot(self.spectra[key+'WL'][w], self.spectra[key+'COMP'][c][w],
                         '-', label=c, color=col, linewidth=1.5)
             plt.plot(self.spectra[key+'WL'], self.spectra[key+'TOTAL'],
-                    '-k', label='TOTAL', linewidth=3)
+                    '-', label='TOTAL', linewidth=2, color='0.4')
+            # -- show imWl0
+            #plt.scatter(imWl0, np.interp(imWl0, self.spectra[key+'WL'], self.spectra[key+'TOTAL']),
+            #            c=imWl0, cmap='jet', marker='d')
+            #plt.plot(imWl0, np.interp(imWl0, self.spectra[key+'WL'], self.spectra[key+'TOTAL']),
+            #         'dk')
+
             if logS:
                 plt.yscale('log')
             else:

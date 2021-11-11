@@ -1374,20 +1374,21 @@ def _allInOneOI(oi, verbose=False, debug=False):
     if type(oi)==list:
         return [_allInOneOI(o, verbose=verbose, debug=debug) for o in oi]
 
-    if 'OI_FLUX' in oi:
+    for e in filter(lambda x: x in oi, ['OI_FLUX', 'NFLUX']):
         fluxes = {}
         weights = {}
+        key = {'OI_FLUX':'FLUX', 'NFLUX':'NFLUX'}[e]
         names = {}
-        for k in oi['OI_FLUX'].keys():
-            for j,mjd in enumerate(oi['OI_FLUX'][k]['MJD']):
-                mask = ~oi['OI_FLUX'][k]['FLAG'][j,:]
+        for k in oi[e].keys():
+            for j,mjd in enumerate(oi[e][k]['MJD']):
+                mask = ~oi[e][k]['FLAG'][j,:]
                 if not mjd in fluxes:
                     fluxes[mjd] = np.zeros(len(oi['WL']))
                     weights[mjd] = np.zeros(len(oi['WL']))
                     names[mjd] = ''
-                fluxes[mjd][mask] += oi['OI_FLUX'][k]['FLUX'][j,mask]/\
-                        oi['OI_FLUX'][k]['EFLUX'][j,mask]
-                weights[mjd][mask] += 1/oi['OI_FLUX'][k]['EFLUX'][j,mask]
+                fluxes[mjd][mask] += oi[e][k][key][j,mask]/\
+                        oi[e][k]['E'+key][j,mask]
+                weights[mjd][mask] += 1/oi[e][k]['E'+key][j,mask]
                 names[mjd] += k
         flags = {}
         efluxes = {}
@@ -1397,14 +1398,14 @@ def _allInOneOI(oi, verbose=False, debug=False):
             flags[mjd] = ~mask
             efluxes[mjd] = np.zeros(len(oi['WL']))
             efluxes[mjd][mask] = 1/weights[mjd][mask]
-        oi['OI_FLUX']['all'] = {
-            'FLUX': np.array([fluxes[mjd] for mjd in fluxes.keys()]),
-            'EFLUX': np.array([efluxes[mjd] for mjd in fluxes.keys()]),
+        oi[e]['all'] = {
+            key: np.array([fluxes[mjd] for mjd in fluxes.keys()]),
+            'E'+key: np.array([efluxes[mjd] for mjd in fluxes.keys()]),
             'FLAG': np.array([flags[mjd] for mjd in fluxes.keys()]),
             'NAME': np.array([names[mjd] for mjd in fluxes.keys()]),
             'MJD': np.array(list(fluxes.keys())),
             }
-        oi['OI_FLUX']['all']['MJD2'] = oi['OI_FLUX']['all']['MJD'][:,None]+\
+        oi[e]['all']['MJD2'] = oi[e]['all']['MJD'][:,None]+\
                             0*oi['WL'][None,:]
 
     for e in filter(lambda x: x in oi.keys(), ['OI_VIS', 'OI_VIS2', 'OI_T3']):

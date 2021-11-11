@@ -863,6 +863,8 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
     else:
         assert False, 'Rout or diamout must be defined'
 
+    #Rout = max(Rout, Rin)
+
     if 'Vin' in param:
         Vin = param['Vin']
     elif 'V1mas' in param:
@@ -892,14 +894,13 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
 
     # -- non uniform coverage in "r" (more points at inner radius, where range of velocity is widest)
     R = np.linspace(Rin**(1/_p), Rout**(1/_p),
-                    int((Rout-Rin)/drin))**_p
+                    max(int((Rout-Rin)/drin), 3))**_p
     dR = np.gradient(R)
     R = np.linspace(Rin**(1/_p), Rout**(1/_p),
-                    int(dR[0]/drin*(Rout-Rin)/drin))**_p
+                    max(int(dR[0]/drin*(Rout-Rin)/drin), 3))**_p
     dR = np.gradient(R)
-    #print('drin:', dR[0], drin, _p)
 
-
+    #print(Rin, Rout)
     # -- TODO: this nested 'for' loop can be improved for speed!
     for i,r in enumerate(R):
         drt = dR[i] # step along the circle
@@ -1567,11 +1568,12 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
     if 'fit' in oi and 'continuum ranges' in oi['fit']:
         wc = np.zeros(oi['WL'].shape)
         for WR in oi['fit']['continuum ranges']:
+            #print(WR, (oi['WL']>=WR[0])*(oi['WL']<=WR[1]))
             wc += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
         w *= np.bool_(wc)
-
+        #print('user defined continuum:', np.sum(np.bool_(wc)), np.sum(w))
     # -- exclude where lines are in the models
-    if not _param is None:
+    elif not _param is None:
         for k in _param.keys():
             if 'line_' in k and 'wl0' in k:
                 dwl = 0
@@ -1598,7 +1600,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
 
     if np.sum(w)==0:
-        print('warning: no continuum!')
+        print('WARNING: no continuum!?')
         w = oi['WL']>0
 
     oi['WL cont'] = np.bool_(w)
@@ -1734,7 +1736,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
     if np.sum(oi['WL cont'])<order+1:
         print('WARNING: not enough WL to compute continuum!')
-        return oi
+        order = np.sum(oi['WL cont'])-1
+        #return oi
 
     oi['NFLUX'] = {}
     # -- normalize flux in the data:
@@ -1748,11 +1751,11 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 c = np.polyfit(oi['WL'][w]-np.mean(oi['WL'][w]), flux[w], order)
                 data.append(flux/np.polyval(c, oi['WL']-np.mean(oi['WL'][w])))
             else:
-                data.append(flux/np.median(flux))
+                data.append(flux/np.nanmedian(flux))
 
             #edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.polyval(c, oi['WL']))
             # -- err normalisation cannot depend on the mask nor continuum calculation!
-            edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.median(flux))
+            edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.nanmedian(flux))
             # -- we have to do this here
             if 'fit' in oi and 'mult error' in oi['fit'] and\
                     'NFLUX' in oi['fit']['mult error']:
@@ -1769,9 +1772,13 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
         data = np.array(data)
         edata = np.array(edata)
         oi['NFLUX'][k] = {'NFLUX':data,
-                         'ENFLUX':edata,
-                         'FLAG':oi['OI_FLUX'][k]['FLAG'],
-                         'MJD':oi['OI_FLUX'][k]['MJD']}
+                          'ENFLUX':edata,
+                          'FLAG':oi['OI_FLUX'][k]['FLAG'],
+                          'MJD':oi['OI_FLUX'][k]['MJD'],
+                          }
+        # -- for boostrapping
+        if 'NAME' in oi['OI_FLUX'][k]:
+            oi['NFLUX'][k]['NAME'] = oi['OI_FLUX'][k]['NAME']
 
     # -- flux computed from image cube
     if 'IM_FLUX' in oi.keys():
@@ -2446,7 +2453,6 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
 
-
     fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z,
                         verbose=bool(verbose),
                         maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
@@ -2541,9 +2547,11 @@ def randomiseData2(oi, verbose=False):
             mjd_t.extend([str(k)+str(c) for c in tmp['configurations per MJD'][k]])
         mjd_t = list(set(mjd_t))
         random.shuffle(mjd_t)
+        # -- ignore half the data
         ignore = mjd_t[:len(mjd_t)//2]
-
-        exts = filter(lambda x: x in ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_FLUX'], tmp.keys())
+        exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_FLUX', 'NFLUX'], tmp.keys()))
+        if verbose:
+            print('in', i, exts, 'ignore', ignore)
         for l in exts:
             if list(tmp[l].keys()) == ['all']:
                 for i,mjd in enumerate(tmp[l]['all']['MJD']):
@@ -2557,7 +2565,7 @@ def randomiseData2(oi, verbose=False):
         res.append(tmp)
     return res
 
-def randomiseData(oi, randomise='telescope or baseline', P=None, verbose=False):
+def randomiseData(oi, randomise='telescope or baseline', P=None, verbose=True):
     # -- make new sample of data
     if P is None:
         # -- evaluate reduction in amount of data
@@ -3284,7 +3292,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            showChi2=False, wlMin=None, wlMax=None, spectro=None, imMax=None,
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
-           onlyMJD=None, showUV=False, allInOne=False, vLambda0=None,
+           onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
            cColors={}, cMarkers={}, _m=None):
     """
     oi: result from oifits.loadOI
@@ -3359,7 +3367,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    logB=logB, logV=logV, color=color, showFlagged=showFlagged,
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
-                   debug=debug, vLambda0=vLambda0,
+                   debug=debug, vWl0=vWl0,
                    cColors=cColors, cMarkers=cMarkers, _m=_M
                    )
             if not param is None:
@@ -3437,9 +3445,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         print('starting plotting in showOI')
 
     #print('->', computeLambdaParams(param))
-    if not vLambda0 is None:
-        um2kms = lambda um: (um-vLambda0)/um*2.998e5
-        kms2um = lambda kms: vLambda0*(1 + kms/2.998e5)
+    if not vWl0 is None:
+        um2kms = lambda um: (um-vWl0)/um*2.998e5
+        kms2um = lambda kms: vWl0*(1 + kms/2.998e5)
 
     if spectro is None:
         spectro = len(oi['WL'])>10
@@ -3785,7 +3793,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             tmp = np.zeros(len(oi['WL']))
             etmp = 1.e6*np.ones(len(oi['WL']))
             weight = np.zeros(len(oi['WL']))
-            for k in keys:
+
+            for k in keys: # for each telescopes:
                 allMJDs = list(oi[data[l]['ext']][k]['MJD'])
                 if onlyMJD is None:
                     MJDs = allMJDs
@@ -3858,7 +3867,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 ax = plt.subplot(n_flux+1, ncol, ncol*(i_flux)+1,
                                                 sharex=ax0)
                         ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
-
                 else:
                     if not spectro:
                         # -- as function of baseline/wl
@@ -3892,7 +3900,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if not ('UV' in obs and 'FLUX' in l):
                 yoffset = 0.0
 
-            if not 'UV' in l and not vLambda0 is None and i==0:
+            if not 'UV' in l and not vWl0 is None and i==0:
                 axv = ax.secondary_xaxis('top', functions=(um2kms, kms2um),
                                          color='0.6')
                 axv.tick_params(axis='x', labelsize=5,
@@ -3912,6 +3920,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 MJDs = allMJDs
             else:
                 MJDs = [m for m in allMJDs if m in onlyMJD]
+
+            # -- for each epoch
             for mjd in MJDs:
                 j = allMJDs.index(mjd)
                 mask = ~oi[data[l]['ext']][k]['FLAG'][j,:]*oi['WL mask']
@@ -3946,13 +3956,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     err *= oi['fit']['mult error'][data[l]['var']]
                 if 'min error' in oi['fit'] and data[l]['var'] in oi['fit']['min error']:
                     err[mask] = np.maximum(oi['fit']['min error'][data[l]['var']], err[mask])
-
                 if 'min relative error' in oi['fit'] and \
                             data[l]['var'] in oi['fit']['min relative error']:
                     # -- force error to a minimum value
                     err[mask] = np.maximum(oi['fit']['min relative error'][data[l]['var']]*y[mask],
                                            err[mask])
-
                 # -- show data
                 test = testTelescopes(k, ignoreTelescope) or testBaselines(k, ignoreBaseline)
 
@@ -4124,6 +4132,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             -360*dOPL*np.polyval(cn, oi['WL']-wl0)/(oi['WL']*1e-6)+yoffset*i,
                             ':c', linewidth=2)
             # -- end loop on MJDs
+
             # if allInOne and not resi is None:
             #     allInOneResiduals[l].extend(list(resi))
             #     test =  i == len(oi[data[l]['ext']].keys())-1
@@ -4219,7 +4228,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 if 'unit' in data[l]:
                     title += ' (%s)'%data[l]['unit']
                 ax.set_title(title)
-                if not vLambda0 is None:
+                if not vWl0 is None:
                     axv.set_xlabel('velocity (km/s)', fontsize=6)
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)

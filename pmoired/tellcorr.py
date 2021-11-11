@@ -146,51 +146,59 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         wl = f[3].data['EFF_WAVE']*1e6
 
     if not quiet:
-        print('WL:', wl.shape)
-
-    pola = f[0].header['HIERARCH ESO FT POLA MODE'].strip()=='SPLIT'
-    # -- sum of fluxes, remove outliers -----------------------------
-    sp, n = 0.0, 3
-    for i in range(4):
-        if pola:
-            s = f[18].data['FLUX'][i,:]+f[22].data['FLUX'][i,:]
-        else:
-            s = f[12].data['FLUX'][i,:]
-
-        for j in range(len(s))[n+1:-n-1]:
-            t = s[j-n:j]
-            t = np.append(t, s[j+1:j+n+1])
-            if np.abs(s[j]-t.mean())>3*t.std():
-                s[j] = t.mean()
-        sp+=s
-    # -- close FITS file
-    f.close()
+        print('WL (all):', wl.shape)
 
     # -- fitting domain:
     if wlmin is None:
         wlmin = 1.9
     if wlmax is None:
         wlmax = 2.5
+
+    pola = f[0].header['HIERARCH ESO FT POLA MODE'].strip()=='SPLIT'
+
+    # -- sum of fluxes, remove outliers -----------------------------
+    sp, n = 0.0, 3
+    for i in range(4):
+        if pola:
+            s = f[18].data['FLUX'][i,:]+f[22].data['FLUX'][i,:]
+            fl = np.logical_or(f[18].data['FLAG'][i,:], f[22].data['FLAG'][i,:])
+        else:
+            s = f[12].data['FLUX'][i,:]
+            fl = f[12].data['FLAG'][i,:]
+
+        # for j in range(len(s))[n+1:-n-1]:
+        #     t = s[j-n:j][fl[j-n:j]]
+        #     t = np.append(t, s[j+1:j+n+1][fl[j+1:j+n+1]])
+        #     if np.isnan(s[j]) or np.abs(s[j]-t.mean())>3*t.std():
+        #         s[j] = t.mean()
+        sp+=s
+    # -- close FITS file
+    f.close()
+
     # -- avoid some known lines
-    w = (wl>wlmin)*(wl<wlmax)
+    w = (wl>wlmin)*(wl<wlmax)*~fl*~np.isnan(sp)
+
     if avoid is None:
         c = 3 if MR else 1
         # -- 2.058: HeI
         # -- 2.167: Br Gamma
-        w = (np.abs(wl-2.058)>c*0.002)*(np.abs(wl-2.1665)>c*0.0015)
-        #w *= np.abs(wl-2.206)>c*0.0015 # ???
+        w = (np.abs(wl-2.058)>c*0.002)*(np.abs(wl-2.1665)>c*0.002)
     else:
         for _wlmin, _wlmax in avoid:
             w *= (wl<=_wlmin)+(wl>=_wlmax)
 
+    if not quiet:
+        print('WL (fit):', wl[w].shape)
+
+
     # -- FIT TELLURIC MODEL -------------------------------------------
     if MR:
         p = {'dl0':-0.000378, 'wl0':2.0, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
-             'kern':4e-3, 'kernp':.9, 'pwv':10.0, 'pow':0.85,
+             'kern':4e-3, 'kernp':.9, 'pwv':5.0, 'pow':0.85,
              'p_2.3717':0.8}
     else:
         p = {'dl0':-0.000378, 'wl0':2.0, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
-             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7, 'pwv':10.0, 'pow':0.85,
+             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7, 'pwv':5.0, 'pow':0.85,
              'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0, }
 
     # -- spectrum model using spline nodes
@@ -203,7 +211,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                     test = False
         if test:
             p['xS'+str(i)] = x
-            p['yS'+str(i)] = np.mean(sp)
+            p['yS'+str(i)] = np.mean(sp[w])
 
     fitOnly = list(filter(lambda k: k.startswith('yS'), p.keys()))
     fitOnly.append('dl0')
@@ -211,6 +219,15 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     doNotFit = []
     doNotFit.extend(list(filter(lambda k: k.startswith('xS'), p.keys())))
     doNotFit.extend(['wl0'])
+
+    # == TEST
+    # plt.close(0)
+    # plt.figure(0)
+    # plt.plot(wl[w], sp[w], '.-k')
+    # plt.plot(wl[w], Ftran(wl[w], p), '-r')
+    # print(p)
+    # return
+    # == end TEST
 
     fit = {'model':Ftran(wl[w], p), 'best':p}
     if True:
