@@ -2386,7 +2386,7 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None,
-          randomise=False, iter=-1, obs=None, epsfcn=1e-8):
+          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -2444,11 +2444,9 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
                     o['fit'] = {'obs':obs}
 
     if randomise is False:
-        #print('all data')
         tmp = oi
     else:
-        #print('running fit', iter)
-        tmp = randomiseData2(oi,  verbose=False)
+        tmp = randomiseData2(oi,  verbose=False, keepFlux=keepFlux)
     z = 0.0
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
@@ -2525,7 +2523,7 @@ def _chi2(oi, param):
     res2 = residualsOI(oi, param)**2
     return np.mean(res2)
 
-def randomiseData2(oi, verbose=False):
+def randomiseData2(oi, verbose=False, keepFlux=False):
     """
     based on "configurations per MJD". Basically draw data from MJDs and/or
     configuration:
@@ -2542,18 +2540,26 @@ def randomiseData2(oi, verbose=False):
         tmp = copy.deepcopy(oi[i%len(oi)])
         # -- collect all the "MJD+config"
         # where config covers the telescope / baselines / triangles
-        mjd_t = []
+        mjd_c = []
         for k in tmp['configurations per MJD'].keys():
-            mjd_t.extend([str(k)+str(c) for c in tmp['configurations per MJD'][k]])
-        mjd_t = list(set(mjd_t))
-        random.shuffle(mjd_t)
-        # -- ignore half the data
-        ignore = mjd_t[:len(mjd_t)//2]
-        exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_FLUX', 'NFLUX'], tmp.keys()))
+            mjd_c.extend([str(k)+str(c) for c in tmp['configurations per MJD'][k]])
+        mjd_c = list(set(mjd_c))
+
+        # -- ignore half the data, randomly
+        random.shuffle(mjd_c)
+        ignore = mjd_c[:len(mjd_c)//2]
+        if keepFlux:
+            exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2',
+                                                'OI_T3',], tmp.keys()))
+
+        else:
+            exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2', 'OI_T3',
+                                               'OI_FLUX', 'NFLUX'], tmp.keys()))
+
         if verbose:
             print('in', i, exts, 'ignore', ignore)
         for l in exts:
-            if list(tmp[l].keys()) == ['all']:
+            if list(tmp[l].keys()) == ['all']: # merged data
                 for i,mjd in enumerate(tmp[l]['all']['MJD']):
                     if str(mjd)+tmp[l]['all']['NAME'][i] in ignore:
                         tmp[l]['all']['FLAG'][i,:] = True
@@ -2988,8 +2994,8 @@ def showGrid(res, px, py, color='chi2', logV=False,
     plt.tight_layout()
     return
 
-def bootstrapFitOI(oi, fit, N=None, maxfev=5000,
-                   ftol=1e-6, sigmaClipping=4.5, multi=True, prior=None):
+def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
+                    multi=True, prior=None, keepFlux=False):
     """
     """
     if N is None:
@@ -3024,7 +3030,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000,
 
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
-              'randomise':True, 'prior':prior, 'iter':-1}
+              'randomise':True, 'prior':prior, 'iter':-1,
+              'keepFlux':keepFlux}
 
     res = []
     if multi:

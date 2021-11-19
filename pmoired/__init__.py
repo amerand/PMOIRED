@@ -668,12 +668,14 @@ class OI:
                 plt.legend(fontsize=7)
         return
 
-    def bootstrapFit(self, Nfits=None, multi=True):
+    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
         by a previously ran fit. By default Nfits is set to the number of
         "independent" data. 'multi' sets the number of threads
         (default==all available).
+
+        keepFlux: do not randomize fluxes (False by default)
 
         See Also: showBootstrap
         """
@@ -683,7 +685,8 @@ class OI:
         assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
         model = self.bestfit
 
-        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi)
+        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
+                                            multi=multi, keepFlux=keepFlux)
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
