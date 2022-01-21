@@ -49,4 +49,16 @@ Check out the examples provided in the package in the directory `examples`, in t
 
 ## Limitations and known issues
 
-PMOIRED uses the `multiprocessing` libraries to parallelise some computation (e.g. bootstrapping, grid search). This library has some issues if you call a script containing such computation is an interactive shell (e.g. ipython, Spyder). The provided examples as notebooks do not suffer from this problem.
+### running a script in ipython hangs
+
+PMOIRED uses the `multiprocessing` library to parallelise some computations (e.g. bootstrapping, grid search). This library has some issues if you run a script containing such computation is an interactive shell (using `%run` or `run` in ipython or Spyder). The provided examples as notebooks do not suffer from this problem. If you want to use PMOIRED in `.py` scripts you run in iPython, you should structure your `.py` script as:
+```
+import pmoired
+import matplotlib
+
+matplotlib.interactive(True)
+__spec__ = None
+if __name__=='__main__':
+    [code]
+```
+in iPython, you can now type `%run myscript.py`.
