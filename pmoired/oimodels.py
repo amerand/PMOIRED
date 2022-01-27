@@ -6,6 +6,7 @@ import os
 import platform, subprocess
 import itertools
 import sys
+import pickle
 
 import numpy as np
 import matplotlib
@@ -129,6 +130,177 @@ def Ssingle(oi, param, noLambda=False):
         except:
             print('!!!', sp)
     return f
+
+def _Kepler3rdLaw(a=None, P=None, M1M2=None):
+    """
+    - a in solar radii (scalar or None)
+    - P in days (scalar or None)
+    - M1M2 = M1+M2 in solar masses (scalar or None)
+
+    at least 2 of the 3 should be input, then the function returns the
+    third one in the proper unit. If not, check if the 3 are
+    consistent (boolean).
+
+    REF: 'The call to adopt a nominal set of astrophysical parameters
+    and constants to improve the accuracy of fundamental physical
+    properties of stars.' from P. Harmanec [1106.1508v1.pdf in
+    Astro-Ph]
+    """
+    G = 6.67428e-11
+    Msol = 1.988419e30
+    Rsol = 6.95508e8
+    C = G*Msol*(86400)**2/(4*np.pi**2*Rsol**3)
+    eC = 0.0075
+    if a is None:
+        return (P**2*M1M2*C)**(1/3.)
+    elif P is None:
+        return (a**3/(M1M2*C))**(1/2.)
+    elif M1M2 is None:
+        return a**3/(P**2*C)
+    else:
+        return abs(a**3/(P**2*M1M2) - C)<=eC
+
+def _orbit(t, param, Vrad=False, verbose=False):
+    """
+    INPUT PARAMETERS:
+
+    t: list of times (MJD)
+    param :  dictionnary containing the parameters:
+    param = {'a': 99.1, 'i': 32.9, 'OMEGA': 172.8, 'e':0.938,
+             'omega':2.1, 'T0': 2451798.0280-2400000.5, 'P':10.817}
+
+    Vrad=True: returns also the radial velocity
+
+    RETURNS:
+
+    3 (or 4) ndarray: X,Y,Z (and Vrad)
+
+    DETAILS:
+
+    alternatively, if 'M' the total mass is given:
+
+    - if 'P' is missing, it is estimated using the Kepler law assuming
+      the semi-major axis 'a' is in AU (i.e. apparent corrected from
+      distance). It also assumes 'P' is in days.
+
+    - if 'a' is missing it is estimated using the Kepler law and 'P'
+      (assumed to be in years). Results then given in AU
+
+    all angles in degress. T0 and P should have same unit (here days).
+
+    result is xyz where x is RA offset and y is dec offset, in units
+    of 'a'.
+
+    also, 'q' can be given (M1/M2) for the computation of the radial
+    velocity (in units of a/P). Otherwise, the function only return
+    dz/dt. Using this definition, radial velocity is positive toward
+    the observer. By default, radial velocities are not computed
+    (takes twice as long).
+
+    definition of semi-amplitude:
+    K(1,2) = 2*pi*a(1,2)*sin(i)/(P(1-e**2)**(0.5))
+
+    hence:
+    a(1,2)sini = (1-e**2)**(0.5)/(2*np.pi)*K(1,2)*P
+
+    refs:
+    http://en.wikipedia.org/wiki/Mean_anomaly
+    http://en.wikipedia.org/wiki/Eccentric_anomaly
+    http://en.wikipedia.org/wiki/True_anomaly
+    """
+    Rsol = 6.95508e8
+    AU = 1.495978707e11
+    if not 'P' in param and 'M' in param:
+        param['P'] = _Kepler3rdLaw(a=param['a'],
+                                  M1M2=param['M'])
+    # -- force a based on P and M
+    if not 'a' in param and 'M' in param:
+        _a = _Kepler3rdLaw(P=param['P'],
+                          M1M2=param['M'])*Rsol/AU
+        if verbose:
+            print('P =', param['P'], 'days')
+            print('M =', param['M'], 'Msol')
+            print('A ->', _a , 'AU')
+    else:
+        _a = np.abs(param['a'])
+
+    if not 'a' in param and 'K1' in param and 'K2' in param:
+        # a*sin(i) actually
+        # K1 & K2 in km/s, P in unit of time -> there must be a sqrt(K1K2)
+        param['a'] = (1-param['e']**2)**(0.5)/(2*np.pi)*param['K'](1,2)*np.abs(param['P'])
+
+    # The mean anomaly is the time since the last periapsis multiplied by the
+    # mean motion, and the mean motion is 2\pi divided by the duration of a full
+    # orbit.
+    mean_anomaly = ((np.array(t)-param['T0'])%param['P'])/param['P']*2*np.pi
+
+    #The eccentric anomaly E is related to the mean anomaly M by the formula:
+    # M = E - e sin E
+    ecc_ = np.linspace(0,2*np.pi, 10000)
+    ecc_anomaly = np.interp(mean_anomaly, ecc_ -param['e']*np.sin(ecc_), ecc_)
+
+    # the true anomaly is an angular parameter that defines the position of a
+    # body moving along a Keplerian orbit. It is the angle between the direction
+    # of periapsis and the current position of the body, as seen from the main
+    # focus of the ellipse (the point around which the object orbits).
+    if np.abs(param['e']) < 1-1e-4:
+        tmp = np.sqrt((1+np.abs(param['e']))/
+                      (1-np.abs(param['e'])))
+    else:
+        tmp = 1.0
+    true_anomaly = 2*np.arctan(tmp*np.tan(ecc_anomaly/2.))
+
+    separation = (1-param['e']**2)/\
+                 (1+np.abs(param['e'])*np.cos(true_anomaly))
+
+    separation *= _a
+
+    xyz = (separation*np.cos(true_anomaly),
+           separation*np.sin(true_anomaly),
+           0.0*separation)
+
+    # --- SEE: http://commons.wikimedia.org/wiki/File:Orbital_elements.svg
+    #          * P2 is the sky plan
+    #          * Upsilon (vernal point) is axis 'X' on the sky
+    if 'omega0' in param and 'domega' in param:
+        omega = param['omega0']+(t-param['T0'])*param['domega']
+        xyz = (xyz[0]*np.cos((omega-180)*np.pi/180) -
+               xyz[1]*np.sin((omega-180)*np.pi/180),
+               xyz[0]*np.sin((omega-180)*np.pi/180) +
+               xyz[1]*np.cos((omega-180)*np.pi/180),
+               xyz[2])
+    else:
+        xyz = (xyz[0]*np.cos((param['omega']-180)*np.pi/180) -
+               xyz[1]*np.sin((param['omega']-180)*np.pi/180),
+               xyz[0]*np.sin((param['omega']-180)*np.pi/180) +
+               xyz[1]*np.cos((param['omega']-180)*np.pi/180),
+               xyz[2])
+
+    if 'i' in param:
+        xyz = (xyz[0],
+               xyz[1]*np.cos(param['i']*np.pi/180) +
+               xyz[2]*np.sin(param['i']*np.pi/180),
+              -xyz[1]*np.sin(param['i']*np.pi/180) +
+               xyz[2]*np.cos(param['i']*np.pi/180))
+
+    if 'OMEGA' in param:
+        xyz = (xyz[0]*np.cos(param['OMEGA']*np.pi/180-np.pi/2) +
+               xyz[1]*np.sin(param['OMEGA']*np.pi/180-np.pi/2),
+              -xyz[0]*np.sin(param['OMEGA']*np.pi/180-np.pi/2) +
+               xyz[1]*np.cos(param['OMEGA']*np.pi/180-np.pi/2),
+               xyz[2])
+
+    # -- computing radial velocity (V_B - V_A)
+    if Vrad:
+        dt = param['P']*1e-6
+        xyz_dt = orbit(np.array(t)+dt, param, Vrad=False)
+        vrad = (xyz_dt[2]-xyz[2])/dt # -- in units of a/P
+        if 'plx' in param.keys():
+            vrad /= param['plx'] # -- in units of a/P/plx
+        # -- returns X, Y, Z and Vrad in units of [a, a, a, a/P/plx]
+        xyz = (xyz[0], xyz[1], xyz[2], vrad)
+
+    return xyz
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
@@ -296,11 +468,19 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         _xs, _ys = _param['x'], _param['y']
         if type(_xs)==str and '$MJD' in _xs:
             x = lambda o: eval(_xs.replace('$MJD', "o['MJD2']"))
+        elif type(_xs)==str and _xs=='orbit':
+            # -- collect orbital parameters
+            oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
+            x = lambda o: _orbit(o['MJD2'], oP)[0]
         else:
             x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
 
         if type(_ys)==str and '$MJD' in _ys:
             y = lambda o: eval(_ys.replace('$MJD', "o['MJD2']"))
+        elif type(_xs)==str and _xs=='orbit':
+            # -- collect orbital parameters
+            oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
+            y = lambda o: _orbit(o['MJD2'], oP)[1]
         else:
             y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
 
@@ -402,7 +582,19 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
                                         (o['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(o)[:,wwl]))
 
     # -- guess which visibility function
-    if 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
+    if 'sparse' in _param:
+        Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], _param)
+        if not I is None:
+            #print('sparse image')
+            if imFov is None:
+                imN = None
+            else:
+                imN = int(np.sqrt(len(X.flatten())))
+            tmp = VsparseImage(np.array([1]), np.array([1]), res['WL'][wwl],
+                               _param, fullOutput=True, imFov=imFov, imPix=imPix,
+                               imX=imX, imY=imY, imN=imN)
+            I = tmp[1]/np.sum(tmp[1])
+    elif 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
         # == TODO: make this faster by only computing for needed wavelength
         if imFov is None:
             imN = None
@@ -801,7 +993,124 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         res['WL'] -= _dwl
     return res
 
-def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, fullOutput=False, _p=2,
+_sparse_image_file = ""
+_sparse_image = {}
+def VsparseImage(u, v, wl, param, fullOutput=False,
+            imFov=None, imPix=None, imX=0, imY=0, imN=None):
+    """
+    complex visibility of sparse image from text file.
+    u, v: 1D-ndarray spatial frequency (m). u and v must have same length N
+    wl: 1D-ndarray wavelength (um). can have a different length from u and v
+
+    param:
+        'sparse': filename. '.txt' should contain 3 columns (space separated)
+            "x y intensity" x and y in mas, intensity is dimensionless
+            Assumes each "x y" is a patch in the image. Each patch is assumed to
+            have equal apparent surface, otherwise last colums must contain
+            "surface * intensity".
+            '.pickle': a pickled dict {'x':..., 'y':..., 'I':...} with each col
+            is a 1D vector
+
+    returns:
+    nd.array of shape (N,M) of complex visibilities
+    """
+    global _sparse_image_file, _sparse_image
+    if _sparse_image_file!=param['sparse']:
+        print('loading new sparse image:', param['sparse'])
+        if param['sparse'].endswith('.txt'):
+            _sparse_image = {'x':[], 'y':[], 'I':[]}
+            with open(param['sparse']) as f:
+                for l in f.readlines():
+                    if not l.strip().startswith('#'):
+                        _sparse_image['x'].append(float(l.split()[0]))
+                        _sparse_image['y'].append(float(l.split()[1]))
+                        _sparse_image['I'].append(float(l.split()[2]))
+            for k in ['x', 'y', 'I']:
+                _sparse_image[k] = np.array(_sparse_image[k])
+        elif param['sparse'].endswith('.pickle'):
+            with open(param['sparse'], 'rb') as f:
+                _sparse_image = pickle.load(f)
+        _sparse_image_file = param['sparse']
+
+    # == compute visibility
+    c = np.pi/180/3600/1000/1e-6 # mas*m.um -> radians
+    if 'projang' in param:
+        cpa = np.cos(np.pi/180*param['projang'])
+        spa = np.sin(np.pi/180*param['projang'])
+        _x = cpa*_sparse_image['x'] - spa*_sparse_image['y']
+        _y = +spa*_sparse_image['x'] + cpa*_sparse_image['y']
+        if 'incl' in param:
+            _y *= np.cos(np.pi/180*param['incl'])
+    else:
+        _x, _y = _sparse_image['x'], _sparse_image['y']
+    if 'scale' in param:
+        _x, _y = param['scale']*_x, param['scale']*_y
+    if 'pow' in param:
+        pow = param['pow']
+    else:
+        pow = 1
+
+    vis = np.exp(-2j*np.pi*c*(u[:,None,None]*_x[None,None,:]+
+                              v[:,None,None]*_y[None,None,:])/wl[None,:,None])
+    vis = np.sum(vis*_sparse_image['I'][None,None,:]**pow, axis=2)/\
+          np.sum(_sparse_image['I']**pow)
+    if not imFov is None:
+        # -- compute cube
+        if imN is None:
+            imN = 2*int(imFov/imPix/2)+1
+        X = np.linspace(imX-imFov/2, imX+imFov/2, imN)
+        Y = np.linspace(imY-imFov/2, imY+imFov/2, imN)
+        _X, _Y = np.meshgrid(X, Y)
+        image = np.zeros((len(X), len(Y)))
+        # -- interpolate -> slow:
+        DX, DY = [-1,0,1], [-1,0,1]
+        for k in range(len(_x)):
+            i = np.argmin(np.abs(_x[k]-X))
+            j = np.argmin(np.abs(_y[k]-Y))
+            if False:
+                # -- 4 quadrants
+                if i==imN-1:
+                    DX = [0,-1]
+                elif _x[k]>X[i]:
+                    DX = [0,1]
+                else:
+                    DX = [0,-1]
+                if j==imN-1:
+                    DY = [0,-1]
+                elif _y[k]>Y[j]:
+                    DY = [0,1]
+                else:
+                    DY = [0,-1]
+                _w = {}
+                for dx in DX:
+                    for dy in DY:
+                        if i+dx>=0 and j+dy>=0 and i+dx<imN and j+dy<imN:
+                            _w[(dx, dy)] = 1-np.abs((_x[k]-X[i+dx])*(_y[k]-Y[j+dy]))/((imFov/(imN-1))**2)
+                for dxy in _w:
+                    image[i+dxy[0],j+dxy[1]] += _sparse_image['I'][k]**pow*_w[dxy]/3
+            else:
+                # -- gaussian
+                _w = {}
+                for dx in DX:
+                    for dy in DY:
+                        if i+dx>=0 and j+dy>=0 and i+dx<imN and j+dy<imN:
+                            _w[(dx, dy)] = np.exp(-((_x[k]-X[i+dx])**2+
+                                                    (_y[k]-Y[j+dy])**2)/(imFov/(imN-1))**2)
+                nor = np.sum([_w[dxy] for dxy in _w])
+                for dxy in _w:
+                    image[i+dxy[0],j+dxy[1]] += _sparse_image['I'][k]**pow*_w[dxy]/nor
+    else:
+        _X, _Y, image = None, None, None
+
+    if fullOutput:
+        # -- visibility, image, x, y
+        return vis, image, _X, _Y
+    else:
+        # -- only (complex) visibility
+        return vis
+
+
+def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
             imFov=None, imPix=None, imX=0, imY=0, imN=None):
     """
     complex visibility of keplerian disk:
@@ -1975,7 +2284,7 @@ def autoPrior(param):
         tmp = ['f']
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
             # -- hard to set a tolerance, but we can assume 1% of initial guess
-            if param[k]>0:
+            if type(param[k])!=str and param[k]>0:
                 prior.append((k, '>=', 0.0, param[k]/100))
             else:
                 prior.append((k, '>=', 0.0))
@@ -2925,7 +3234,7 @@ def showGrid(res, px, py, color='chi2', logV=False,
             fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
     """
     res: results from a gridFitOI
-    px, py: the two parameters to show (default 2 first alphabeticaly)
+    px, py: the two parameters to show (default 2 first alphabetically)
     color: color for the plot (default is chi2)
 
     """

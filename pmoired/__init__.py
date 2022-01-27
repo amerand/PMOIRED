@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20211111'
+__version__='20220127'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -405,6 +405,8 @@ class OI:
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
+        # -- piors are added as data
+        self.bestfit['ndof'] -= len(prior)
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         self.computeModelSpectra(uncer=False)
         self.bestfit['prior'] = prior
@@ -868,7 +870,6 @@ class OI:
                         if not 'fit' in d:
                             d['fit'] = {}
                         d['fit']['obs'] = _obs
-
 
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
                     obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
