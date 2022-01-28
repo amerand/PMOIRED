@@ -2334,9 +2334,9 @@ def computePriorL(param, prior):
         for i in range(3):
             for k in param.keys():
                 if k in form:
-                    form = form.replace(k, str(param[k]))
+                    form = form.replace(k, '('+str(param[k])+')')
                 if k in val:
-                    val = val.replace(k, str(param[k]))
+                    val = val.replace(k, '('+str(param[k])+')')
         # -- residual
         if len(p)==3:
             resi = '('+form+'-'+str(val)+')'
