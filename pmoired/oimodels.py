@@ -766,6 +766,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
             #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr)
 
         _r = np.linspace(diamin/2, diamout/2, Nr)
+        _d = np.linspace(diamin, diamout, Nr)
         _mu = np.sqrt(1-(2*_r/diamout)**2)
         Rout = diamout/2
 
@@ -775,6 +776,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
         if '$' in _param['profile']:
             # -- generic formula
             tmp = _param['profile'].replace('$R', '_r')
+            tmp = tmp.replace('$D', '_d')
+
             tmp = tmp.replace('$MU', '_mu')
             for k in _param.keys():
                 if '$'+k in tmp:
@@ -4968,6 +4971,8 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         diamin = diamout*(1-param[comp+',thick'])
 
     _r = np.linspace(diamin/2, diamout/2, 100)
+    _d = np.linspace(diamin, diamout, 100)
+
     if not comp+',profile' in param:
         _p = np.ones(len(_r))
     elif param[comp+',profile'] == 'doughnut':
@@ -4978,7 +4983,12 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
     elif param[comp+',profile'] == 'uniform':
         _p = np.ones(len(_r))
     else:
-        _p = eval(param[comp+',profile'].replace('$R', '_r'))
+        tmp = param[comp+',profile']
+        if '$R' in tmp:
+            tmp = tmp.replace('$R', '_r')
+        if '$D' in tmp:
+            tmp = tmp.replace('$D', '_d')
+        _p = eval(tmp)
 
     _cf = np.array([np.trapz((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
     _cf /= _cf.max()
