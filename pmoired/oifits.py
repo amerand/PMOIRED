@@ -150,10 +150,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
     oiarrays = {}
+    # -- build OI_ARRAY dictionnary to name the baselines
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_ARRAY':
-            oiarrays[hdu.header['ARRNAME'].strip()] = dict(zip(hdu.data['STA_INDEX'],
-                           np.char.strip(hdu.data['STA_NAME'])))
+            arrname = hdu.header['ARRNAME'].strip()
+            oiarrays[arrname] = dict(zip(hdu.data['STA_INDEX'],
+                                         np.char.strip(hdu.data['STA_NAME'])))
+
 
     #print('oiarrays:', oiarrays)
     # -- assumes there is only one array!
@@ -178,6 +181,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                       ih, targname), targets[targname])
                 continue
             oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+            #res['OI_ARRAY'] = oiarray
             sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
                 # --
@@ -232,6 +236,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             ih, targname), targets[targname])
                 continue
             oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+            #res['OI_ARRAY'] = oiarray
             #print('VIS2 oiarray: (%s)'%hdu.header['ARRNAME'].strip(), oiarray)
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             #print('     sta2:', sta2)
@@ -309,6 +314,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             ih, targname), targets[targname])
                 continue
             oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+            #res['OI_ARRAY'] = oiarray
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             if debug:
                 print('DEBUG: loading OI_VIS', set(sta2))
@@ -505,6 +511,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 continue
             # -- T3 baselines == telescopes pairs
             oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+            #res['OI_ARRAY'] = oiarray
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
@@ -889,6 +896,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         res['TELLURICS'] = tellurics
         if not binning is None and len(tellurics)==len(_WL):
             res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
+    if tellurics is False:
+        res['TELLURICS'] = np.ones(res['WL'].shape)
 
     if 'OI_FLUX' in res.keys():
         for k in res['OI_FLUX'].keys():
