@@ -3,8 +3,9 @@
 
 ## Preamble: using and quoting `PMOIRED`
 
-This code is still in development and not yet fully documented. An article is in preparation describing the algorithms and features of `PMOIRED`. Using this code at the present should be done on a collaborative basis:
-> ***Until a refereed article describing `PMOIRED` is published, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***.
+This code is a __research project in continuous development__ and not yet properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
+
+> ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***.
 
 ## Overview
 
@@ -19,13 +20,15 @@ The modelling of data is based on several principles:
 - In order for the computation to be fast (a requirement to perform data fitting), basic blocks have analytical or semi-analytical complex visibilities. Moreover, for the same reason, their spectral component is independent of the geometry.
 
 The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/tools/data-analysis/litpro). However, `PMOIRED` offers additional features:
-- `PMOIRED` extends the modelling in the spectral dimension. For this reason, it contains a module to do basic telluric correction (only for GRAVITY at the moment)
+- Modelling in the spectral dimension. For this reason, it contains a module to do basic telluric correction (only for VLTI/GRAVITY at the moment)
 - Models' parameters can be expressed a function of each others, which allows to build complex geometrical shapes: astronomical realistic models can be build this way, without compromising on execution speed.
 - Uncertainties can be estimated using bootstrapping (data resampling by date+telescope) to mitigate the effects of correlations between data.
 - The values of parameters can be explored using grid and or random search.
-
+- Synthetic data for VLTI array observations can be generated from data cubes.
 
 ## Install
+
+_`PMOIRED` can be used without installing it to your Python tree. Look at the examples to see how to call it_.
 
 Run the following command in the the root directory of the sources:
 ```
@@ -43,15 +46,15 @@ xargs rm -rf < files.txt
 ## Examples
 
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
-- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening.
+- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervalla et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening. Most `PMOIRED` basics are covered there.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting 2-components model with chromatic flux ratio.
-- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) an implementation of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
+- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
 
 ## Limitations and known issues
 
-### running a script in ipython hangs
+### Running a script in ipython hangs
 
-PMOIRED uses the `multiprocessing` library to parallelise some computations (e.g. bootstrapping, grid search). This library has some issues if you run a script containing such computation is an interactive shell (using `%run` or `run` in ipython or Spyder). The provided examples as notebooks do not suffer from this problem. If you want to use PMOIRED in `.py` scripts you run in iPython, you should structure your `.py` script as:
+PMOIRED uses the `multiprocessing` library to parallelise some computations (e.g. bootstrapping, grid search). This library has some issues if you run a script containing such computation is an interactive shell (using `%run` or `run` in ipython or Spyder). The provided examples as notebooks do not suffer from this problem. If you want to use PMOIRED in `.py` scripts you run in iPython, you should structure your `.py` script more or less as follow:
 ```
 import pmoired
 import matplotlib
