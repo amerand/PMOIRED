@@ -34,6 +34,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     """
     if debug:
         print('DEBUG: loadOI', filename)
+    if tellurics is True:
+        tellurics = None
+        
     if type(filename)!=str:
         res = []
         for f in filename:
@@ -169,10 +172,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['OI_VIS'] = {}
     res['OI_T3'] = {}
     res['OI_FLUX'] = {}
+    ignoredTellurics = False
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS' and\
                     len(hdu.data['TELL_TRANS'])==len(res['WL']):
-            res['TELLURICS'] = hdu.data['TELL_TRANS']
+            if not tellurics is False:
+                res['TELLURICS'] = hdu.data['TELL_TRANS']
+            else:
+                ignoredTellurics = True
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_FLUX' and\
                     hdu.header['INSNAME']==insname:
             w = wTarg(hdu, targname, targets)
@@ -891,13 +898,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     if not 'TELLURICS' in res.keys():
         res['TELLURICS'] = np.ones(res['WL'].shape)
-    if not tellurics is None:
+    if not tellurics is None and not tellurics is False:
         # -- forcing tellurics to given vector
         res['TELLURICS'] = tellurics
         if not binning is None and len(tellurics)==len(_WL):
             res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
-    if tellurics is False:
-        res['TELLURICS'] = np.ones(res['WL'].shape)
 
     if 'OI_FLUX' in res.keys():
         for k in res['OI_FLUX'].keys():
@@ -945,7 +950,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         Kz = sorted(list(filter(lambda x: x.startswith('OI_'), res.keys())))
         print(dict(zip(Kz, [len(res[k].keys()) for k in Kz])), end=' | ')
 
-        print('| TELL:', res['TELLURICS'].min()<1)
+        print('| TELL:', res['TELLURICS'].min()<1 if not ignoredTellurics else 'IGNORED!')
         # print('  >', 'telescopes:', res['telescopes'],
         #       'baselines:', res['baselines'],
         #       'triangles:', res['triangles'])
