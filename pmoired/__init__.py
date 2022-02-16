@@ -811,7 +811,7 @@ class OI:
             # -- prepare computing model's images
             print('computing images and visibilities')
             self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
-                                imX=imX, imY=imY, visibilities=True)
+                                    imX=imX, imY=imY, visibilities=True)
 
         if perSetup:
             if checkImVis:
@@ -1311,8 +1311,13 @@ class OI:
             pass
             return
 
+        # -- slow:
+        # tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
+        #                          imX=imX, imY=imY) for d in self.data]
+
+        # -- fast:
         tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
-                                 imX=imX, imY=imY) for d in self.data]
+                                 imX=imX, imY=imY) for d in self._merged]
 
         # -- image coordinates in mas
         X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
@@ -1322,6 +1327,7 @@ class OI:
         scale = np.diff(X).max()
         res = {'WL':[], 'cube':[], 'X':X, 'Y':Y, 'scale':scale,
                 'model':model}
+
         for t in tmp:# for each OIFITS object
             for i, wl in enumerate(t['WL']):
                 if not wl in res['WL']:
