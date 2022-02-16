@@ -302,7 +302,7 @@ def _orbit(t, param, Vrad=False, verbose=False):
 
     return xyz
 
-def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
+def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD=None,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
     """
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
@@ -583,15 +583,21 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
     # -- guess which visibility function
     if 'sparse' in _param:
-        Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], _param)
+        Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], _param, z['MJD'])
         if not I is None:
             #print('sparse image')
             if imFov is None:
                 imN = None
             else:
                 imN = int(np.sqrt(len(X.flatten())))
-            tmp = VsparseImage(np.array([1]), np.array([1]), res['WL'][wwl],
-                               _param, fullOutput=True, imFov=imFov, imPix=imPix,
+            if imMJD is None and type(_param['sparse'])==dict:
+                if 'configurations per MJD' in oi:
+                    imMJD = np.mean(list(oi['configurations per MJD'].keys()))
+                    print('WARNING: synthetic image for <MJD>=', imMJD)
+            if not imMJD is None and type(imMJD)!=np.ndarray:
+                imMJD = np.array([imMJD])
+            tmp = VsparseImage(np.array([1]), np.array([1]), res['WL'][wwl], _param,
+                               imMJD, fullOutput=True, imFov=imFov, imPix=imPix,
                                imX=imX, imY=imY, imN=imN)
             I = tmp[1]/np.sum(tmp[1])
     elif 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
@@ -998,7 +1004,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0,
 
 _sparse_image_file = ""
 _sparse_image = {}
-def VsparseImage(u, v, wl, param, fullOutput=False,
+def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
             imFov=None, imPix=None, imX=0, imY=0, imN=None):
     """
     complex visibility of sparse image from text file.
@@ -1017,9 +1023,33 @@ def VsparseImage(u, v, wl, param, fullOutput=False,
     returns:
     nd.array of shape (N,M) of complex visibilities
     """
+    # -- param['sparse'] could be a dict keyed by MJD
+    if not mjd is None:
+        if type(param['sparse'])==dict:
+            kmjd = np.array(list(param['sparse'].keys()))
+            imjd = np.argmin(np.abs(mjd[None,:]-kmjd[:,None]), axis=0)
+            res = np.zeros((len(u), len(wl)), dtype=complex)
+            for i in set(imjd):
+                #print(kmjd[i], param['sparse'][kmjd[i]])
+                w = imjd==i
+                p = param.copy()
+                p['sparse'] = param['sparse'][kmjd[i]]
+                if not fullOutput:
+                    tmp = VsparseImage(u[w], v[w], wl, p)
+                    res[w,:] = tmp
+                else:
+                    res = VsparseImage(u[w], v[w], wl, p, fullOutput=True,
+                                imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
+            return res
+    else:
+        if type(param['sparse'])==dict:
+            print('WARNING: VsparseImage was not given MJDs! using only image at MJD=',
+                    list(param['sparse'].keys())[0])
+            param['sparse'] = param['sparse'][list(param['sparse'].keys())[0]]
+
     global _sparse_image_file, _sparse_image
     if _sparse_image_file!=param['sparse']:
-        print('loading new sparse image:', param['sparse'])
+        #print('loading new sparse image:', param['sparse'])
         if param['sparse'].endswith('.txt'):
             _sparse_image = {'x':[], 'y':[], 'I':[]}
             with open(param['sparse']) as f:
@@ -1032,6 +1062,7 @@ def VsparseImage(u, v, wl, param, fullOutput=False,
                 _sparse_image[k] = np.array(_sparse_image[k])
         elif param['sparse'].endswith('.pickle'):
             with open(param['sparse'], 'rb') as f:
+                # -- pixel list "x(mas), y(mas), Intensity" as dict {'x':[], 'y':[], 'I':[]}
                 _sparse_image = pickle.load(f)
         _sparse_image_file = param['sparse']
 
