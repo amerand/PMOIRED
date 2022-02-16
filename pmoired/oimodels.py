@@ -3961,7 +3961,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     i_flux = 0
     i_col = 0
     yoffset = 0
-    #print('#', oi['filename'], obsfit, obs)
+    #print('#', os.path.basename(oi['filename']), obsfit, obs)
     for c,l in enumerate(obs):
         if debug:
             print('handling:', l)
@@ -3976,10 +3976,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if allInOne and 'UV' in ai1ax:
                 ax = ai1ax['UV']
             else:
-                #if len(oi['baselines'])>8 and n_flux>0:
-                #    ax = plt.subplot(n_flux+2, ncol, 1, aspect='equal')
-                #else:
-                   ax = plt.subplot(n_flux+1, ncol, 1, aspect='equal')
+                if len(obsfit)==0:
+                    # -- plotting only UV
+                    ax = plt.subplot(111, aspect='equal')
+                else:
+                    ax = plt.subplot(n_flux+1, ncol, 1, aspect='equal')
 
             # -- for each observables per baselines
             ext = [e for e in ['OI_VIS', 'OI_VIS2'] if e in oi]
