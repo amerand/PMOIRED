@@ -115,10 +115,33 @@ def Ftran(l, param):
         tmpT *= scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], kind='cubic', fill_value='extrapolate')(tmpL)
     return np.interp(l, tmpL, tmpT)
 
-def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None, fig=None):
+def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
+            fig=None, force=False):
     """
     avoid: list of tuple of wlmin, wlmax to avoid in the fit (known) line
     """
+    # -- LOAD DATA -------------------------------------------------
+    f = fits.open(filename)
+
+    # -- check if telluric already computed
+    alreadyComputed = False
+    for h in f:
+        if 'EXTNAME' in h.header and h.header['EXTNAME']=='TELLURICS':
+            alreadyComputed = True
+    if not force and alreadyComputed:
+        print('tellurics already computed for %s'%filename, end=' ')
+        print('use "force=True" to recompute')
+        f.close()
+        return
+
+    if 'MED' in f[0].header['ESO INS SPEC RES']:
+        MR = True
+    elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
+        MR = False
+    else:
+        print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
+        return
+
     # -- init plot ----------------------------------------
     if not fig is None:
         quiet = False
@@ -130,15 +153,6 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         plt.clf()
         plt.subplots_adjust(right=0.99, left=0.05)
 
-    # -- LOAD DATA -------------------------------------------------
-    f = fits.open(filename)
-    if 'MED' in f[0].header['ESO INS SPEC RES']:
-        MR = True
-    elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
-        MR = False
-    else:
-        print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
-        return
 
     # -- HARDWIRED, DANGEROUS!!! -> works for POLA and JOINED
     wl = f[4].data['EFF_WAVE']*1e6
