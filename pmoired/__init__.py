@@ -129,6 +129,7 @@ class OI:
                             tellurics=tellurics, binning=binning)
         else:
             self.data = []
+        self._merged = []
 
     def save(self, name=None, overwrite=False):
         """
@@ -1311,13 +1312,14 @@ class OI:
             pass
             return
 
-        # -- slow:
-        # tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
-        #                          imX=imX, imY=imY) for d in self.data]
-
-        # -- fast:
-        tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
-                                 imX=imX, imY=imY) for d in self._merged]
+        if len(self._merged)>0:
+            # -- fast:
+            tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
+                                     imX=imX, imY=imY) for d in self._merged]
+        else:
+            # -- slow:
+            tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
+                                     imX=imX, imY=imY) for d in self.data]
 
         # -- image coordinates in mas
         X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
