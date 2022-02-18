@@ -2062,7 +2062,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
 
-                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/3e5)**2)
+                dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/3e5)**2)
                 w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
 
     if np.sum(w)==0:
@@ -2180,7 +2180,10 @@ def computeLambdaParams(params):
                             # -- no more replacement
                             compute = True
                     elif _k in paramsI[k]:
-                        print('WARNING, reference to "%s" in definition of "%s" should be preceeded by "%s"'%(_k, k, s))
+                        msg = 'reference to "%s" in definition of "%s" should be preceeded by "%s":'%(_k, k, s)
+                        msg+= '\n  e.g.: {"%s": "%s"}'%(k, paramsI[k].replace(_k, '\033[1m\033[35m'+s+'\033[0m'+_k))
+                        msg+= ' instead of {"%s": "%s"}'%(k, paramsI[k])
+                        assert False, msg
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
                     if s+_k in tmp:
