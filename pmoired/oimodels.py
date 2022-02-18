@@ -1005,7 +1005,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 _sparse_image_file = ""
 _sparse_image = {}
 def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
-            imFov=None, imPix=None, imX=0, imY=0, imN=None):
+                 imFov=None, imPix=None, imX=0, imY=0, imN=None):
     """
     complex visibility of sparse image from text file.
     u, v: 1D-ndarray spatial frequency (m). u and v must have same length N
@@ -2009,7 +2009,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
         return oi
 
     if 'param' in oi.keys() and param is None:
-        _param = oi['param']
+        _param = oi['param'].copy()
+        _param = computeLambdaParams(_param)
 
     # -- user defined wavelength range
     w = oi['WL']>0
@@ -2041,21 +2042,26 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 dwl = 0.
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
+
                 if k.replace('wl0', 'lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
+
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                 else:
                     kv = 'Vin'
+
                 if kv in _param:
-                    vel = param[kv]
+                    vel = _param[kv]
+
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
                 else:
                     kv = 'V1mas'
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
+
                 dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/3e5)**2)
                 w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
 
@@ -2173,6 +2179,8 @@ def computeLambdaParams(params):
                         if not s in tmp:
                             # -- no more replacement
                             compute = True
+                    elif _k in paramsI[k]:
+                        print('WARNING, reference to "%s" in definition of "%s" should be preceeded by "%s"'%(_k, k, s))
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
                     if s+_k in tmp:
@@ -2875,6 +2883,8 @@ def randomiseData2(oi, verbose=False, keepFlux=False):
         - half of the config, for each MJD, ignored
 
     oi: list of data, from loadOI
+
+    keepFlux=True: do not randomise flux (default = False)
     """
     res = []
 
@@ -2892,10 +2902,12 @@ def randomiseData2(oi, verbose=False, keepFlux=False):
         random.shuffle(mjd_c)
         ignore = mjd_c[:len(mjd_c)//2]
         if keepFlux:
+            # -- do not randomise flux
             exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2',
                                                 'OI_T3',], tmp.keys()))
 
         else:
+            # -- also randomise flux
             exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2', 'OI_T3',
                                                'OI_FLUX', 'NFLUX'], tmp.keys()))
 
@@ -4535,6 +4547,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 else:
                     mark, col = 'o', 'k'
                 if not 'UV' in obs or not 'FLUX' in l:
+                    # -- put name of configuration
                     ax.text(0.02, 0.98, k, transform=ax.transAxes,
                             ha='left', va='top', fontsize=6, color=col)
                 ax.tick_params(axis='x', labelsize=6)
