@@ -181,14 +181,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                              np.array([hdu.data['TELL_TRANS']<0]),
                                              medFilt=medFilt,
                                              retFlag=False)[0]
-                    print(res['TELLURICS'].shape)
                     res['PWV'] = hdu.header['PWV']
                 elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
                     res['PWV'] = hdu.header['PWV']
-
             else:
                 ignoredTellurics = True
+
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_FLUX' and\
                     hdu.header['INSNAME']==insname:
             w = wTarg(hdu, targname, targets)
@@ -908,7 +907,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if not 'TELLURICS' in res.keys():
         res['TELLURICS'] = np.ones(res['WL'].shape)
 
-    if not tellurics is None:
+    if not tellurics is None and not tellurics is False:
         # -- forcing tellurics to given vector
         res['TELLURICS'] = tellurics
         if not binning is None and len(tellurics)==len(_WL):

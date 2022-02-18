@@ -1326,7 +1326,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         else:
             Pin = 0.0
         if a.replace('wl0', 'fin') in param:
-            amp = param[a.replace('wl0', 'fin')]*(P[:,6])**(Pin)
+            amp = param[a.replace('wl0', 'fin')]/Rin**2*(P[:,6])**(Pin)
         elif a.replace('wl0', 'f1mas') in param:
             amp = param[a.replace('wl0', 'f1mas')]*(P[:,6]*Rin)**(Pin)
 
@@ -1938,7 +1938,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
                     kv = 'V1mas'
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
-                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/3e5)**2)
+                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/2.998e5)**2)
 
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
 
@@ -2062,7 +2062,9 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
 
-                dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/3e5)**2)
+                # -- effects of "vel" depends on the size of the disk and "fpow"
+                #dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
+                dwl = max(dwl, _param[k]*vel/2.998e5 )
                 w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
 
     if np.sum(w)==0:
@@ -2181,8 +2183,8 @@ def computeLambdaParams(params):
                             compute = True
                     elif _k in paramsI[k]:
                         msg = 'reference to "%s" in definition of "%s" should be preceeded by "%s":'%(_k, k, s)
-                        msg+= '\n  e.g.: {"%s": "%s"}'%(k, paramsI[k].replace(_k, '\033[1m\033[35m'+s+'\033[0m'+_k))
-                        msg+= ' instead of {"%s": "%s"}'%(k, paramsI[k])
+                        msg+= '\n  possibly {"%s": "%s"}'%(k, paramsI[k].replace(_k, '\033[1m\033[35m'+s+'\033[0m'+_k))
+                        msg+= ' instead of {"%s": "%s"} ?'%(k, paramsI[k])
                         assert False, msg
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
@@ -3596,7 +3598,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                     kv = 'V1mas'
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
-                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/3e5)**2)
+                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/2.998e5)**2)
 
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:

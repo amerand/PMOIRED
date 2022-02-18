@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20220128'
+__version__='20220218'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -1005,7 +1005,7 @@ class OI:
                 axx.tick_params(axis='x', labelsize=6, labelcolor=(0.7,0.5,0.2),
                                 pad=0)
                 axy.tick_params(axis='y', labelsize=6, labelcolor=(0.7,0.5,0.2),
-                                pad=0, labelrotation=-90)
+                                pad=0, labelrotation=-60)
                 if i==0:
                     axx.set_xlabel('AU at\n'+r'$\varpi$=%.2fmas'%imPlx,
                                     color=(0.7,0.5,0.2), x=0, fontsize=5)
