@@ -2181,11 +2181,6 @@ def computeLambdaParams(params):
                         if not s in tmp:
                             # -- no more replacement
                             compute = True
-                    elif _k in paramsI[k]:
-                        msg = 'reference to "%s" in definition of "%s" should be preceeded by "%s":'%(_k, k, s)
-                        msg+= '\n  possibly {"%s": "%s"}'%(k, paramsI[k].replace(_k, '\033[1m\033[35m'+s+'\033[0m'+_k))
-                        msg+= ' instead of {"%s": "%s"} ?'%(k, paramsI[k])
-                        assert False, msg
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
                     if s+_k in tmp:
@@ -2201,6 +2196,14 @@ def computeLambdaParams(params):
         nloop+=1
 
     assert nloop<10, 'too many recurences in evaluating parameters!'+str(paramsI)
+    for k in paramsR:
+        for _k in paramsR:
+            if type(paramsR[k])==str and _k in paramsR[k]:
+                msg = 'reference to "%s" in definition of "%s" may need to be preceeded by "%s":'%(_k, k, s)
+                msg+= '\n  possibly {"%s": "%s"}'%(k, paramsR[k].replace(_k, '\033[1m'+s+'\033[0m'+_k))
+                msg+= ' instead of {"%s": "%s"} ?'%(k, paramsR[k])
+                print('\033[41mWARNING:\033[0m '+msg)
+
     return paramsR
 
 def computeT3fromVisOI(oi):
