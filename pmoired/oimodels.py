@@ -29,12 +29,13 @@ _c = np.pi**2/180/3600/1000*1e6
 
 def Ssingle(oi, param, noLambda=False):
     """
-    build spectrum fo Vsingle
+    build spectrum for Vsingle
     """
     if not noLambda:
         _param = computeLambdaParams(param)
     else:
         _param = param.copy()
+
     # -- flux (spectrum)
     f = np.zeros(oi['WL'].shape)
 
@@ -128,7 +129,7 @@ def Ssingle(oi, param, noLambda=False):
         try:
             f += eval(sp)
         except:
-            print('!!!', sp)
+            print('!!! cannot evaluate', sp)
     return f
 
 def _Kepler3rdLaw(a=None, P=None, M1M2=None):
@@ -387,7 +388,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 res[k] = oi[k]
 
     # -- what do we inherit from original data:
-    for k in ['WL', 'fit']:
+    for k in ['MJD', 'WL', 'fit']:
         if k in oi.keys():
             res[k] = oi[k].copy()
     for k in ['insname', 'filename']:
@@ -426,12 +427,14 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         I = None
 
     # -- spectrum, fraction of it if needed for bandwith smearing
-    f = Ssingle(res, _param, noLambda=True)*_ffrac
-    if any(f>0):
+    # -- vector, same length as oi['WL']
+    flux = Ssingle(res, _param, noLambda=True)*_ffrac
+
+    if any(flux>0):
         # -- check negativity of spectrum
-        negativity = np.sum(f[f<0])/np.sum(f[f>=0])
+        negativity = np.sum(flux[flux<0])/np.sum(flux[flux>=0])
     elif all(f<0):
-        negativity = np.sum(f[f<0])
+        negativity = np.sum(flux[flux<0])
     else:
         negativity = 0
 
@@ -622,7 +625,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         #print('test', kt, np.abs(Vf(oi['OI_VIS2'][kt])))
     elif 'ud' in _param.keys(): # == uniform disk ================================
         Rout = _param['ud']/2
-        if any(f>0):
+        if any(flux>0):
             Vf = lambda z: 2*scipy.special.j1(_c*_param['ud']*_Bwl(z) + 1e-12)/(_c*_param['ud']*_Bwl(z)+ 1e-12)
         else:
             # -- save time
@@ -648,7 +651,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
-
     elif 'fwhm' in _param.keys(): # == gaussian ================================
         #if _param['fwhm']<0:
         #    negativity += np.max(np.abs(_c*_param['fwhm']*_Bwl(z)))
@@ -662,7 +664,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             a = None
             Vf = lambda z: 1 + 0*_Bwl(z)
 
-        if not any(f>0):
+        if not any(flux>0):
             # -- save time
             Vf = lambda z: np.zeros(_Bwl(z).shape)
 
@@ -677,7 +679,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
-
     elif 'crin' in _param and 'crout' in _param and 'croff' in _param: # crecsent
         #print('crescent')
         #if _param['crin']>_param['crout']:
@@ -731,24 +732,23 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
         if 'surf bri' in _param:
             # -- use this to compute flux, can be function of wavelength
-            f = np.pi*(_crout**2 - _crin**2)/4*_ffrac
+            flux = np.pi*(_crout**2 - _crin**2)/4*_ffrac
             #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
             #      'int(r*Ir)', f)
             if not '$WL' in _param['surf bri']:
-                f *= np.ones(len(oi['WL']))*_param['surf bri']
+                flux *= np.ones(len(oi['WL']))*_param['surf bri']
             else:
-                f *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
-            if any(f>0):
+                flux *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+            if any(flux>0):
                 # -- check negativity of spectrum
-                negativity = np.sum(f[f<0])/np.sum(f[f>=0])
-            elif all(f<0):
-                negativity = np.sum(f[f<0])
+                negativity = np.sum(flux[flux<0])/np.sum(flux[flux>=0])
+            elif all(flux<0):
+                negativity = np.sum(flux[flux<0])
             else:
                 negativity = 0
             if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
                 oi['fit']['ignore negative flux']:
                 negativity = 0.0
-
     elif 'diamout' in _param or 'diam' in _param: # == F(r)*G(az) ========================
         # -- disk or ring with radial and az profile
 
@@ -820,16 +820,16 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 Ir /= max(tmp)
 
             # -- use this to compute flux, can be function of wavelength
-            f = 2*np.pi*np.trapz(Ir*_r, _r)*_ffrac
+            flux = 2*np.pi*np.trapz(Ir*_r, _r)*_ffrac
             if not '$WL' in _param['surf bri']:
-                f *= np.ones(len(oi['WL']))*_param['surf bri']
+                flux *= np.ones(len(oi['WL']))*_param['surf bri']
             else:
-                f *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
-            if any(f>0):
+                flux *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+            if any(flux>0):
                 # -- check negativity of spectrum
-                negativity += np.sum(f[f<0])/np.sum(f[f>=0])
+                negativity += np.sum(flux[flux<0])/np.sum(flux[flux>=0])
             elif all(f<0):
-                negativity += np.sum(f[f<0])
+                negativity += np.sum(flux[flux<0])
             else:
                 negativity += 0
             if 'fit' in oi and 'ignore negative flux' in oi['fit'] and \
@@ -840,7 +840,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl,
                                Ir, _r, _n, _phi, _amp, stretch=stretch)
 
-        if not any(f>0):
+        if not any(flux>0):
             # -- save time
             Vf = lambda z: np.zeros(_Bwl(z).shape)
 
@@ -930,7 +930,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         # -- force -180 -> 180
         tmp['PHI'] = (np.angle(V)*180/np.pi+180)%360-180
         # -- not needed, strictly speaking, takes a long time!
-        for l in ['B/wl', 'FLAG']:
+        for l in ['B/wl', 'FLAG', 'MJD']:
             if '/wl' in l and cwl!=1:
                 tmp[l] = oi[key][k][l]/cwl
             else:
@@ -938,7 +938,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if fullOutput or not imFov is None:
             # -- slow down the code!
-            for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
+            for l in ['u', 'v', 'u/wl', 'v/wl']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi[key][k][l]/cwl
                 else:
@@ -950,9 +950,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if 'OI_VIS2' in oi.keys():
             tmp = {}
-
             # -- not needed, strictly speaking, takes a long time!
-            for l in ['B/wl', 'FLAG']:
+            for l in ['B/wl', 'FLAG', 'MJD']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi['OI_VIS2'][k][l]/cwl
                 else:
@@ -961,7 +960,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             tmp['V2'] = np.abs(V)**2
             if fullOutput or not imFov is None:
                 # -- slow down the code!
-                for l in ['u', 'v', 'u/wl', 'v/wl', 'MJD']:
+                for l in ['u', 'v', 'u/wl', 'v/wl']:
                     if '/wl' in l and cwl!=1:
                         tmp[l] = oi['OI_VIS2'][k][l]/cwl
                     else:
@@ -995,12 +994,35 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             #print('X', X.shape, 'I', I.shape, 'image', np.mean(I, axis=0).shape)
     else:
         res['MODEL'] = {}
-    res['MODEL']['totalflux'] = f
+    res['MODEL']['totalflux'] = flux
     res['MODEL']['negativity'] = negativity # 0 is image is >=0, 0<p<=1 otherwise
+    if False:
+        # == DOES NOT WORK YET
+        if 'spectrum(mjd)' in _param:
+            # WARNING: this will ignore any other "flux" or "spectrum" definition!!!
+            tmp = _param['fmjd']
+            if '$MJD' in tmp:
+                if '$WL' in tmp:
+                    tmp.replace('$WL', '$WL[None,:]')
+                    tmp.replace('$MJD', '$MJD[:,None]')
+                    res['MODEL']['totalflux(MJD)'] = tmp
+                else:
+                    tmp.replace('$MJD', '$MJD[:,None]')
+                    tmp += ' + $WL[None,:]'
+                    res['MODEL']['totalflux(MJD)'] = tmp
+                # -- KLUDGE: average out the flux over MJD
+                #res['MODEL']['totalflux'] *= np.mean(tmp.replace('$WL', oi['WL']).replace('$MJD', oi['MJD']), axis=0)
+            else:
+                print('spectrum(mjd) should be as function of "$MJD"')
+        else:
+            res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD[:,None]'
+
     if _dwl!=0:
         # -- offset
         res['WL'] -= _dwl
     return res
+
+
 
 _sparse_image_file = ""
 _sparse_image = {}
@@ -1077,6 +1099,7 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
             _y *= np.cos(np.pi/180*param['incl'])
     else:
         _x, _y = _sparse_image['x'], _sparse_image['y']
+
     if 'scale' in param:
         _x, _y = param['scale']*_x, param['scale']*_y
     if 'pow' in param:
@@ -1121,7 +1144,7 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
                         if i+dx>=0 and j+dy>=0 and i+dx<imN and j+dy<imN:
                             _w[(dx, dy)] = 1-np.abs((_x[k]-X[i+dx])*(_y[k]-Y[j+dy]))/((imFov/(imN-1))**2)
                 for dxy in _w:
-                    image[i+dxy[0],j+dxy[1]] += _sparse_image['I'][k]**pow*_w[dxy]/3
+                    image[j+dxy[1], i+dxy[0]] += _sparse_image['I'][k]**pow*_w[dxy]/3
             else:
                 # -- gaussian
                 _w = {}
@@ -1132,7 +1155,8 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
                                                     (_y[k]-Y[j+dy])**2)/(imFov/(imN-1))**2)
                 nor = np.sum([_w[dxy] for dxy in _w])
                 for dxy in _w:
-                    image[i+dxy[0],j+dxy[1]] += _sparse_image['I'][k]**pow*_w[dxy]/nor
+                    image[j+dxy[1], i+dxy[0]] += _sparse_image['I'][k]**pow*_w[dxy]/nor
+
     else:
         _X, _Y, image = None, None, None
 
@@ -1142,6 +1166,12 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
     else:
         # -- only (complex) visibility
         return vis
+
+
+def VmuLensBin(mjd, param):
+    """
+    """
+    pass
 
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
@@ -1611,6 +1641,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
                 # -- total
                 if not 'cube' in res['MODEL']:
+                    # TODO: in case flux(MJD), this averages out the flux over time
                     res['MODEL']['cube'] = res['MODEL']['image'][None,:,:]*\
                                            res['MODEL']['totalflux'][:,None,None]
                 res['MODEL']['image'] *= np.mean(res['MODEL']['totalflux'])
@@ -1618,10 +1649,14 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
             # -- for this component:
             res['MODEL'][c+',flux'] = res['MODEL']['totalflux'].copy()
+            if 'totalflux(MJD)' in res['MODEL']:
+                res['MODEL'][c+',flux(MJD)'] = res['MODEL']['totalflux(MJD)']
+
             res['MODEL'][c+',vis'] = res['OI_VIS'].copy()
             res['MODEL'][c+',negativity'] = res['MODEL']['negativity']
             # -- smearing
             if '&dwl' in c:
+                # -- TODO: flux(MJD)
                 res['MODEL'][c.split('&dwl')[0]+',flux'] = res['MODEL']['totalflux'].copy()
                 res['MODEL'][c.split('&dwl')[0]+',negativity'] = res['MODEL']['negativity']
 
@@ -1629,9 +1664,18 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res['MODEL']['WL'] = res['WL']
             res['MOD_VIS'] = {}
             for k in res['OI_VIS'].keys(): # for each baseline
-                res['MOD_VIS'][k] = res['MODEL']['totalflux'][None,:]*\
-                                    res['OI_VIS'][k]['|V|']*\
-                                    np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
+                # TODO: flux as function of time!
+                if 'totalflux(MJD)' in res['MODEL']:
+                    tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
+                    tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD']"%k)
+                    tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
+                    res['MOD_VIS'][k] = eval(tmp)*res['OI_VIS'][k]['|V|']*\
+                                        np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
+                else:
+                    res['MOD_VIS'][k] = res['MODEL']['totalflux'][None,:]*\
+                                        res['OI_VIS'][k]['|V|']*\
+                                        np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
+
             m = {}
         else:
             # -- combine model with other components
@@ -1646,30 +1690,48 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                         res['MODEL'][_c+',image'] += m['MODEL']['image']
                     else:
                         res['MODEL'][_c+',image'] = m['MODEL']['image']
+                # -- TODO: MJD-averaged flux
                 res['MODEL']['image'] += np.mean(m['MODEL']['totalflux'])*\
                                         m['MODEL']['image']
                 if 'cube' in m['MODEL']:
                     res['MODEL']['cube'] += m['MODEL']['cube']
                 else:
+                    # -- TODO: MJD-averaged flux
                     res['MODEL']['cube'] += m['MODEL']['image'][None,:,:]*\
                                             m['MODEL']['totalflux'][:,None,None]
+
             res['MODEL'][c+',flux'] = m['MODEL']['totalflux']
+            if 'totalflux(MJD)' in m['MODEL']:
+                res['MODEL'][c+',flux(MJD)'] =  m['MODEL']['totalflux(MJD)']
             res['MODEL'][c+',vis'] = m['OI_VIS'].copy()
             res['MODEL'][c+',negativity'] = m['MODEL']['negativity']
             if '&dwl' in c:
+                # -- TODO: flux(MJD)
                 _c = c.split('&dwl')[0]
                 if _c+',flux' in res['MODEL']:
                     res['MODEL'][_c+',flux'] += m['MODEL']['totalflux']
                 else:
                     res['MODEL'][_c+',flux'] = m['MODEL']['totalflux']
 
+            # -- Add
             res['MODEL']['totalflux'] += m['MODEL']['totalflux']
+            if 'totalflux(MJD)' in m['MODEL']:
+                res['MODEL']['totalflux(MJD)'] += '+' + m['MODEL']['totalflux(MJD)']
             res['MODEL']['negativity'] += m['MODEL']['negativity']
+
             # -- total complex Visibility
-            for b in res['OI_VIS'].keys(): # for each baseline
-                res['MOD_VIS'][b] += m['MODEL']['totalflux'][None,:]*\
-                                     m['OI_VIS'][b]['|V|']*\
-                                     np.exp(1j*np.pi*m['OI_VIS'][b]['PHI']/180)
+            for k in res['OI_VIS'].keys(): # for each baseline
+                if 'totalflux(MJD)' in res['MODEL']:
+                    tmp = m['MODEL']['totalflux(MJD)'].replace('$WL', "m['MODEL']['WL']")
+                    tmp = tmp.replace('$MJD', "m['OI_VIS']['%s']['MJD']"%k)
+                    tmp = tmp.replace('$TFLUX', "m['MODEL']['totalflux']")
+                    res['MOD_VIS'][k] += eval(tmp)*m['OI_VIS'][k]['|V|']*\
+                                        np.exp(1j*np.pi*m['OI_VIS'][k]['PHI']/180)
+                else:
+                    res['MOD_VIS'][k] += m['MODEL']['totalflux'][None,:]*\
+                                         m['OI_VIS'][k]['|V|']*\
+                                         np.exp(1j*np.pi*m['OI_VIS'][k]['PHI']/180)
+
         res['MODEL']['param'] = computeLambdaParams(p)
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
@@ -1677,7 +1739,15 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     t0 = time.time()
     # -- normalise by total flux; compute OI_VIS and OI_VIS2
     for b in res['MOD_VIS'].keys():
-        res['MOD_VIS'][b] /= res['MODEL']['totalflux'][None,:]
+        # TODO: flux as function of MJD
+        if 'totalflux(MJD)' in res['MODEL']:
+            tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
+            tmp = tmp.replace('$MJD', "res['MOD_VIS']['%s']['MJD']"%b)
+            tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
+            res['MOD_VIS'][b] /= eval(tmp)
+        else:
+            res['MOD_VIS'][b] /= res['MODEL']['totalflux'][None,:]
+
         if 'OI_VIS' in res and b in res['OI_VIS']:
             res['OI_VIS'][b]['|V|'] = np.abs(res['MOD_VIS'][b])
             res['OI_VIS'][b]['PHI'] = (np.angle(res['MOD_VIS'][b])*180/np.pi+180)%360-180
@@ -1688,10 +1758,16 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     res['OI_FLUX'] = {}
     if 'OI_FLUX' in oi.keys():
         for k in oi['OI_FLUX'].keys():
-            res['OI_FLUX'][k] = {'FLUX': oi['OI_FLUX'][k]['FLUX']*0 +
-                                         res['MODEL']['totalflux'][None,:],
-                                 'RFLUX': oi['OI_FLUX'][k]['FLUX']*0 +
-                                          res['MODEL']['totalflux'][None,:],
+            if 'totalflux(MJD)' in res['MODEL']:
+                tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
+                tmp = tmp.replace('$MJD', "oi['OI_FLUX']['%s']['MJD']"%k)
+                tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
+                totalflux = eval(tmp)
+            else:
+                totalflux = oi['OI_FLUX'][k]['FLUX']*0 + res['MODEL']['totalflux'][None,:]
+
+            res['OI_FLUX'][k] = {'FLUX': totalflux,
+                                 'RFLUX': totalflux,
                                  'EFLUX': oi['OI_FLUX'][k]['FLUX']*0,
                                  'FLAG': oi['OI_FLUX'][k]['FLAG'],
                                  'MJD': oi['OI_FLUX'][k]['MJD'],
@@ -2154,6 +2230,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 oi['MODEL'][k.replace(',flux', ',nflux')] = \
                     oi['MODEL'][k]/np.polyval(c, oi['WL'])
         oi['MODEL']['totalnflux'] = oi['MODEL']['totalflux']/np.polyval(c,oi['WL'])
+    # -- TODO: same as above, but for "totalflux(MJD)"
     return oi
 
 def computeLambdaParams(params):

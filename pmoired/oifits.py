@@ -937,6 +937,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     if not k in confperMJD[mjd]:
                         confperMJD[mjd].append(k)
     res['configurations per MJD'] = confperMJD
+    # -- all MJDs in the file
+    res['MJD'] = np.array(sorted(set(res['configurations per MJD'].keys())))
 
     if verbose:
         mjd = []
@@ -1093,6 +1095,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     for k in oi['configurations per MJD'][mjd]:
                         if not k in res[i0]['configurations per MJD'][mjd]:
                             res[i0]['configurations per MJD'][mjd].append(k)
+
             if not dataMerge:
                 continue
 
@@ -1324,6 +1327,9 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                                                 'DPHI order', 'NFLUX order']
                         if k in r['fit']}
             r['fit'].update(tmp)
+
+    for r in res:
+        r['MJD'] = np.array(sorted(set(r['configurations per MJD'].keys())))
 
     return res
 

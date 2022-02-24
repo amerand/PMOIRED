@@ -808,6 +808,10 @@ class OI:
             showIM = False
             imFov = None
 
+        if checkImVis:
+            allInOne = False
+            perSetUp = False
+
         if not imFov is None and checkImVis and not allInOne and not perSetup:
             # -- prepare computing model's images
             print('computing images and visibilities')
