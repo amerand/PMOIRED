@@ -433,7 +433,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     if any(flux>0):
         # -- check negativity of spectrum
         negativity = np.sum(flux[flux<0])/np.sum(flux[flux>=0])
-    elif all(f<0):
+    elif all(flux<0):
         negativity = np.sum(flux[flux<0])
     else:
         negativity = 0
@@ -862,6 +862,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
+    elif any([k.startswith('ulb_') for k in _param]):
+        tmp = VmuLensBin(MJD, _param)
     else:
         # -- default == fully resolved flux == zero visibility
         Vf = lambda z: np.zeros(_Bwl(z).shape)
@@ -997,7 +999,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     res['MODEL']['totalflux'] = flux
     res['MODEL']['negativity'] = negativity # 0 is image is >=0, 0<p<=1 otherwise
     if False:
-        # == DOES NOT WORK YET
         if 'spectrum(mjd)' in _param:
             # WARNING: this will ignore any other "flux" or "spectrum" definition!!!
             tmp = _param['fmjd']
@@ -1015,6 +1016,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             else:
                 print('spectrum(mjd) should be as function of "$MJD"')
         else:
+            # -- this works (I think)
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD[:,None]'
 
     if _dwl!=0:
@@ -1090,15 +1092,22 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
 
     # == compute visibility
     c = np.pi/180/3600/1000/1e-6 # mas*m.um -> radians
+    flipx, flipy = 1, 1
+    if 'flip' in param:
+        if param['flip']=='y':
+            flipy = -1
+        elif param['flip']=='x':
+            flipx = -1
+
     if 'projang' in param:
         cpa = np.cos(np.pi/180*param['projang'])
         spa = np.sin(np.pi/180*param['projang'])
-        _x = cpa*_sparse_image['x'] - spa*_sparse_image['y']
-        _y = +spa*_sparse_image['x'] + cpa*_sparse_image['y']
+        _x = cpa*_sparse_image['x']*flipx - spa*_sparse_image['y']*flipy
+        _y = +spa*_sparse_image['x']*flipx + cpa*_sparse_image['y']*flipy
         if 'incl' in param:
             _y *= np.cos(np.pi/180*param['incl'])
     else:
-        _x, _y = _sparse_image['x'], _sparse_image['y']
+        _x, _y = _sparse_image['x']*flipx, _sparse_image['y']*flipy
 
     if 'scale' in param:
         _x, _y = param['scale']*_x, param['scale']*_y
@@ -1167,12 +1176,35 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
         # -- only (complex) visibility
         return vis
 
-
 def VmuLensBin(mjd, param):
     """
-    """
-    pass
+    microlensing images for binary lens
 
+    param: dictionnary
+    - ulb_mjd0: date to minimum approach (MJD)
+    - ulb_u0: minimum approach wrt lens' center of mass
+    - ulb_tE: Einstein time (in days)
+    - ulb_thetaE: Einstein radius (in mas)
+    - ulb_b: lens binary separation, in unit of thetaE
+    - ulb_q: lens mass ratio m1/m2
+        x1, y1 = -b*q, 0
+        x2, y2 = b*(1-q), 0
+    - ulb_theta: approach angle of source -> lens wrt x=0 axis (in rad)
+    - ulb_rhos: angular size of the source, in unit of thetaE
+    - ulb_rotation: rotation of the whole scene (in deg, angle N->E)
+    - ulb_flip: optional. if ='y', then flip scene upside down
+    """
+    global lastVmuLensBin
+    import ulensBin
+    p = {k.split('ulb_')[1]:param[k] for k in param if k.startswith('ulb_')}
+    # -- this is parallelised, but still VERY SLOW
+    tmp = ulensBin.computeSparseParam(mjd, p)
+    tmp['scale'] = param['ulb_thetaE']
+    tmp['projang'] = param['ulb_rotation']
+    if 'ulb_flip' in param and param['ulb_flip']=='y':
+        tmp['flip']=='y'
+    tmp.update(param)
+    return tmp
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
             imFov=None, imPix=None, imX=0, imY=0, imN=None):
@@ -1742,7 +1774,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # TODO: flux as function of MJD
         if 'totalflux(MJD)' in res['MODEL']:
             tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
-            tmp = tmp.replace('$MJD', "res['MOD_VIS']['%s']['MJD']"%b)
+            tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD']"%b)
             tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
             res['MOD_VIS'][b] /= eval(tmp)
         else:
