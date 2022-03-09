@@ -1037,8 +1037,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             # -- this works (I think)
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD[:,None]'
 
-    if _dwl!=0:
-        print('DEBUG: _dwl=', _dwl)
     return res
 
 _sparse_image_file = ""
@@ -4585,14 +4583,20 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     resi = np.append(resi, _resi.flatten())
                     # -- show predictions from model
                     if not spectro:
-                        ax.plot(X(m,j)[maskc2], ym[maskc2],
-                                '-', alpha=0.5 if not test else 0.3,
-                                color=color if col=='k' else '0.5',
-                                linewidth=2)
-                        if col!='k':
+                        if np.sum(maskc2)>1:
                             ax.plot(X(m,j)[maskc2], ym[maskc2],
-                                    '--', alpha=0.7, color=col,
+                                    '-', alpha=0.5 if not test else 0.3,
+                                    color=color if col=='k' else '0.5',
                                     linewidth=2)
+                            if col!='k':
+                                ax.plot(X(m,j)[maskc2], ym[maskc2],
+                                        '--', alpha=0.7, color=col,
+                                        linewidth=2)
+                        else:
+                            # -- not enough points to show lines
+                            ax.plot(X(m,j)[maskc2], ym[maskc2],
+                                    '_', color=col, alpha=0.5, ms=5)
+
                         # -- residuals
                         if not 'FLUX' in l:
                             if 'PHI' in l:
