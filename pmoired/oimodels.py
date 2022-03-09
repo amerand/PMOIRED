@@ -400,13 +400,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 res[k] = oi[k].copy()
 
     # -- small shift in wavelength (for bandwith smearing)
-    if _dwl!=0:
-        # -- offset
-        res['WL'] += _dwl
-        # -- scaling
-        cwl = 1.0 + _dwl/np.mean(res['WL'])
-    else:
-        cwl = 1.0
+    # -- offset
+    res['WL'] += _dwl
+    # -- scaling
+    cwl = 1.0 + _dwl/np.mean(res['WL'])
 
     # -- model -> no telluric features
     res['TELLURICS'] = np.ones(res['WL'].shape)
@@ -586,6 +583,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
     # -- guess which visibility function
     if 'sparse' in _param:
+        # -- UGLY: duplicate code -> make sure to update "ul" below !
         Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], _param, z['MJD'])
         if not I is None:
             #print('sparse image')
@@ -862,8 +860,28 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
-    elif any([k.startswith('ulb_') for k in _param]):
-        tmp = VmuLensBin(MJD, _param)
+    elif any([k.startswith('ul ') for k in _param]):
+        MJD = list(set(np.round(res['MJD'], 1)))
+        sparse_param = VmuLensBin(MJD, _param)
+        #print('debug: microlensing!', sparse_param)
+
+        # -- UGLY: duplicate code -> make sure to update "sparse" below !
+        Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], sparse_param, z['MJD'])
+        if not I is None:
+            if imFov is None:
+                imN = None
+            else:
+                imN = int(np.sqrt(len(X.flatten())))
+            if imMJD is None and type(sparse_param['sparse'])==dict:
+                if 'configurations per MJD' in oi:
+                    imMJD = np.mean(list(oi['configurations per MJD'].keys()))
+                    print('WARNING: synthetic image for <MJD>=', imMJD)
+            if not imMJD is None and type(imMJD)!=np.ndarray:
+                imMJD = np.array([imMJD])
+            tmp = VsparseImage(np.array([1]), np.array([1]), res['WL'][wwl],
+                               sparse_param, imMJD, fullOutput=True,
+                               imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
+            I = tmp[1]/np.sum(tmp[1])
     else:
         # -- default == fully resolved flux == zero visibility
         Vf = lambda z: np.zeros(_Bwl(z).shape)
@@ -934,7 +952,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         # -- not needed, strictly speaking, takes a long time!
         for l in ['B/wl', 'FLAG', 'MJD']:
             if '/wl' in l and cwl!=1:
-                tmp[l] = oi[key][k][l]/cwl
+                tmp[l] = oi[key][k][l].copy()/cwl
             else:
                 tmp[l] = oi[key][k][l].copy()
 
@@ -942,7 +960,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             # -- slow down the code!
             for l in ['u', 'v', 'u/wl', 'v/wl']:
                 if '/wl' in l and cwl!=1:
-                    tmp[l] = oi[key][k][l]/cwl
+                    tmp[l] = oi[key][k][l].copy()/cwl
                 else:
                     tmp[l] = oi[key][k][l].copy()
 
@@ -1020,11 +1038,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD[:,None]'
 
     if _dwl!=0:
-        # -- offset
-        res['WL'] -= _dwl
+        print('DEBUG: _dwl=', _dwl)
     return res
-
-
 
 _sparse_image_file = ""
 _sparse_image = {}
@@ -1178,32 +1193,37 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
 
 def VmuLensBin(mjd, param):
     """
-    microlensing images for binary lens
+    microlensing images for binary lens. Returns a dict valid for "VsparseImage"
+    mjd is a list of dates.
 
     param: dictionnary
-    - ulb_mjd0: date to minimum approach (MJD)
-    - ulb_u0: minimum approach wrt lens' center of mass
-    - ulb_tE: Einstein time (in days)
-    - ulb_thetaE: Einstein radius (in mas)
-    - ulb_b: lens binary separation, in unit of thetaE
-    - ulb_q: lens mass ratio m1/m2
-        x1, y1 = -b*q, 0
-        x2, y2 = b*(1-q), 0
-    - ulb_theta: approach angle of source -> lens wrt x=0 axis (in rad)
-    - ulb_rhos: angular size of the source, in unit of thetaE
-    - ulb_rotation: rotation of the whole scene (in deg, angle N->E)
-    - ulb_flip: optional. if ='y', then flip scene upside down
+    - 'ul mjd0': date to minimum approach (MJD)
+    - 'ul u0': minimum approach wrt lens' center of mass
+    - 'ul tE': Einstein time (in days)
+    - 'ul thetaE': Einstein radius (in mas)
+    - 'ul rhos': angular size of the source, in unit of thetaE
+    - 'ul rotation': rotation of the whole scene (in deg, angle N->E)
+    binary lens:
+    - 'ul theta': approach angle of source wrt to binary orientation (in deg)
+    - 'ul b': lens binary separation, in unit of thetaE
+    - 'ul q': lens mass ratio m1/m2
+        x1, y1 = -b*q/(1+q), 0
+        x2, y2 = b*1/(1+q), 0
+    - ul flip: optional. if ='y', then flip scene upside down
     """
-    global lastVmuLensBin
-    import ulensBin
-    p = {k.split('ulb_')[1]:param[k] for k in param if k.startswith('ulb_')}
-    # -- this is parallelised, but still VERY SLOW
-    tmp = ulensBin.computeSparseParam(mjd, p)
-    tmp['scale'] = param['ulb_thetaE']
-    tmp['projang'] = param['ulb_rotation']
-    if 'ulb_flip' in param and param['ulb_flip']=='y':
+    import ulensBin2
+    p = {k.split('ul ')[1]:param[k] for k in param if k.startswith('ul ')}
+    p['theta'] *= np.pi/180
+    for k in ['b', 'q']:
+        if not k in p:
+            p[k]=0
+    # -- create parameter's dict for sparse image
+    tmp = ulensBin2.computeSparseParam(mjd, p, parallel=False)
+    tmp['scale'] = param['ul thetaE']
+    tmp['projang'] = param['ul rotation']
+    if 'ul flip' in param and param['ul flip']=='y':
         tmp['flip']=='y'
-    tmp.update(param)
+    #tmp.update(param)
     return tmp
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
@@ -1541,7 +1561,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     if type(oi) == list:
         # -- iteration on "oi" if a list
         return [VmodelOI(o, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                        timeit=timeit, indent=indent, fullOutput=fullOutput) for o in oi]
+                        timeit=timeit, indent=indent, fullOutput=fullOutput,
+                        debug=debug) for o in oi]
 
     # -- split in components if needed
     comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x])
@@ -1550,6 +1571,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         return VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                          timeit=timeit, indent=indent+1, fullOutput=fullOutput)
 
+    # -- multiple components:
     tinit = time.time()
     res = {} # -- contains result
     t0 = time.time()
@@ -1645,6 +1667,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     if timeit:
         print(' '*indent+'VmodelOI > smearing %.3fms'%(1000*(time.time()-t0)))
 
+    # -- for each components:
     t0 = time.time()
     for c in comp:
         #print(c)
@@ -1664,6 +1687,19 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                             timeit=timeit, indent=indent+1, noT3=True,
                             _dwl=_dwl, _ffrac=_ffrac, fullOutput=fullOutput)
+            if _dwl!=0:
+                # -- correct wavelenth offset
+                _cwl = 1.0 + _dwl/np.mean(res['WL'])
+                res['WL'] -= _dwl
+                for x in ['OI_VIS', 'OI_VIS2', 'OI_T3']:
+                    if not x in res:
+                        continue
+                    for k in res[x]:
+                        for z in res[x][k]:
+                            if z.endswith('/wl'):
+                                res[x][k][z] *= _cwl
+                # -- end correction
+
             if 'image' in res['MODEL'].keys():
                 # -- for this component
                 res['MODEL'][c+',image'] = res['MODEL']['image']

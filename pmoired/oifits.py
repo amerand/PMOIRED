@@ -83,7 +83,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             h.close()
             print('insname not specified, loading %s'%str(instruments))
             # -- return list: one dict for each insname
-            return [loadOI(filename, insname=ins, withHeader=withHeader,
+            return [loadOI(filename, insname=ins, withHeader=withHeader, verbose=verbose,
                             medFilt=medFilt) for ins in instruments]
 
     assert insname in instruments, 'unknown instrument "'+insname+'", '+\
@@ -269,11 +269,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
                                                           hdu.data[k2][w])
                     tmp = hdu.data['UCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS2'][k]['u/wl'] = np.append(res['OI_VIS2'][k]['u/wl'], tmp, axis=0)
+                    res['OI_VIS2'][k]['u/wl'] = np.append(res['OI_VIS2'][k]['u/wl'],
+                                                          tmp, axis=0)
 
                     tmp = hdu.data['VCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS2'][k]['v/wl'] = np.append(res['OI_VIS2'][k]['v/wl'], tmp, axis=0)
-
+                    res['OI_VIS2'][k]['v/wl'] = np.append(res['OI_VIS2'][k]['v/wl'],
+                                                            tmp, axis=0)
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
@@ -349,9 +350,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],
                                                           hdu.data[k2][w])
                     tmp = hdu.data['UCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS'][k]['u/wl'] = np.append(res['OI_VIS'][k]['u/wl'], tmp, axis=0)
+                    res['OI_VIS'][k]['u/wl'] = np.append(res['OI_VIS'][k]['u/wl'],
+                                                         tmp, axis=0)
                     tmp = hdu.data['VCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS'][k]['v/wl'] = np.append(res['OI_VIS'][k]['v/wl'], tmp, axis=0)
+                    res['OI_VIS'][k]['v/wl'] = np.append(res['OI_VIS'][k]['v/wl'],
+                                                         tmp, axis=0)
                     res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
                                                              ~np.isfinite(res['OI_VIS'][k]['|V|']))
                     res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
@@ -374,7 +377,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         }
                 if any(w):
                     res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
-                                                        res['OI_VIS'][k]['v/wl']**2)
+                                                       res['OI_VIS'][k]['v/wl']**2)
                     res['OI_VIS'][k]['PA'] = np.angle(res['OI_VIS'][k]['v/wl']+
                                                    1j*res['OI_VIS'][k]['u/wl'], deg=True)
 
@@ -757,7 +760,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                         res[_key][t[0]]['B/wl'] = np.append(res[_key][t[0]]['B/wl'],
                                                      np.array([np.sqrt(res['OI_T3'][k]['u1'][i]**2+
-                                                             res['OI_T3'][k]['v1'][i]**2)/
+                                                                       res['OI_T3'][k]['v1'][i]**2)/
                                                      res['WL']]), axis=0)
                         res[_key][t[0]]['FLAG'] = np.append(res[_key][t[0]]['FLAG'],
                                                     np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
@@ -808,7 +811,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                         res[_key][t[1]]['B/wl'] = np.append(res[_key][t[1]]['B/wl'],
                                                      np.array([np.sqrt(res['OI_T3'][k]['u2'][i]**2+
-                                                             res['OI_T3'][k]['v2'][i]**2)/
+                                                                       res['OI_T3'][k]['v2'][i]**2)/
                                                      res['WL']]), axis=0)
                         res[_key][t[1]]['FLAG'] = np.append(res[_key][t[1]]['FLAG'],
                                                     np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
@@ -865,7 +868,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                         res[_key][t[2]]['B/wl'] = np.append(res[_key][t[2]]['B/wl'],
                                                      np.array([np.sqrt((res['OI_T3'][k]['u1'][i]+res['OI_T3'][k]['u2'][i])**2+
-                                                             (res['OI_T3'][k]['v1'][i]+res['OI_T3'][k]['v2'][i])**2)/
+                                                                       (res['OI_T3'][k]['v1'][i]+res['OI_T3'][k]['v2'][i])**2)/
                                                      res['WL']]), axis=0)
                         res[_key][t[2]]['FLAG'] = np.append(res[_key][t[2]]['FLAG'],
                                                     np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)

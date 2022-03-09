@@ -432,6 +432,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     for i,k in enumerate(fitOnly):
         pfix[k] = plsq[i]
 
+
     # -- reduced chi2
     model = func(x,pfix)
     # -- residuals
@@ -473,6 +474,17 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             else:
                 uncer[k]= np.sqrt(np.abs(np.diag(cov)[i]))
 
+    # -- simple criteria to see if step is too large
+    notconverg = []
+    for k in filter(lambda x: x!='reduced chi2', trackP.keys()):
+        n = len(trackP[k])
+        std2 = np.std(trackP[k][(3*n)//4:])
+        ptp2 = np.ptp(trackP[k][(3*n)//4:])
+        if std2>2*uncer[k] and not k in notsig:
+            print('[dpfit] \033[31m parameter "'+k+
+                  '" does not seem to converge properly\033[0m')
+            notconverg.append(k)
+
     if type(verbose)==int and verbose>1:
         #print('-'*30)
         print('# --     CHI2=', chi2)
@@ -505,6 +517,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                'maxfev':maxfev, 'firstGuess':params,
                'track':trackP, 'mesg':mesg,
                'not significant':notsig,
+               'not converging':notconverg,
         }
         if type(verbose)==int and verbose>2 and np.size(cor)>1:
             dispCor(pfix)
@@ -1255,7 +1268,8 @@ def factors(n):
 
 def subp(N, imax=None):
     """
-    gives the dimensions of a gird of plots for N plots, allow up to imax empty plots to have a squarish grid
+    gives the dimensions of a gird of plots for N plots, allow up to imax empty
+    plots to have a squarish grid
     """
     if N==2:
         return (1,2)
@@ -1294,7 +1308,8 @@ def _callbackAxes(ax):
 
 def exploreFit(fit, fig=99):
     """
-    plot the evolution of the fitted parameters as function of iteration, as well as chi2
+    plot the evolution of the fitted parameters as function of iteration,
+    as well as chi2
     """
     global AX, T
     plt.close(fig)
@@ -1322,16 +1337,24 @@ def exploreFit(fit, fig=99):
 
     # -- plot all parameters:
     for i, k in enumerate(sorted(filter(lambda x: x!='reduced chi2', fit['track'].keys()))):
+
         r = np.arange(len(fit['track'][k]))
+
         AX[k] = plt.subplot(S[1], S[0], i+2, sharex=AX['reduced chi2'])
-        plt.plot(r, fit['track'][k], '-', color=(0, 0.4, 0.8))
+
+        # -- evolution of parameters
+        if k in fit['not significant'] or k in fit['not converging']:
+            color = (0.8, 0.3, 0)
+        else:
+            color=(0, 0.4, 0.8)
+        plt.plot(r, fit['track'][k], '-', color=color)
         # -- when parameter converged within uncertainty
         w = np.abs(fit['track'][k] - fit['best'][k])<=fit['uncer'][k]
         # -- from the end of the sequence, when parameter was within error
         r0 = r[w][::-1][np.argmax((np.diff(r[w])!=1)[::-1])]
-        #plt.plot(r[w], fit['track'][k][w], 'o', color=(0, 0.4, 0.8))
+        #plt.plot(r[w], fit['track'][k][w], 'o', color=color)
 
-        plt.plot(r[r>=r0], fit['track'][k][r>=r0], '.', color=(0, 0.4, 0.8))
+        plt.plot(r[r>=r0], fit['track'][k][r>=r0], '.', color=color)
         plt.title(k, fontsize=fontsize, x=0.05, y=0.9, ha='left', va='top')
 
         plt.yticks(fontsize=fontsize)
@@ -1344,7 +1367,8 @@ def exploreFit(fit, fig=99):
                          fit['best'][k]+fit['uncer'][k],
                         color='orange', alpha=0.2)
         plt.hlines(fit['best'][k], 0, len(fit['track'][k])-1, alpha=0.5, color='orange')
-        plt.vlines(r0, plt.ylim()[0], plt.ylim()[1])
+        plt.vlines(r0, plt.ylim()[0], plt.ylim()[1], linestyle=':',
+                    color='k', alpha=0.5)
     for k in AX.keys():
         AX[k].callbacks.connect('xlim_changed', _callbackAxes)
     plt.tight_layout()

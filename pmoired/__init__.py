@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20220218'
+__version__='20220309'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -406,12 +406,34 @@ class OI:
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
-        # -- piors are added as data
+        if len(self.bestfit['not significant']):
+            print('\033[31m WARNING: these parameters do not change chi2!:', end=' ')
+            print(self.bestfit['not significant'], '\033[0m')
+            print('\033[34m-> check the syntax of your model\033[0m')
+        if len(self.bestfit['not converging']):
+            print('\033[31m WARNING: these parameter(s) are not converging properly!:', end=' ')
+            print(self.bestfit['not converging'], '\033[0m')
+            print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
+            print('-> Try redefining parameters to be less sensitive to *relative* variations')
+            for k in self.bestfit['not converging']:
+                try:
+                    n = int(np.round(np.log10(self.bestfit['uncer'][k])-1, 0))
+                    V0 = round(self.bestfit['best'][k], n)
+                    fmt = '%.'+str(max(n, 0))+'f'
+                    _k = k+' DELTA'
+                    print('{"%s":"'%k+fmt%V0+'+$%s", "%s":%f}'%(_k, _k, self.bestfit['best'][k]-V0))
+                except:
+                    pass
+            print('\033[0m')
+
+        # -- priors are added as data
         self.bestfit['ndof'] -= len(prior)
+        self.bestfit['prior'] = prior
+        # -- compute final model
         self._model = oimodels.VmodelOI(self._merged, self.bestfit['best'])
         self.computeModelSpectra(uncer=False)
-        self.bestfit['prior'] = prior
         return
+
     def showFit(self):
         """
         show how chi2 / fitted parameters changed with each iteration of the fit.
@@ -786,7 +808,7 @@ class OI:
         if allInOne and perSetup:
             perSetup = False
 
-        if allInOne:
+        if allInOne or perSetup:
             data = oifits.mergeOI(self.data, collapse=False, verbose=False)
         else:
             data = self.data
@@ -1279,7 +1301,7 @@ class OI:
         return
 
     def computeModelImages(self, imFov, model='best', imPix=None,
-                           imX=0, imY=0, visibilities=False):
+                           imX=0, imY=0, visibilities=False, debug=False):
         """
         Compute an image cube of the synthetic model, for each wavelength in
         the data. By default, the model used is the best fit model
@@ -1300,6 +1322,8 @@ class OI:
         See Also: computeModelSpectra
 
         """
+        if debug:
+            print('D> -- computeModelImages')
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
 
@@ -1318,10 +1342,14 @@ class OI:
 
         if len(self._merged)>0:
             # -- fast:
+            if debug:
+                print('D> on "merged"')
             tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
                                      imX=imX, imY=imY) for d in self._merged]
         else:
             # -- slow:
+            if debug:
+                print('D> on "data"')
             tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
                                      imX=imX, imY=imY) for d in self.data]
 
@@ -1358,6 +1386,7 @@ class OI:
             return
 
         syn = []
+
         for d in self.data:
             # -- assumes OI_VIS and OI_VIS2 have same u,v,wl,mjd structures
             # -- this is ensured while loading data
@@ -1410,7 +1439,7 @@ class OI:
         self.vfromim = syn
         return
 
-    def computeModelSpectra(self, model='best', uncer=True, Niter=100):
+    def computeModelSpectra(self, model='best', uncer=False, Niter=100):
         """
         Compute the fluxes (i.e. SED) and/or spectra for each component of given
         model (default model is the self.bestfit['best']). If "uncer=True"
@@ -1436,121 +1465,127 @@ class OI:
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
             # -- randomise parameters, using covariance
-            models = oimodels.dpfit.randomParam(self.bestfit, N=Niter,
-                                                x=None)['r_param']
+            if uncer:
+                models = oimodels.dpfit.randomParam(self.bestfit, N=Niter,
+                                                    x=None)['r_param']
 
         assert type(model) is dict, "model must be a dictionnary"
 
-        allWLc = [] # -- continuum -> absolute flux
-        allWLs = [] # -- with spectral lines -> normalized flux
-
-        allCont = []
-
-        Nr = None
-        for i,o in enumerate(self.data):
-            # -- user-defined wavelength range
-            fit = {'wl ranges':[(min(o['WL']), max(o['WL']))]}
-            if 'fit' in o and 'continuum ranges' in o['fit']:
-                fit['continuum ranges'] = o['fit']['continuum ranges']
-                for c in o['fit']['continuum ranges']:
-                    if not c in allCont:
-                        allCont.append(c)
-            if not 'fit' in o:
-                o['fit'] = fit.copy()
-            elif not 'wl ranges' in o['fit']:
-                # -- weird but necessary to avoid a global 'fit'
-                fit.update(o['fit'])
-                o['fit'] = fit.copy()
-
-            if 'fit' in o and 'Nr' in o['fit']:
-                if Nr is None:
-                    Nr = o['fit']['Nr']
-                else:
-                    Nr = max(Nr, o['fit']['Nr'])
-
-            w = np.zeros(o['WL'].shape)
-            closest = []
-            for WR in o['fit']['wl ranges']:
-                w += (o['WL']>=WR[0])*(o['WL']<=WR[1])
-                closest.append(np.argmin(np.abs(o['WL']-0.5*(WR[0]+WR[1]))))
-            o['WL mask'] = np.bool_(w)
-            if not any(o['WL mask']):
-                for clo in closest:
-                    o['WL mask'][clo] = True
-            if 'NFLUX' in o['fit']['obs']:
-                allWLs.extend(list(o['WL'][o['WL mask']]))
-            else:
-                allWLc.extend(list(o['WL'][o['WL mask']]))
-
-        allWLc = np.array(sorted(list(set(allWLc))))
-        allWLs = np.array(sorted(list(set(allWLs))))
-        #print('SED:', allWLc)
-        #print('spe:', allWLs)
-        M = {'model':model}
-        if len(allWLc):
-            allWL = {'WL':allWLc, 'fit':{'obs':[]}} # minimum required
-            if not Nr is None:
-                allWL['fit']['Nr'] = Nr
-            tmp = oimodels.VmodelOI(allWL, model)
-            try:
-                fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
-                          tmp['MODEL'].keys() if k.endswith(',flux')}
-            except:
-                fluxes = {'total': tmp['MODEL']['totalflux']}
-
-            if not models is None:
-                tmps = [oimodels.VmodelOI(allWL, m) for m in models]
-                try:
-                    efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
-                            tmp['MODEL'].keys() if k.endswith(',flux')}
-                            )
-                except:
-                    efluxes = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
-            else:
-                efluxes={}
-            M['flux WL'] = allWLc
-            M['flux COMP'] = fluxes
-            M['err flux COMP'] = efluxes
-            M['flux TOTAL'] = tmp['MODEL']['totalflux']
-            if not models is None:
-                M['err flux TOTAL'] = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
-
+        if len(self._merged)>0:
+            self.spectra = _computeSpectra(model, self._merged, models=models)
         else:
-            M['flux WL'] = np.array([])
-            M['flux COMP'] = {}
-            M['flux TOTAL'] = np.array([])
+            self.spectra = _computeSpectra(model, self.data, models=models)
 
-        if len(allWLs):
-            allWL = {'WL':allWLs, 'fit':{'obs':['NFLUX'],
-                                    'continuum ranges':allCont}} # minimum required
-            if not Nr is None:
-                allWL['fit']['Nr'] = Nr
+def _computeSpectra(model, data, models):
+    allWLc = [] # -- continuum -> absolute flux
+    allWLs = [] # -- with spectral lines -> normalized flux
+    allMJD = []
+    allCont = []
+    Nr = None
+    for i,o in enumerate(data):
+        # -- user-defined wavelength range
+        fit = {'wl ranges':[(min(o['WL']), max(o['WL']))]}
+        if 'fit' in o and 'continuum ranges' in o['fit']:
+            fit['continuum ranges'] = o['fit']['continuum ranges']
+            for c in o['fit']['continuum ranges']:
+                if not c in allCont:
+                    allCont.append(c)
+        if not 'fit' in o:
+            o['fit'] = fit.copy()
+        elif not 'wl ranges' in o['fit']:
+            # -- weird but necessary to avoid a global 'fit'
+            fit.update(o['fit'])
+            o['fit'] = fit.copy()
 
-            tmp = oimodels.VmodelOI(allWL, model, timeit=False)
+        if 'fit' in o and 'Nr' in o['fit']:
+            if Nr is None:
+                Nr = o['fit']['Nr']
+            else:
+                Nr = max(Nr, o['fit']['Nr'])
+
+        w = np.zeros(o['WL'].shape)
+        closest = []
+        for WR in o['fit']['wl ranges']:
+            w += (o['WL']>=WR[0])*(o['WL']<=WR[1])
+            closest.append(np.argmin(np.abs(o['WL']-0.5*(WR[0]+WR[1]))))
+        o['WL mask'] = np.bool_(w)
+        if not any(o['WL mask']):
+            for clo in closest:
+                o['WL mask'][clo] = True
+        if 'NFLUX' in o['fit']['obs']:
+            allWLs.extend(list(o['WL'][o['WL mask']]))
+        else:
+            allWLc.extend(list(o['WL'][o['WL mask']]))
+        allMJD += list(o['MJD'])
+
+    allWLc = np.array(sorted(list(set(allWLc))))
+    allWLs = np.array(sorted(list(set(allWLs))))
+    allMJD = np.array(sorted(list(set(allMJD))))
+
+    #print('SED:', allWLc)
+    #print('spe:', allWLs)
+    M = {'model':model}
+    if len(allWLc):
+        allWL = {'WL':allWLc, 'fit':{'obs':[]}, 'MJD':allMJD} # minimum required
+        if not Nr is None:
+            allWL['fit']['Nr'] = Nr
+        tmp = oimodels.VmodelOI(allWL, model)
+        try:
             fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
                       tmp['MODEL'].keys() if k.endswith(',flux')}
-            if not models is None:
-                tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+        except:
+            fluxes = {'total': tmp['MODEL']['totalflux']}
+
+        if not models is None:
+            tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+            try:
                 efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
-                          tmp['MODEL'].keys() if k.endswith(',flux')}
-                          )
-            else:
-                efluxes={}
-            M['normalised spectrum CMASK'] = tmp['WL cont']
-            M['normalised spectrum WL'] = allWLs
-            M['normalised spectrum COMP'] = fluxes
-            M['err normalised spectrum COMP'] = efluxes
-            M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
-            if not models is None:
-                M['err normalised spectrum TOTAL'] = np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)
-
+                        tmp['MODEL'].keys() if k.endswith(',flux')}
+                        )
+            except:
+                efluxes = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
         else:
-            M['normalised spectrum WL'] = np.array([])
-            M['normalised spectrum COMP'] = {}
-            M['normalised spectrum TOTAL'] = np.array([])
+            efluxes={}
+        M['flux WL'] = allWLc
+        M['flux COMP'] = fluxes
+        M['err flux COMP'] = efluxes
+        M['flux TOTAL'] = tmp['MODEL']['totalflux']
+        if not models is None:
+            M['err flux TOTAL'] = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
 
-        self.spectra = M
-        return
+    else:
+        M['flux WL'] = np.array([])
+        M['flux COMP'] = {}
+        M['flux TOTAL'] = np.array([])
+
+    if len(allWLs):
+        allWL = {'WL':allWLs, 'fit':{'obs':['NFLUX'],
+                 'MJD':allMJD, 'continuum ranges':allCont}} # minimum required
+        if not Nr is None:
+            allWL['fit']['Nr'] = Nr
+
+        tmp = oimodels.VmodelOI(allWL, model, timeit=False)
+        fluxes = {k.split(',')[0]:tmp['MODEL'][k] for k in
+                  tmp['MODEL'].keys() if k.endswith(',flux')}
+        if not models is None:
+            tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+            efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
+                      tmp['MODEL'].keys() if k.endswith(',flux')}
+                      )
+        else:
+            efluxes={}
+        M['normalised spectrum CMASK'] = tmp['WL cont']
+        M['normalised spectrum WL'] = allWLs
+        M['normalised spectrum COMP'] = fluxes
+        M['err normalised spectrum COMP'] = efluxes
+        M['normalised spectrum TOTAL'] = tmp['MODEL']['totalflux']
+        if not models is None:
+            M['err normalised spectrum TOTAL'] = np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)
+    else:
+        M['normalised spectrum WL'] = np.array([])
+        M['normalised spectrum COMP'] = {}
+        M['normalised spectrum TOTAL'] = np.array([])
+    return M
 
 def _checkObs(data, obs):
     """
