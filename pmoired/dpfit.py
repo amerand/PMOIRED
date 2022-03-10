@@ -401,10 +401,10 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     if verbose:
         print('[dpfit]', mesg)
         #print('[dpfit] ier:', ier)
-        print('[dpfit] number of function call:', info['nfev'])
+        print('[dpfit]', info['nfev'], 'function calls', end=' ')
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
-        print('[dpfit] time per function call:', round(t, n), '(ms)')
+        print('(',round(t, n), 'ms on average)')
 
     notsig = []
     if cov is None:
@@ -481,9 +481,12 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         std2 = np.std(trackP[k][(3*n)//4:])
         ptp2 = np.ptp(trackP[k][(3*n)//4:])
         if std2>2*uncer[k] and not k in notsig:
-            print('[dpfit] \033[31m parameter "'+k+
-                  '" does not seem to converge properly\033[0m')
             notconverg.append(k)
+    if len(notconverg):
+        print('[dpfit] \033[33mParameters', notconverg,
+              'may not be converging properly\033[0m')
+        print('[dpfit] \033[33mcheck with "showFit" '+
+              '(too sensitive to relative variations?)\033[0m')
 
     if type(verbose)==int and verbose>1:
         #print('-'*30)
@@ -1306,7 +1309,7 @@ def _callbackAxes(ax):
                            np.max(T[k][w])+0.1*np.ptp(T[k][w]))
     return
 
-def exploreFit(fit, fig=99):
+def showFit(fit, fig=99):
     """
     plot the evolution of the fitted parameters as function of iteration,
     as well as chi2
@@ -1351,7 +1354,9 @@ def exploreFit(fit, fig=99):
         # -- when parameter converged within uncertainty
         w = np.abs(fit['track'][k] - fit['best'][k])<=fit['uncer'][k]
         # -- from the end of the sequence, when parameter was within error
-        r0 = r[w][::-1][np.argmax((np.diff(r[w])!=1)[::-1])]
+        r0 = np.argmax([all(w[x:]) for x in range(len(w))])
+
+        #r0 = r[w][::-1][np.argmax((np.diff(r[w])!=1)[::-1])]
         #plt.plot(r[w], fit['track'][k][w], 'o', color=color)
 
         plt.plot(r[r>=r0], fit['track'][k][r>=r0], '.', color=color)

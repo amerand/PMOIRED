@@ -54,7 +54,7 @@ def checkCurrentVersion():
     else:
         return None
 
-print('cheking for newer version... ', end='')
+print('checking for newer version... ', end='')
 try:
     curver = checkCurrentVersion()
     if not curver is None and curver>__version__:
@@ -65,7 +65,7 @@ try:
         print('You have a newer version than github!?', end=' ')
     print('[you have '+__version__+']' )
 except:
-    print('failed')
+    print('failed (no connection to github?)')
 
 try:
     jup = os.popen('jupyter --version').readlines()
@@ -363,6 +363,8 @@ class OI:
                     d['fit'] = {'prior':prior}
                 else:
                     d['fit']['prior'] = prior
+        if prior is None:
+            prior = []
         return prior
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True,
@@ -407,17 +409,17 @@ class OI:
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
         if len(self.bestfit['not significant']):
-            print('\033[31m WARNING: these parameters do not change chi2!:', end=' ')
+            print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
             print(self.bestfit['not significant'], '\033[0m')
-            print('\033[34m-> check the syntax of your model\033[0m')
+            print('\033[34m-> Try checking the syntax of your model\033[0m')
         if len(self.bestfit['not converging']):
-            print('\033[31m WARNING: these parameter(s) are not converging properly!:', end=' ')
+            print('\033[33mCAUTION: this(ese) parameter(s) may not be converging properly:', end=' ')
             print(self.bestfit['not converging'], '\033[0m')
             print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
             print('-> Try redefining parameters to be less sensitive to *relative* variations')
             for k in self.bestfit['not converging']:
                 try:
-                    n = int(np.round(np.log10(self.bestfit['uncer'][k])-1, 0))
+                    n = int(-np.round(np.log10(self.bestfit['uncer'][k])+2, 0))
                     V0 = round(self.bestfit['best'][k], n)
                     fmt = '%.'+str(max(n, 0))+'f'
                     _k = k+' DELTA'
@@ -440,7 +442,7 @@ class OI:
         """
         if not self.bestfit is None:
             self.fig += 1
-            oimodels.dpfit.exploreFit(self.bestfit, fig=self.fig)
+            oimodels.dpfit.showFit(self.bestfit, fig=self.fig)
         return
 
     # def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,

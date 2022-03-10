@@ -2543,7 +2543,7 @@ def computePriorL(param, prior):
             print('WARNING: could not compute prior "'+resi+'"')
     return np.array(res)
 
-def residualsOI(oi, param, timeit=False):
+def residualsOI(oi, param, timeit=False, what=False):
     """
     assumes dict OI has a key "fit" which list observable to fit:
 
@@ -2553,11 +2553,22 @@ def residualsOI(oi, param, timeit=False):
     """
     tt = time.time()
     res = np.array([])
+    if what:
+        wh = []
 
     if type(oi)==list:
         for i,o in enumerate(oi):
-            res = np.append(res, residualsOI(o, param, timeit=timeit))
-        return res
+            if what:
+                tmp = residualsOI(o, param, timeit=timeit, what=True)
+                res = np.append(res, tmp[0])
+                wh += tmp[1]
+            else:
+                res = np.append(res, residualsOI(o, param,
+                                                timeit=timeit, what=False))
+        if what:
+            return res, wh
+        else:
+            return res
 
     if 'fit' in oi:
         fit = oi['fit']
@@ -2655,9 +2666,14 @@ def residualsOI(oi, param, timeit=False):
                         # -- sometimes computation of DPHI fails :(
                         tmp = rf(oi[ext[f]][k][f][mask] -
                                   m[ext[f]][k][f][mask])/err[mask]
-                        res = np.append(res, tmp.flatten())
+                        tmp = tmp.flatten()
+                        res = np.append(res, tmp)
+                        if what:
+                            wh.extend([f+':'+k]*len(tmp))
                     else:
                         res = np.append(res, (err[mask]*0+1).flatten())
+                        if what:
+                            wh.extend(['?']*len(err[mask].flatten()))
 
                     # else:
                     #     print('cannot compute residuals', f, ext[f], k, f,
@@ -2675,14 +2691,20 @@ def residualsOI(oi, param, timeit=False):
         print('residualsOI > "res": %.3fms'%(1000*(time.time()-t0)))
         print('residualsOI > total: %.3fms'%(1000*(time.time()-tt)))
         print('-'*30)
-    res = np.append(res, m['MODEL']['negativity']*len(res))
+    res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+    if what:
+        wh.extend(['<0?'])
     if 'fit' in oi and 'prior' in oi['fit']:
         # -- add priors as additional residuals.
         tmp = computePriorL(computeLambdaParams(param), oi['fit']['prior'])
         # -- approximate equal weight as rest of data
         res = np.append(res, tmp*np.sqrt(len(res)))
-    #print(len(res))
-    return res
+        if what:
+            wh.extend(['prior']*len(oi['fit']['prior']))
+    if what:
+        return res, wh
+    else:
+        return res
 
 def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
                 doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8,
@@ -2959,8 +2981,21 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
                         doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
 
     fit['prior'] = prior
+    # -- fix az projangles and inclinations
+    for k in fit['best']:
+        if k=='projang' or ',' in k and k.split(',')[1]=='projang':
+            fit['best'][k] = (fit['best'][k]+180)%360-180
+            fit['track'][k] = (fit['track'][k]+180)%360-180
+        if k=='incl' or ',' in k and k.split(',')[1]=='incl':
+            fit['best'][k] = (fit['best'][k]+180)%360-180
+            fit['track'][k] = (fit['track'][k]+180)%360-180
 
-    fit['best'] = _updateAzAmpsProjangs(fit['best'])
+    # -- fix az projangles and amplitudes
+    fit['best'], changed = _updateAzAmpsProjangs(fit['best'])
+    for k in changed:
+        n = int(k.split('az amp')[1])
+        fit['track'][k] = np.abs(fit['track'][k])
+        fit['track'][k.replace('az amp', 'az projang')] -= 180/n
 
     if type(verbose)==int and verbose>=1:
         print('# -- degrees of freedom:', fit['ndof'])
@@ -3004,6 +3039,7 @@ def _updateAzAmpsProjangs(params):
         safe = lambda k: _safe
     #print('_safe:', _safe)
 
+    changed = []
     for k in params:
         if safe(k) and 'az amp' in k:
             if type(params[k])!=str and \
@@ -3013,13 +3049,14 @@ def _updateAzAmpsProjangs(params):
                 params[k] = np.abs(params[k])
                 n = int(k.split('az amp')[1])
                 params[k.replace('az amp', 'az projang')] -= 180/n
+                changed.append(k)
             if type(params[k.replace('az amp', 'az projang')])!=str:
                 # -- force projection angles -180 -> 180
                 #fit['best'][k.replace('az amp', ',az projang')] =\
                 #    (fit['best'][k.replace('az amp', ',az projang')]+180)%360-180
                 pass
 
-    return params
+    return params, changed
 
 def _chi2(oi, param):
     res2 = residualsOI(oi, param)**2
@@ -3322,7 +3359,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
             test = False
             if 'grid' in expl:
                 for k in expl['grid']:
-                    test = test or f['uncer'][k]>0.5*expl['grid'][k][2]
+                    test = test or f['uncer'][k]>expl['grid'][k][2]
             if test:
                 bad.append(f.copy())
                 bad[-1]['bad'] = True
