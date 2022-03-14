@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20220309'
+__version__='20220314'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -408,25 +408,28 @@ class OI:
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow)
-        if len(self.bestfit['not significant']):
-            print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
-            print(self.bestfit['not significant'], '\033[0m')
-            print('\033[34m-> Try checking the syntax of your model\033[0m')
-        if len(self.bestfit['not converging']):
-            print('\033[33mCAUTION: this(ese) parameter(s) may not be converging properly:', end=' ')
-            print(self.bestfit['not converging'], '\033[0m')
-            print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
-            print('-> Try redefining parameters to be less sensitive to *relative* variations')
-            for k in self.bestfit['not converging']:
-                try:
-                    n = int(-np.round(np.log10(self.bestfit['uncer'][k])+2, 0))
-                    V0 = round(self.bestfit['best'][k], n)
-                    fmt = '%.'+str(max(n, 0))+'f'
-                    _k = k+' DELTA'
-                    print('{"%s":"'%k+fmt%V0+'+$%s", "%s":%f}'%(_k, _k, self.bestfit['best'][k]-V0))
-                except:
-                    pass
-            print('\033[0m')
+        if verbose:
+            if len(self.bestfit['not significant']):
+                print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
+                print(self.bestfit['not significant'], '\033[0m')
+                print('\033[34m-> Try checking the syntax of your model\033[0m')
+            if len(self.bestfit['not converging']):
+                print('\033[33mCAUTION: this(ese) parameter(s) may not be converging properly:', end=' ')
+                print(self.bestfit['not converging'], '\033[0m')
+                print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
+
+                # -- this is not robust!
+                # print('-> Try redefining parameters to be less sensitive to *relative* variations')
+                # for k in self.bestfit['not converging']:
+                #     try:
+                #         n = int(-np.round(np.log10(self.bestfit['uncer'][k])+2, 0))
+                #         V0 = round(self.bestfit['best'][k], n)
+                #         fmt = '%.'+str(max(n, 0))+'f'
+                #         _k = k+' DELTA'
+                #         print('{"%s":"'%k+fmt%V0+'+$%s", "%s":%f}'%(_k, _k, self.bestfit['best'][k]-V0))
+                #     except:
+                #         pass
+                print('\033[0m')
 
         # -- priors are added as data
         self.bestfit['ndof'] -= len(prior)

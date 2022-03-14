@@ -408,8 +408,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
     notsig = []
     if cov is None:
-        print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
-        print('uncertainties cannot be computed\033[0m')
+        if verbose:
+            print('[dpfit] \033[31mWARNING: singular covariance matrix,', end=' ')
+            print('uncertainties cannot be computed\033[0m')
         mesg += '; singular covariance matrix'
         #print('       ', info['fjac'].shape)
         # -- try to figure out what is going on!
@@ -422,8 +423,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             else:
                 test = np.abs(delta[i])<=epsfcn
             if test:
-                print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
-                print('IT CANNOT BE FITTED\033[0m')
+                if verbose:
+                    print('[dpfit] \033[31m         parameter "'+k+'" does not change CHI2:', end=' ')
+                    print('IT CANNOT BE FITTED\033[0m')
                 mesg += '; parameter "'+k+'" does not change CHI2'
                 notsig.append(k)
         cov = np.zeros((len(fitOnly), len(fitOnly)))
@@ -482,7 +484,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         ptp2 = np.ptp(trackP[k][(3*n)//4:])
         if std2>2*uncer[k] and not k in notsig:
             notconverg.append(k)
-    if len(notconverg):
+    if len(notconverg) and verbose:
         print('[dpfit] \033[33mParameters', notconverg,
               'may not be converging properly\033[0m')
         print('[dpfit] \033[33mcheck with "showFit" '+

@@ -862,7 +862,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 I = R2==np.min(R2)
     elif any([k.startswith('ul ') for k in _param]):
         MJD = list(set(np.round(res['MJD'], 1)))
-        sparse_param = VmuLensBin(MJD, _param)
+        sparse_param = VuLensBin(MJD, _param)
         #print('debug: microlensing!', sparse_param)
 
         # -- UGLY: duplicate code -> make sure to update "sparse" below !
@@ -1049,13 +1049,19 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
     wl: 1D-ndarray wavelength (um). can have a different length from u and v
 
     param:
-        'sparse': filename. '.txt' should contain 3 columns (space separated)
+        'sparse': filename '.txt' should contain 3 columns (space separated)
             "x y intensity" x and y in mas, intensity is dimensionless
             Assumes each "x y" is a patch in the image. Each patch is assumed to
             have equal apparent surface, otherwise last colums must contain
             "surface * intensity".
-            '.pickle': a pickled dict {'x':..., 'y':..., 'I':...} with each col
+        OR filename '.pickle': a pickled dict {'x':..., 'y':..., 'I':...} with each col
             is a 1D vector
+        OR dict {'x':..., 'y':..., 'I':...} with each col
+            is a 1D vector
+
+    'sparse' can also be a dict keyed by MJD, and the closest image to "mjd" will
+        be used. In this case, each element can be a txt, pickle or dict described
+        above. See "VuLensBin" for a use of this
 
     returns:
     nd.array of shape (N,M) of complex visibilities
@@ -1072,20 +1078,21 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
                 p = param.copy()
                 p['sparse'] = param['sparse'][kmjd[i]]
                 if not fullOutput:
-                    tmp = VsparseImage(u[w], v[w], wl, p)
+                    tmp = VsparseImage(u[w], v[w], wl, p, mjd=None)
                     res[w,:] = tmp
                 else:
-                    res = VsparseImage(u[w], v[w], wl, p, fullOutput=True,
+                    res = VsparseImage(u[w], v[w], wl, p, fullOutput=True, mjd=None,
                                 imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
             return res
     else:
-        if type(param['sparse'])==dict:
-            print('WARNING: VsparseImage was not given MJDs! using only image at MJD=',
-                    list(param['sparse'].keys())[0])
-            param['sparse'] = param['sparse'][list(param['sparse'].keys())[0]]
+        # if type(param['sparse'])==dict:
+        #     print('WARNING: VsparseImage was not given MJDs! using only image at MJD=',
+        #             list(param['sparse'].keys())[0])
+        #     param['sparse'] = param['sparse'][list(param['sparse'].keys())[0]]
+        pass
 
     global _sparse_image_file, _sparse_image
-    if _sparse_image_file!=param['sparse']:
+    if type(param['sparse'])==str and _sparse_image_file!=param['sparse']:
         #print('loading new sparse image:', param['sparse'])
         if param['sparse'].endswith('.txt'):
             _sparse_image = {'x':[], 'y':[], 'I':[]}
@@ -1102,6 +1109,8 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
                 # -- pixel list "x(mas), y(mas), Intensity" as dict {'x':[], 'y':[], 'I':[]}
                 _sparse_image = pickle.load(f)
         _sparse_image_file = param['sparse']
+    else:
+        _sparse_image = param['sparse']
 
     # == compute visibility
     c = np.pi/180/3600/1000/1e-6 # mas*m.um -> radians
@@ -1129,10 +1138,14 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
     else:
         pow = 1
 
+    #import sparsim
+    #vis = sparsim.im2vis(u, v, wl, _x, _y, _sparse_image['I'])
+
     vis = np.exp(-2j*np.pi*c*(u[:,None,None]*_x[None,None,:]+
-                              v[:,None,None]*_y[None,None,:])/wl[None,:,None])
+                             v[:,None,None]*_y[None,None,:])/wl[None,:,None])
     vis = np.sum(vis*_sparse_image['I'][None,None,:]**pow, axis=2)/\
-          np.sum(_sparse_image['I']**pow)
+         np.sum(_sparse_image['I']**pow)
+
     if not imFov is None:
         # -- compute cube
         if imN is None:
@@ -1189,7 +1202,7 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
         # -- only (complex) visibility
         return vis
 
-def VmuLensBin(mjd, param):
+def VuLensBin(mjd, param):
     """
     microlensing images for binary lens. Returns a dict valid for "VsparseImage"
     mjd is a list of dates.
@@ -1221,7 +1234,7 @@ def VmuLensBin(mjd, param):
     tmp['projang'] = param['ul rotation']
     if 'ul flip' in param and param['ul flip']=='y':
         tmp['flip']=='y'
-    #tmp.update(param)
+    #print(tmp)
     return tmp
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
@@ -2983,12 +2996,13 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     fit['prior'] = prior
     # -- fix az projangles and inclinations
     for k in fit['best']:
-        if k=='projang' or ',' in k and k.split(',')[1]=='projang':
-            fit['best'][k] = (fit['best'][k]+180)%360-180
-            fit['track'][k] = (fit['track'][k]+180)%360-180
-        if k=='incl' or ',' in k and k.split(',')[1]=='incl':
-            fit['best'][k] = (fit['best'][k]+180)%360-180
-            fit['track'][k] = (fit['track'][k]+180)%360-180
+        if fit['uncer'][k]>0:
+            if k=='projang' or (',' in k and k.split(',')[1]=='projang'):
+                fit['best'][k] = (fit['best'][k]+180)%360-180
+                fit['track'][k] = (fit['track'][k]+180)%360-180
+            if k=='incl' or (',' in k and k.split(',')[1]=='incl'):
+                fit['best'][k] = (fit['best'][k]+180)%360-180
+                fit['track'][k] = (fit['track'][k]+180)%360-180
 
     # -- fix az projangles and amplitudes
     fit['best'], changed = _updateAzAmpsProjangs(fit['best'])
