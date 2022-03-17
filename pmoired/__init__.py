@@ -29,7 +29,7 @@ import requests
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20220314'
+__version__='20220317'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
