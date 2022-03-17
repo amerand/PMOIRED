@@ -1552,7 +1552,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
 
     if fullOutput:
         # -- visibility, total spectrum, x, y, cube, points in disk
-        return vis, flx, _X, _Y, cube, P
+        return vis, flx, _X, _Y, cube, P, flux
     else:
         # -- only (complex) visibility
         return vis
