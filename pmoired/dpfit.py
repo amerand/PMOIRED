@@ -72,7 +72,7 @@ def example():
     print('model: Y = '+m)
     # -- do the fit with simple error
     fit = leastsqFit(dpfunc.polyN, X, p0, Y, err=E, verbose=2,
-                        doNotFit=[], ftol=1e-5, maxfev=500)
+                      doNotFit=[], ftol=1e-5, maxfev=500)
 
     # -- display data and best fit model
     plt.figure(1)

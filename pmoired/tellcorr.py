@@ -153,7 +153,6 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         plt.clf()
         plt.subplots_adjust(right=0.99, left=0.05)
 
-
     # -- HARDWIRED, DANGEROUS!!! -> works for POLA and JOINED
     wl = f[4].data['EFF_WAVE']*1e6
     if len(wl)<10:
@@ -172,20 +171,19 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     # -- sum of fluxes, remove outliers -----------------------------
     sp, n = 0.0, 3
+    fl = None
     for i in range(4):
         if pola:
-            s = f[18].data['FLUX'][i,:]+f[22].data['FLUX'][i,:]
-            fl = np.logical_or(f[18].data['FLAG'][i,:], f[22].data['FLAG'][i,:])
+            _sp = f[18].data['FLUX'][i,:]+f[22].data['FLUX'][i,:]
+            _fl = np.logical_or(f[18].data['FLAG'][i,:], f[22].data['FLAG'][i,:])
         else:
-            s = f[12].data['FLUX'][i,:]
-            fl = f[12].data['FLAG'][i,:]
-
-        # for j in range(len(s))[n+1:-n-1]:
-        #     t = s[j-n:j][fl[j-n:j]]
-        #     t = np.append(t, s[j+1:j+n+1][fl[j+1:j+n+1]])
-        #     if np.isnan(s[j]) or np.abs(s[j]-t.mean())>3*t.std():
-        #         s[j] = t.mean()
-        sp+=s
+            _sp = f[12].data['FLUX'][i,:].copy()
+            _fl = f[12].data['FLAG'][i,:].copy()
+        sp += _sp
+        if fl is None:
+            fl = _fl
+        else:
+            fl = np.logical_or(fl, _fl)
     # -- close FITS file
     f.close()
 
