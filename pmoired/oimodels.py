@@ -76,8 +76,8 @@ def Ssingle(oi, param, noLambda=False):
                 _pow = _param['line_'+i+'_power']
             else:
                 _pow = 2.0
-            _tmp = _param[l]*np.exp(-4*np.log(2)*np.abs(oi['WL']-wl0)**_pow/
-                                  (dwl/1000)**_pow)
+            _tmp = _param[l]*np.exp(-np.abs(oi['WL']-wl0)**_pow/
+                                  (2*(dwl/1000/2.35482)**_pow))
             #print('_tmp', _tmp.max(), _param[l])
             #print(_param[l])
             f += _tmp
@@ -607,16 +607,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             imN = None
         else:
             imN = int(np.sqrt(len(X.flatten())))
+        #print('_param', _param)
         tmp = Vkepler([1], [1], res['WL'][wwl], _param, fullOutput=True,
                       imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
-        f = np.zeros(len(res['WL']))
-        f[wwl] = tmp[1]
+        flux = np.zeros(len(res['WL']))
+        flux[wwl] = tmp[1]
 
         if not I is None:
             #print('shape', tmp[4].shape)
             I = np.zeros((len(res['WL']), tmp[4].shape[1], tmp[4].shape[2]))
             I[wwl,:,:] = tmp[4]
-            I *= np.sum(f[:,None,None])/np.sum(I)
+            I *= np.sum(flux[:,None,None])/np.sum(I)
         Vf = lambda z: Vkepler(z['u'], z['v'], res['WL'][wwl], _param)
         # -- TEST
         #kt = list(oi['OI_VIS2'].keys())[0]
@@ -654,7 +655,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         #    negativity += np.max(np.abs(_c*_param['fwhm']*_Bwl(z)))
 
         if np.abs(_param['fwhm'])>1e-3: # UGLY KLUDGE!
-            #a = 1./(2.*(_param['fwhm']/2.355)**2)
+            #a = 1./(2.*(_param['fwhm']/2.35482)**2)
             a = 1./(2.*(_param['fwhm']/(2*np.sqrt(2*np.log(2))))**2)
             Rout = np.abs(_param['fwhm'])/2
             Vf = lambda z: np.exp(-(_c*_Bwl(z))**2/a)
@@ -1247,23 +1248,24 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
     param: parameters of disk:
         Geometry:
             Rin, Rout: inner and outer radii (mas)
+                or
+            diamin, diamout: inner and outer diameter (mas)
+
             Vin: velocity at Rin (km/s)
+            beta: velocity radial power law (default keplerian=-0.5)
             incl: disk inclination (degrees, 0 is face-on)
             projang: projection angle (degrees, 0 is N and 90 is E)
             x, y: position in the field (mas, optional: default is 0,0)
 
-        spectral lines (i can be anything)
-            Ain_i: amplitude at Rin (>0 for emission, <0 for absorbtion)
-            Apow_i: power low variation of continuum (R/Rin). Should be <=0. default is 0
-            wl0_i: central wavelength of line (um)
-            gauss_i: Gaussian width in (nm)
-                or
-            loren_i: Lorentzian width in (nm)
+        spectral lines (? can be anything)
+            line_?_wl0: central wavelength of line (um)
+            line_?_EW: equivalent width in nm (multiplied by total continuum)
+            line_?_rpow: radial power law
 
         continuum flux (optional):
-            Cin: continuum level at Rin
-            Cpow: power low variation of continuum (R/Rin). Should be <=0
-            Cspx: spectral index of continuum (in [wl/min(wl)]**Cspx)
+            cont_f: continuum total flux (at average wavelength)
+            cont_rpow: power low variation of continuum (R/Rin). Should be <=0
+            cont_spx: spectral index of continuum (in [wl/mean(wl)]**cont_spx)
 
     returns:
     nd.array of shape (N,M) of complex visibilities
@@ -1292,19 +1294,34 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
     else:
         assert False, 'Rin or diamin must be defined for Keplerian disk'
 
+    Rout = 0
     if 'Rout' in param:
         Rout = param['Rout']
     elif 'diamout' in param:
         Rout = param['diamout']/2
-    else:
-        assert False, 'Rout or diamout must be defined'
 
-    #Rout = max(Rout, Rin)
+    # -- check in any FWHM are defined:
+    fwhm = []
+    if 'cont_fwhm' in param:
+        fwhm.append(param['cont_fwhm'])
+    for k in param:
+        if k.startswith('line_') and k.endswith('fwhm'):
+            fwhm.append(param[k])
+    if len(fwhm)>0:
+        Rout = max(Rout, 1.5*np.max(fwhm))
+
+    assert Rout>0, 'Rout, diamout or fwhm must be defined'
+
+    if 'beta' in param:
+        beta = param['beta']
+    else:
+        beta = -0.5
 
     if 'Vin' in param:
         Vin = param['Vin']
     elif 'V1mas' in param:
-        Vin = param['V1mas']/np.sqrt(Rin)
+        Vin = param['V1mas']*Rin**beta
+
 
     # -- delta wl corresponding to max velocity / max(line width, spectral resolution)
     tmp = []
@@ -1312,21 +1329,24 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         if a.replace('wl0', 'gaussian') in param:
             tmp.append(param[a]*np.abs(Vin)/2.998e5/
                        max(param[a.replace('wl0', 'gaussian')]/1000, obs_dwl))
-        if a.replace('wl0', 'lorentzian') in param:
+        elif a.replace('wl0', 'lorentzian') in param:
             tmp.append(0.5*param[a]*np.abs(Vin)/2.998e5/
                        max(param[a.replace('wl0', 'lorentzian')]/1000, obs_dwl))
+        else:
+            # -- default gaussian profile based on spectral resolution
+            tmp.append(param[a]*np.abs(Vin)/2.998e5/obs_dwl)
 
     # -- step size, in mas, as inner radius
     drin = min(reso, 2*np.pi*Rin/8)
     if tmp!=[]:
         drin = min(2*np.pi*Rin/max(tmp), drin)
 
-    # -- safety margin
+    # -- safety margin: takes more points for _fudge>1
     drin /= _fudge
 
     # -- cos and sin values for rotations
     ci, si = np.cos(param['incl']*np.pi/180), np.sin(param['incl']*np.pi/180)
-    cp, sp = np.cos(param['projang']*np.pi/180), np.sin(param['projang']*np.pi/180)
+    cp, sp = np.cos(param['projang']*np.pi/180-np.pi/2), np.sin(param['projang']*np.pi/180-np.pi/2)
 
     # -- non uniform coverage in "r" (more points at inner radius, where range of velocity is widest)
     R = np.linspace(Rin**(1/_p), Rout**(1/_p),
@@ -1337,27 +1357,26 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
     dR = np.gradient(R)
 
     #print(Rin, Rout)
-    # -- TODO: this nested 'for' loop can be improved for speed!
+    # -- TODO: this nested loop can be improved for speed!
     for i,r in enumerate(R):
         drt = dR[i] # step along the circle
         # -- PA angle (rad)
         T = np.linspace(0, 2*np.pi, int(2*np.pi*r/drt))[:-1]
-        # -- avoid creating pattern
-        #T += (i%3)*2*np.pi/3 # avoid alignement of points
+        # -- avoid creating strong pattern in the mesh
         T += i*2*np.pi/len(R)
 
         # -- surface element
-        dS = dR[i]*r*np.sin(T[1]-T[0]) # should make flux independent of grid density
+        dS = dR[i]*r*(T[1]-T[0]) # should make flux independent of grid density
         for t in T:
-            # -- x, y, z, vx, vy, vz, rmin/r, PA, surf
+            # -- x, y, z, vx, vy, vz, rmin/r, PA, surface area
             # -- 0  1  2  3   4   5   6       7   8
             # -- include rotation in x (inclination)
             P.append([r*np.sin(t),
                       r*np.cos(t)*ci,
                       r*np.cos(t)*si,
-                      Vin*np.sqrt(Rin/r)*np.cos(t),
-                      Vin*np.sqrt(Rin/r)*np.sin(t)*ci,
-                      Vin*np.sqrt(Rin/r)*np.sin(t)*si,
+                      Vin*(r/Rin)**beta*np.cos(t),
+                      Vin*(r/Rin)**beta*np.sin(t)*ci,
+                      Vin*(r/Rin)**beta*np.sin(t)*si,
                       r/Rin, t, dS])
             # -- rotation around z axis (projang)
             P[-1] = [P[-1][0]*cp+P[-1][1]*sp, -P[-1][0]*sp+P[-1][1]*cp, P[-1][2],
@@ -1371,36 +1390,31 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
     #print(P.shape, Vpoints.shape)
     flux = np.zeros((len(wl), P.shape[0]))
     # -- continuum
-    if 'Cin' in param or 'C1mas' in param:
-        if 'Cpow' in param:
-            Cpow = param['Cpow']
+    if 'cont_f' in param:
+        if 'cont_rpow' in param:
+            cont_rpow = param['cont_rpow']
         else:
-            Cpow = 0.0
-        if 'Cspx' in param:
-            Cspx = param['Cspx']
+            cont_rpow = None
+
+        if 'cont_fwhm' in param:
+            cont_fwhm = param['cont_fwhm']
         else:
-            Cspx = 0.0
-        if 'Cin' in param:
-            cont = param['Cin']*(P[:,6][None,:])**(Cpow)*(wl/min(wl))[:,None]**Cspx
-        elif 'C1mas' in param:
-            cont = param['C1mas']*(P[:,6][None,:]*Rin)**(Cpow)*(wl/min(wl))[:,None]**Cspx
-        # -- test flux integral
-        if False:
-            r = np.linspace(Rin, Rout, 100)
-            I = param['Cin']*(r/Rin)**param['Cpow']
-            Cflux = np.trapz(2*np.pi*r*I, r)
-            print('total flux should be:', Cflux)
-            # -- integrate flux in polar 2D
-            tmp = []
-            for rminr in sorted(set(P[:,6])):
-                w = np.where(P[:,6]==rminr)
-                tmp.append(np.trapz(cont[0,:][w], P[:,7][w]))
-            print(np.shape(tmp), R.shape)
-            Ctot = np.trapz(np.array(tmp)*R, R)
-            #Ctot = sum(cont[0,:]*P[:,8])
-            print('  it is', Ctot,
-                  'error:', 100*(Ctot-Cflux)/Cflux, '%')
-        #print('cont:', cont.shape, 'wl:', wl.shape)
+            cont_fwhm = None
+
+        if 'cont_spx' in param:
+            cont_spx = param['cont_spx']
+        else:
+            cont_spx = 0.0
+
+        if not cont_rpow is None:
+            cont = (P[:,6])**(cont_rpow)
+            cont *= param['cont_f']/np.sum(cont*P[:,8])
+            cont = cont[None,:]*(wl[:,None]/np.mean(wl))**cont_spx
+        elif not cont_fwhm is None:
+            # -- assume gaussian with FWHM based on disk's dimentions
+            cont = np.exp(-(P[:,6]*Rin)**2/(2*(cont_fwhm/2.35482)**2))
+            cont /= np.sum(cont*P[:,8])
+            cont = param['cont_f']*cont[None,:]*(wl[:,None]/np.mean(wl))**cont_spx
     else:
         # -- no continuum
         cont = np.zeros((len(wl), P.shape[0]))
@@ -1408,45 +1422,73 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
     flux = 1.*cont
 
     # -- lines profiles:
-    loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/max(dwl/1000, obs_dwl/2)**2)
-    #loren = lambda x, wl0, dwl: max(0.5*dwl/1000, 0.5*obs_dwl/2)/((x-wl0)**2 + max(0.5*dwl/1000, 0.5*obs_dwl/2)**2)
-    gauss = lambda x, wl0, dwl: np.exp(-4*np.log(2)*(x-wl0)**2/max(dwl/1000, obs_dwl)**2)
+    #loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/maximum(dwl/1000, obs_dwl/2)**2)
+    loren = lambda x, wl0, dwl: (0.5*dwl/1000)**2/((x-wl0)**2 + (0.5*dwl/1000)**2)
+    gauss = lambda x, wl0, dwl: np.exp(-(x-wl0)**2/(2*(np.maximum(dwl/1000, obs_dwl)/2.35482)**2))
 
     for a in As: # for each spectral lines
         # -- radial power law variation of the amplitude
-        if a.replace('wl0', 'fpow') in param:
-            Pin = param[a.replace('wl0', 'fpow')]
+        if a.replace('wl0', 'rpow') in param:
+            Pin = param[a.replace('wl0', 'rpow')]
+            fwhm = None
+        elif a.replace('wl0', 'fwhm') in param:
+            Pin = None
+            fwhm = param[a.replace('wl0', 'fwhm')]
         else:
-            Pin = 0.0
-        if a.replace('wl0', 'fin') in param:
-            amp = param[a.replace('wl0', 'fin')]/Rin**2*(P[:,6])**(Pin)
-        elif a.replace('wl0', 'f1mas') in param:
-            amp = param[a.replace('wl0', 'f1mas')]*(P[:,6]*Rin)**(Pin)
+            # -- assume gaussian with FWHM based on disk's dimensions
+            Pin = None
+            fwhm = Rout
+
+        if a.replace('wl0', 'gaussian') in param:
+            dwl = param[a.replace('wl0', 'gaussian')] # in nm
+        elif a.replace('wl0', 'lorentzian') in param:
+            dwl = param[a.replace('wl0', 'lorentzian')] # in nm
+        else:
+            dwl = obs_dwl*1000
+
+        if a.replace('wl0', 'EW') in param:
+            if not Pin is None:
+                amp = (P[:,6])**(Pin)
+            else: # gaussian radial profile
+                #amp = np.exp(-4*np.log(2)*(P[:,6]*Rin)**2/(0.5*fwhm)**2)
+                amp = np.exp(-(P[:,6]*Rin)**2/(2*(fwhm/2.35482)**2))
+            # -- equivlant width in nm
+            amp *= param[a.replace('wl0', 'EW')]/dwl/1.064/np.sum(amp*P[:,8])
+        else:
+            amp = P[:,6]**(Pin)
 
         if a.replace('wl0', 'gaussian') in param:
             flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
                                       param[a], param[a.replace('wl0', 'gaussian')])
-        if a.replace('wl0', 'lorentzian') in param:
+        elif a.replace('wl0', 'lorentzian') in param:
             flux += amp[None,:]*loren(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
                                       param[a], param[a.replace('wl0', 'lorentzian')])
+        else:
+            # -- default gaussian, based on spectral resolution
+            flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
+                                      param[a], obs_dwl/1000)
 
-    # -- surface area of each point on disk -> not sure why it is not required...
-    #flux *= P[:,8][None,:]
+    if False:
+        # -- trying to be clever integrating...
+        flx = []
+        vis = []
+        # -- integrate each ring along PA
+        for rminr in sorted(set(P[:,6])):
+            w = np.where(P[:,6]==rminr)
+            flx.append(np.trapz(flux[:,w[0]], P[:,7][w][None,:], axis=1))
+            vis.append(np.trapz(flux[:,w[0]][None,:,:]*Vpoints[:,:,w[0]], P[:,7][w][None,None,:], axis=2))
+        # -- integrate along radial dimension
+        flx = np.trapz(np.array(flx)*R[:,None], R[:,None], axis=0)
+        vis = np.trapz(np.array(vis)*R[:,None,None], R[:,None,None], axis=0)
 
-    flx = []
-    vis = []
-    # -- integrate each ring along PA
-    for rminr in sorted(set(P[:,6])):
-        w = np.where(P[:,6]==rminr)
-        flx.append(np.trapz(flux[:,w[0]], P[:,7][w][None,:], axis=1))
-        vis.append(np.trapz(flux[:,w[0]][None,:,:]*Vpoints[:,:,w[0]], P[:,7][w][None,None,:], axis=2))
-    # -- integrate along radial dimension
-    flx = np.trapz(np.array(flx)*R[:,None], R[:,None], axis=0)
-    vis = np.trapz(np.array(vis)*R[:,None,None], R[:,None,None], axis=0)
-
-    # -- for the case continuum is 0
-    w0 = flx>1e-10*np.max(flx)
-    vis[:,w0] = vis[:,w0]/flx[w0]
+        # -- for the case continuum is 0
+        w0 = flx>1e-10*np.max(flx)
+        vis[:,w0] = vis[:,w0]/flx[w0]
+    else:
+        # -- dumb integration
+        # -- surface area of each point on disk
+        flx = np.sum(flux*P[:,8][None,:], axis=1)
+        vis = np.sum(Vpoints*flux[None,:,:]*P[:,8][None,None,:], axis=2)/flx
 
     if 'x' in param and 'y' in param:
         x, y = param['x'], param['y']
@@ -1493,19 +1535,20 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         cube = np.zeros((len(wl), len(X), len(Y)))
         # -- interpolate for each WL:
         # @@@@@@@ THIS IS VERY SLOW! @@@@@@@@@@@@@@@@@@@@
+        grP = [(p[0], p[1]) for p in P]
+        gr = np.array([_X, _Y]).reshape(2, -1).T
         for i in range(len(wl)):
-            cube[i,:,:] = scipy.interpolate.Rbf([p[0] for p in P],
-                                                [p[1] for p in P],
-                                                flux[i,:],
-                                                #epsilon=0.2,
-                                                smooth=0.2,
-                                                function='linear')(_X, _Y)
+            #cube[i,:,:] = scipy.interpolate.Rbf(Xg, Yg, flux[i,:], smooth=0.2)(_X, _Y)
+            cube[i,:,:] = scipy.interpolate.RBFInterpolator(grP, flux[i,:],
+                                                            #smoothing=0.2,
+                                                            kernel='linear',
+                                                            neighbors=3,
+                                                            )(gr).reshape((imN, imN))
             cube[i,:,:] *= (R2>=Rin**2)*(R2<=Rout**2)
 
-        #print(cube.shape, flux.shape, cont.shape)
+            cube[i,:,:] = np.maximum(0, cube[i,:,:])
     else:
         _X, _Y, cube = None, None, None
-
 
     if fullOutput:
         # -- visibility, total spectrum, x, y, cube, points in disk
@@ -1918,7 +1961,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # -- convolve by spectral Resolution
         N = 2*int(2*oi['fit']['spec res pix'])+3
         x = np.arange(N)
-        ker = np.exp(-(x-np.mean(x))**2/(2.*(oi['fit']['spec res pix']/2.355)**2))
+        ker = np.exp(-(x-np.mean(x))**2/(2.*(oi['fit']['spec res pix']/2.35482)**2))
         ker /= np.sum(ker)
         if 'NFLUX' in res.keys():
             for k in res['NFLUX'].keys():
@@ -2098,7 +2141,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
 
     if np.sum(w)==0:
-        print('WARNING: no continuum!?')
+        #print('WARNING: no continuum!?')
         w = oi['WL']>0
 
     oi['WL cont'] = np.bool_(w)
@@ -3857,7 +3900,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
-           cColors={}, cMarkers={}, _m=None):
+           cColors={}, cMarkers={}, imoi=None):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -3882,6 +3925,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
     """
     global ai1ax, ai1mcB, ai1mcT, ai1i
+
 
     if type(oi)==list:
         # -- multiple data sets
@@ -3911,16 +3955,15 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 f = fig
             else:
                 f = fig+i
-            if not _m is None and checkImVis:
-                #print('checking synthetic visibilities from images')
-                #print('recursion %d/%d: type(_m)'%(i+1, len(oi)), type(_m), end=' ')
-                if type(_m)==list:
-                    print(len(_m))
+
+            if not imoi is None:
+                if type(imoi)==list and len(imoi)==len(oi):
+                    _imoi = imoi[i]
                 else:
-                    print()
-                _M = _m[i]
+                    _imoi = imoi
             else:
-                _M = None
+                _imoi = None
+
             # -- m is the model based in parameters
             m = showOI(o, param=param, fig=f, obs=obs,
                    imFov=imFov, imPix=imPix, imX=imX, imY=imY, imMax=imMax,
@@ -3932,8 +3975,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vWl0=vWl0,
-                   cColors=cColors, cMarkers=cMarkers, _m=_M
-                   )
+                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi)
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
                     if 'WL mask' in m:
@@ -4004,6 +4046,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             ai1ax = {} # initialise global list of axes
             ai1i = [] # initialise global list of axes
         return models
+
     # == actual plotting starts here
     if debug:
         print('starting plotting in showOI')
@@ -4114,18 +4157,18 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             debug=debug)
         if remObs:
             oi['fit'].pop('obs')
-        if not imFov is None and checkImVis:
-            # == FIX THIS! does not work anymore bcause images are computed elsewhere
-            if debug:
-                print(' computing V from Image, imFov=', imFov)
-            if not _m is None:
-                m = VfromImageOI(m)
-        if checkImVis and not _m is None:
-                # -- this is ugly :(
-                for k in ['OI_VIS', 'OI_T3']:
-                    m[k.replace('OI_', 'IM_')] = _m[k]
-                for k in m['IM_VIS'].keys():
-                    m['IM_VIS'][k]['V2'] = _m['OI_VIS2'][k]['V2']
+        # if not imFov is None and checkImVis:
+        #     # == FIX THIS! does not work anymore bcause images are computed elsewhere
+        #     if debug:
+        #         print(' computing V from Image, imFov=', imFov)
+        #     if not _m is None:
+        #         m = VfromImageOI(m)
+        # if checkImVis and not _m is None:
+        #         # -- this is ugly :(
+        #         for k in ['OI_VIS', 'OI_T3']:
+        #             m[k.replace('OI_', 'IM_')] = _m[k]
+        #         for k in m['IM_VIS'].keys():
+        #             m['IM_VIS'][k]['V2'] = _m['OI_VIS2'][k]['V2']
 
         #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
         #    print('bandwidth smearing spectral channel(s):', m['smearing'])
@@ -4675,13 +4718,13 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 # -- show model: numerical FT from image
                 if checkImVis:
                     if not spectro: #allInOne:
-                        ax.plot(X(m, j)[mask],
-                             m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                            '1b', alpha=0.4)
+                        ax.plot(X(imoi, j)[mask],
+                             imoi[data[l]['ext']][k][data[l]['var']][j,mask]+yoffset*i,
+                            '1g', alpha=0.5)
                     else:
-                        ax.step(X(m, j)[mask],
-                             m[imdata[l]['ext']][k][imdata[l]['var']][j,mask]+yoffset*i,
-                            '--b', alpha=0.4, linewidth=2, where='mid')
+                        ax.step(X(imoi, j)[mask],
+                             imoi[data[l]['ext']][k][data[l]['var']][j,mask]+yoffset*i,
+                            '--g', alpha=0.5, linewidth=2, where='mid')
 
                 # -- show continuum for differetial PHI and normalized FLUX
                 if (l=='DPHI' or l=='NFLUX') and 'WL cont' in oi:
@@ -5910,8 +5953,8 @@ def testAzVar():
         width = thick*diam/4
         _i = np.maximum(1-(_r-r0)**2/width**2, 0)
 
-        # -- truncated gaussian: r0 as FWHM = 2.355*sigma
-        #_i = np.exp(-(_r/r0*2.355)**2)*(_r<=diam/2)*(_r>=(1-thick)*diam/2)
+        # -- truncated gaussian: r0 as FWHM = 2.35482*sigma
+        #_i = np.exp(-(_r/r0*2.35482)**2)*(_r<=diam/2)*(_r>=(1-thick)*diam/2)
 
         # -- do not give analytical visibility of radial profile (slower)
         Visp = _Vazvar(U/wl0, V/wl0, _i, _r, n, phi, amp, stretch=stretch)

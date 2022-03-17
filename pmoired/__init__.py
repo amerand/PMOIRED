@@ -835,19 +835,15 @@ class OI:
             showIM = False
             imFov = None
 
-        if checkImVis:
+        if not model is None and not imFov is None and checkImVis:
             allInOne = False
             perSetUp = False
-
-        if not imFov is None and checkImVis and not allInOne and not perSetup:
             # -- prepare computing model's images
-            print('computing images and visibilities')
+            print('computing model images and corresponding visibilities:')
             self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
                                     imX=imX, imY=imY, visibilities=True)
 
         if perSetup:
-            if checkImVis:
-                print('cannot check visibilites from images with "perSetup=True"')
             if perSetup == 'insname':
                 perSetup = list(set([d['insname'] for d in self.data]))
             elif not type(perSetup)==list:
@@ -931,15 +927,15 @@ class OI:
                 else:
                     _obs = None
                 if checkImVis:
-                    _m = [self.vfromim[i]]
+                    imoi = [self.vfromim[i]]
                 else:
-                    _m = None
+                    imoi = None
 
                 self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vWl0=vWl0,
-                        showChi2=showChi2, debug=self.debug, _m=_m))
+                        showChi2=showChi2, debug=self.debug, imoi=imoi))
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
@@ -1345,7 +1341,7 @@ class OI:
             pass
             return
 
-        if len(self._merged)>0:
+        if len(self._merged)>0 and not visibilities:
             # -- fast:
             if debug:
                 print('D> on "merged"')
@@ -1399,7 +1395,7 @@ class OI:
                 key = 'OI_VIS'
             else:
                 key = 'OI_VIS2'
-            tmp = {'OI_VIS':{}, 'OI_VIS2':{}, 'WL':d['WL']}
+            tmp = {'OI_VIS':{}, 'OI_VIS2':{}, 'WL':d['WL'], 'OI_FLUX':{}}
             wl = np.array([np.argmin(np.abs(x-res['WL'])) for x in d['WL']])
             norm = np.sum(res['cube'][wl,:,:], axis=(1,2))
             _c = np.pi**2/180/3600/1000*1e6
@@ -1431,16 +1427,26 @@ class OI:
                     tmp['OI_VIS2'][k]['FLAG'] = d['OI_VIS2'][k]['FLAG']
                 else:
                     tmp['OI_VIS2'][k]['FLAG'] = d[key][k]['FLAG']
+            tmp = oimodels.computeDiffPhiOI(tmp, param=model)
 
             if 'OI_T3' in d:
                 tmp['OI_T3'] = {}
                 for k in d['OI_T3']:
                     tmp['OI_T3'][k] = { x: d['OI_T3'][k][x] for x in
                         ['formula', 'MJD', 'Bmax/wl', 'Bavg/wl', 'FLAG']}
-
             tmp = oimodels.computeT3fromVisOI(tmp)
+
+            for k in d['OI_FLUX'].keys():
+                tmp['OI_FLUX'][k] = {'FLUX':d['OI_FLUX'][k]['FLAG']*0 +
+                                     np.sum(res['cube'], axis=(1,2))[None,:],
+                                     'EFLUX':d['OI_FLUX'][k]['FLAG']*0 + 1,
+                                    'RFLUX':d['OI_FLUX'][k]['FLAG']*0 +
+                                      np.sum(res['cube'], axis=(1,2))[None,:],
+                                    'MJD':d['OI_FLUX'][k]['MJD'],
+                                    'FLAG':d['OI_FLUX'][k]['FLAG'],
+                                    }
+            tmp = oimodels.computeNormFluxOI(tmp, param=model)
             syn.append(tmp)
-        print('test', len(self.data), '->', len(syn))
         self.vfromim = syn
         return
 
