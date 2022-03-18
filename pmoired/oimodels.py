@@ -2072,6 +2072,56 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         #print('done in %.3fs'%(time.time()-t0))
     return res
 
+def computeLambdaParams(params):
+    if params is None:
+        return None
+    paramsI = params.copy()
+    paramsR = {}
+    loop = True
+    nloop = 0
+    s = '$' # special character to identify keywords
+    while loop and nloop<10:
+        loop = False
+        for k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
+            if type(paramsI[k])==str:
+                # -- allow parameter to be expression of others
+                tmp = paramsI[k]
+                compute = False
+                for _k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
+                    if s+_k in paramsI[k]:
+                        try:
+                            repl = '%e'%paramsI[_k]
+                        except:
+                            repl = str(paramsI[_k])
+                        tmp = tmp.replace(s+_k, '('+repl+')')
+                        if not s in tmp:
+                            # -- no more replacement
+                            compute = True
+                # -- are there still un-computed parameters?
+                for _k in paramsI.keys():
+                    if s+_k in tmp:
+                        # -- set function to another loop
+                        loop = True
+                        paramsI[k] = tmp
+                if compute and not loop:
+                    paramsR[k] = eval(tmp)
+                else:
+                    paramsR[k] = tmp
+            else:
+                paramsR[k] = paramsI[k]
+        nloop+=1
+
+    assert nloop<10, 'too many recurences in evaluating parameters!'+str(paramsI)
+    # for k in paramsR:
+    #     for _k in paramsR:
+    #         if type(paramsR[k])==str and _k in paramsR[k]:
+    #             msg = 'reference to "%s" in definition of "%s" may need to be preceeded by "%s":'%(_k, k, s)
+    #             msg+= '\n  possibly {"%s": "%s"}'%(k, paramsR[k].replace(_k, '\033[1m'+s+'\033[0m'+_k))
+    #             msg+= ' instead of {"%s": "%s"} ?'%(k, paramsR[k])
+    #             print('\033[41mWARNING:\033[0m '+msg)
+
+    return paramsR
+
 def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
     if not param is None:
         _param = computeLambdaParams(param)
@@ -2083,7 +2133,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
         _param = oi['param']
 
     if not 'OI_VIS' in oi.keys():
-        #print('WARNING: computeDiffPhiOI, nothing to do')
         return oi
 
     # -- user-defined wavelength range
@@ -2113,6 +2162,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
             wc += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
         w *= np.bool_(wc)
         #print('user defined continuum:', np.sum(np.bool_(wc)), np.sum(w))
+
     # -- exclude where lines are in the models
     elif not _param is None:
         for k in _param.keys():
@@ -2166,8 +2216,36 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
         data = []
         for i,phi in enumerate(oi['OI_VIS'][k]['PHI']):
             mask = w*~oi['OI_VIS'][k]['FLAG'][i,:]
+            if 'EPHI' in oi['OI_VIS'][k]:
+                err = oi['OI_VIS'][k]['EPHI'][i,:]
+                if 'max error' in oi['fit'] and 'DPHI' in oi['fit']['max error']:
+                    # -- ignore data with large error bars
+                    mask *= (err<oi['fit']['max error']['DPHI'])
+                if 'max relative error' in oi['fit'] and 'DPHI' in oi['fit']['max relative error']:
+                    # -- ignore data with large error bars
+                    mask *= (err<(oi['fit']['max relative error']['DPHI']*
+                                    np.abs(oi['OI_VIS'][k]['PHI'][i,:])))
+                if 'mult error' in fit and 'DPHI' in oi['fit']['mult error']:
+                    # -- force error to a minimum value
+                    err *= oi['fit']['mult error']['DPHI']
+                if 'min error' in fit and 'DPHI' in oi['fit']['min error']:
+                    # -- force error to a minimum value
+                    err = np.maximum(oi['fit']['min error']['DPHI'], err)
+                if 'min relative error' in fit and 'DPHI' in oi['fit']['min relative error']:
+                    # -- force error to a minimum value
+                    err = np.maximum(oi['fit']['min relative error']['DPHI']*
+                                     np.abs(oi['OI_VIS'][k]['PHI'][i,:]), err)
+                mask *= err>0
+            else:
+                err = None
             if np.sum(mask)>order:
-                c = np.polyfit(oi['WL'][mask], phi[mask], order)
+                if not err is None:
+                    c = np.polyfit(oi['WL'][mask], phi[mask],
+                                    order, w=1/err[mask])
+                else:
+                    c = np.polyfit(oi['WL'][mask], phi[mask],
+                                    order)
+
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
                 data.append(phi-np.median(phi))
@@ -2355,56 +2433,6 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     # -- TODO: same as above, but for "totalflux(MJD)"
     return oi
 
-def computeLambdaParams(params):
-    if params is None:
-        return None
-    paramsI = params.copy()
-    paramsR = {}
-    loop = True
-    nloop = 0
-    s = '$' # special character to identify keywords
-    while loop and nloop<10:
-        loop = False
-        for k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
-            if type(paramsI[k])==str:
-                # -- allow parameter to be expression of others
-                tmp = paramsI[k]
-                compute = False
-                for _k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
-                    if s+_k in paramsI[k]:
-                        try:
-                            repl = '%e'%paramsI[_k]
-                        except:
-                            repl = str(paramsI[_k])
-                        tmp = tmp.replace(s+_k, '('+repl+')')
-                        if not s in tmp:
-                            # -- no more replacement
-                            compute = True
-                # -- are there still un-computed parameters?
-                for _k in paramsI.keys():
-                    if s+_k in tmp:
-                        # -- set function to another loop
-                        loop = True
-                        paramsI[k] = tmp
-                if compute and not loop:
-                    paramsR[k] = eval(tmp)
-                else:
-                    paramsR[k] = tmp
-            else:
-                paramsR[k] = paramsI[k]
-        nloop+=1
-
-    assert nloop<10, 'too many recurences in evaluating parameters!'+str(paramsI)
-    for k in paramsR:
-        for _k in paramsR:
-            if type(paramsR[k])==str and _k in paramsR[k]:
-                msg = 'reference to "%s" in definition of "%s" may need to be preceeded by "%s":'%(_k, k, s)
-                msg+= '\n  possibly {"%s": "%s"}'%(k, paramsR[k].replace(_k, '\033[1m'+s+'\033[0m'+_k))
-                msg+= ' instead of {"%s": "%s"} ?'%(k, paramsR[k])
-                print('\033[41mWARNING:\033[0m '+msg)
-
-    return paramsR
-
 def computeT3fromVisOI(oi):
     """
     oi => from oifits.loadOI()
@@ -2483,6 +2511,10 @@ def computeT3fromVisOI(oi):
                                       np.abs(oi['IM_VIS'][t[2]]['|V|'][w2,:])
     return oi
 
+def computeSlopeVisOI(oi, errfilt={}):
+    """
+    compute the slope of the visibility
+    """
 
 def testTelescopes(k, telescopes):
     """
@@ -2633,14 +2665,14 @@ def residualsOI(oi, param, timeit=False, what=False):
 
     t0 = time.time()
     if 'DPHI' in fit['obs']:
+        # TODO: this should take into account error filtering!
         oi = computeDiffPhiOI(oi, param)
         if timeit:
             print('residualsOI > dPHI %.3fms'%(1000*(time.time()-t0)))
             t0 = time.time()
+
     if 'NFLUX' in fit['obs']:
-        #print('debug: flux normalisation for residuals', end=' ')
         oi = computeNormFluxOI(oi, param)
-        #_k = list(oi['NFLUX'].keys())[0]; print(oi['NFLUX'][_k]['NFLUX'])
         if timeit:
             print('residualsOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
