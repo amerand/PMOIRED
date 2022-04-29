@@ -25,7 +25,6 @@ import pickle
 import time
 import requests
 
-
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
@@ -122,6 +121,7 @@ class OI:
         self._model = []
         self.data = []
         if type(filenames)==str and filenames.endswith('.pmrd'):
+            print('loading session saved in', filenames)
             self.load(filenames)
         elif not filenames is None:
             self.addData(filenames, insname=insname, targname=targname,
@@ -563,7 +563,10 @@ class OI:
         plt.subplot(122)
         plt.hist(c, bins=max(int(np.sqrt(len(self.limgrid))), 5))
         plt.xlabel(self._limexpl['param']+(' (mag)' if mag else ''))
-        plt.tight_layout()
+        try:
+            plt.tight_layout()
+        except:
+            pass
         return
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
@@ -1175,8 +1178,10 @@ class OI:
                 plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
-
-        plt.tight_layout()
+        try:
+            plt.tight_layout()
+        except:
+            pass
         return
 
     def showBestfit(self):
@@ -1527,7 +1532,10 @@ def _computeSpectra(model, data, models):
             allWLs.extend(list(o['WL'][o['WL mask']]))
         else:
             allWLc.extend(list(o['WL'][o['WL mask']]))
-        allMJD += list(o['MJD'])
+        try:
+            allMJD += list(o['MJD'])
+        except:
+            pass
 
     allWLc = np.array(sorted(list(set(allWLc))))
     allWLs = np.array(sorted(list(set(allWLs))))
