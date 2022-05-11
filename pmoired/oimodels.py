@@ -360,6 +360,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     ---------
     crout, crin: the diameter of the outer and inner disk
     croff: offset in fraction of (crout-crin) -1...1, where 0 is a ring
+    crprojang: the PA of the thick part of the crescent (in deg)
     the orientation of the crescent is defined by 'incl' and 'projang', defining
         the large axis
 
@@ -862,13 +863,20 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
     elif any([k.startswith('ul ') for k in _param]):
-        MJD = list(set(np.round(res['MJD'], 1)))
-        sparse_param = VuLensBin(MJD, _param)
-        #print('debug: microlensing!', sparse_param)
+        # -- only computed 1 image per night!
+        MJD = []
+        for _mjd in sorted(set(np.int_(res['MJD']+0.5))):
+            MJD.append(np.round(np.mean(res['MJD'][np.int_(res['MJD']+0.5)==_mjd]),2))
+        try:
+            sparse_param = VuLensBin(MJD, _param)
+        except:
+            print(MJD)
+            print(_param)
 
         # -- UGLY: duplicate code -> make sure to update "sparse" below !
         Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], sparse_param, z['MJD'])
         if not I is None:
+            #print('ul synthetic image ("sparseImage")')
             if imFov is None:
                 imN = None
             else:
@@ -951,11 +959,13 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         # -- force -180 -> 180
         tmp['PHI'] = (np.angle(V)*180/np.pi+180)%360-180
         # -- not needed, strictly speaking, takes a long time!
-        for l in ['B/wl', 'FLAG', 'MJD']:
+        for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
             if '/wl' in l and cwl!=1:
                 tmp[l] = oi[key][k][l].copy()/cwl
             else:
                 tmp[l] = oi[key][k][l].copy()
+        if 'NAME' in oi[key][k]:
+            tmp['NAME'] = oi[key][k]['NAME'].copy()
 
         if fullOutput or not imFov is None:
             # -- slow down the code!
@@ -972,11 +982,13 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         if 'OI_VIS2' in oi.keys():
             tmp = {}
             # -- not needed, strictly speaking, takes a long time!
-            for l in ['B/wl', 'FLAG', 'MJD']:
+            for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi['OI_VIS2'][k][l]/cwl
                 else:
                     tmp[l] = oi['OI_VIS2'][k][l].copy()
+            if 'NAME' in oi['OI_VIS2'][k]:
+                tmp['NAME'] = oi['OI_VIS2'][k]['NAME'].copy()
 
             tmp['V2'] = np.abs(V)**2
             if fullOutput or not imFov is None:
@@ -996,11 +1008,14 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl']:
+            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'MJD2']:
                 if '/wl' in l and cwl!=1:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l]/cwl
                 else:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
+            if 'NAME' in oi['OI_T3'][k]:
+                res['OI_T3'][k]['NAME'] = oi['OI_T3'][k]['NAME'].copy()
+
         res = computeT3fromVisOI(res)
         if timeit:
             print(' '*indent+'VsingleOI > T3 from V %.3fms'%(1000*(time.time()-t3)))
@@ -1156,7 +1171,7 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
         _X, _Y = np.meshgrid(X, Y)
         image = np.zeros((len(X), len(Y)))
         # -- interpolate -> slow:
-        DX, DY = [-1,0,1], [-1,0,1]
+        DX, DY = [-2,-1,0,1,2], [-2,-1,0,1,2]
         for k in range(len(_x)):
             i = np.argmin(np.abs(_x[k]-X))
             j = np.argmin(np.abs(_y[k]-Y))
@@ -1213,9 +1228,10 @@ def VuLensBin(mjd, param):
     - 'ul u0': minimum approach wrt lens' center of mass
     - 'ul tE': Einstein time (in days)
     - 'ul thetaE': Einstein radius (in mas)
-    - 'ul rhos': angular size of the source, in unit of thetaE
+    - 'ul rhos': angular radius of the source, in unit of thetaE
     - 'ul rotation': rotation of the whole scene (in deg, angle N->E)
     binary lens:
+
     - 'ul theta': approach angle of source wrt to binary orientation (in deg)
     - 'ul b': lens binary separation, in unit of thetaE
     - 'ul q': lens mass ratio m1/m2
@@ -1232,13 +1248,14 @@ def VuLensBin(mjd, param):
     # -- create parameter's dict for sparse image
     tmp = ulensBin2.computeSparseParam(mjd, p, parallel=False)
     tmp['scale'] = param['ul thetaE']
-    tmp['projang'] = param['ul rotation']
+    tmp['projang'] = -param['ul rotation']
+
     if 'ul flip' in param and param['ul flip']=='y':
-        tmp['flip']=='y'
+        tmp['flip']='y'
     #print(tmp)
     return tmp
 
-def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
+def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             imFov=None, imPix=None, imX=0, imY=0, imN=None):
     """
     complex visibility of keplerian disk:
@@ -1308,7 +1325,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         if k.startswith('line_') and k.endswith('fwhm'):
             fwhm.append(param[k])
     if len(fwhm)>0:
-        Rout = max(Rout, 1.5*np.max(fwhm))
+        Rout = max(Rout, 1.2*np.max(fwhm))
 
     assert Rout>0, 'Rout, diamout or fwhm must be defined'
 
@@ -1362,6 +1379,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         drt = dR[i] # step along the circle
         # -- PA angle (rad)
         T = np.linspace(0, 2*np.pi, int(2*np.pi*r/drt))[:-1]
+
         # -- avoid creating strong pattern in the mesh
         T += i*2*np.pi/len(R)
 
@@ -1377,7 +1395,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
                       Vin*(r/Rin)**beta*np.cos(t),
                       Vin*(r/Rin)**beta*np.sin(t)*ci,
                       Vin*(r/Rin)**beta*np.sin(t)*si,
-                      r/Rin, t, dS])
+                      r/Rin, (t+3*np.pi/2)%(2*np.pi), dS])
             # -- rotation around z axis (projang)
             P[-1] = [P[-1][0]*cp+P[-1][1]*sp, -P[-1][0]*sp+P[-1][1]*cp, P[-1][2],
                      P[-1][3]*cp+P[-1][4]*sp, -P[-1][3]*sp+P[-1][4]*cp, P[-1][5],
@@ -1444,18 +1462,31 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         elif a.replace('wl0', 'lorentzian') in param:
             dwl = param[a.replace('wl0', 'lorentzian')] # in nm
         else:
-            dwl = obs_dwl*1000
+            vel_dwl = np.abs(0.25*np.mean(wl)*Vin*P[:,6]**beta/2.998e5)
+            #obs_dwl = np.maximum(obs_dwl, vel_dwl)
+            obs_dwl = np.sqrt(obs_dwl**2 +  vel_dwl**2)
+            dwl = 1.*obs_dwl*1000
 
+        # -- line amplitude
         if a.replace('wl0', 'EW') in param:
             if not Pin is None:
                 amp = (P[:,6])**(Pin)
             else: # gaussian radial profile
                 #amp = np.exp(-4*np.log(2)*(P[:,6]*Rin)**2/(0.5*fwhm)**2)
                 amp = np.exp(-(P[:,6]*Rin)**2/(2*(fwhm/2.35482)**2))
-            # -- equivlant width in nm
+            # -- equivalent width in nm
             amp *= param[a.replace('wl0', 'EW')]/dwl/1.064/np.sum(amp*P[:,8])
         else:
             amp = P[:,6]**(Pin)
+
+        # -- azimuthal variations?
+        if a.replace('wl0', 'azamp1') in param and \
+            a.replace('wl0', 'azprojang1') in param:
+            azamp1 = param[a.replace('wl0', 'azamp1')]
+            azpa1 = param[a.replace('wl0', 'azprojang1')]
+        else:
+            azamp1, azpa1 = 0, 0
+        amp *= 1 + azamp1*np.cos(P[:,7]-azpa1*np.pi/180)
 
         if a.replace('wl0', 'gaussian') in param:
             flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
@@ -1466,7 +1497,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         else:
             # -- default gaussian, based on spectral resolution
             flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
-                                      param[a], obs_dwl/1000)
+                                      param[a], dwl)
 
     if False:
         # -- trying to be clever integrating...
@@ -1488,7 +1519,11 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         # -- dumb integration
         # -- surface area of each point on disk
         flx = np.sum(flux*P[:,8][None,:], axis=1)
-        vis = np.sum(Vpoints*flux[None,:,:]*P[:,8][None,None,:], axis=2)/flx
+        vis = np.sum(Vpoints*flux[None,:,:]*P[:,8][None,None,:], axis=2)
+        for _v in vis:
+            _v[flx>0] /= flx[flx>0]
+            _v[flx<=0] = 0.0
+        vis = np.nan_to_num(vis, posinf=1, neginf=1)
 
     if 'x' in param and 'y' in param:
         x, y = param['x'], param['y']
@@ -1538,14 +1573,14 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=2, fullOutput=False,
         grP = [(p[0], p[1]) for p in P]
         gr = np.array([_X, _Y]).reshape(2, -1).T
         for i in range(len(wl)):
-            #cube[i,:,:] = scipy.interpolate.Rbf(Xg, Yg, flux[i,:], smooth=0.2)(_X, _Y)
+            #cube[i,:,:] = scipy.interpolate.Rbf([p[0] for p in P], [p[1] for p in P],
+            #                                    flux[i,:])(_X, _Y)
             cube[i,:,:] = scipy.interpolate.RBFInterpolator(grP, flux[i,:],
-                                                            #smoothing=0.2,
-                                                            kernel='linear',
-                                                            neighbors=3,
+                                                            #kernel='linear', neighbors=4,
+                                                            kernel='thin_plate_spline',
+                                                            #kernel='cubic',
                                                             )(gr).reshape((imN, imN))
             cube[i,:,:] *= (R2>=Rin**2)*(R2<=Rout**2)
-
             cube[i,:,:] = np.maximum(0, cube[i,:,:])
     else:
         _X, _Y, cube = None, None, None
@@ -2248,6 +2283,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False):
 
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
+                # -- not polynomial fit, use median
                 data.append(phi-np.median(phi))
 
         data = np.array(data)
@@ -2479,12 +2515,12 @@ def computeT3fromVisOI(oi):
 
             # -- force -180 -> 180 degrees
             oi['OI_T3'][k]['T3PHI'] = (oi['OI_T3'][k]['T3PHI']+180)%360-180
-            oi['OI_T3'][k]['ET3PHI'] = np.zeros(oi['OI_T3'][k]['T3PHI'].shape)
+            #oi['OI_T3'][k]['ET3PHI'] = np.zeros(oi['OI_T3'][k]['T3PHI'].shape)
 
             oi['OI_T3'][k]['T3AMP'] = np.abs(oi['OI_VIS'][t[0]]['|V|'][w0,:])*\
                                       np.abs(oi['OI_VIS'][t[1]]['|V|'][w1,:])*\
                                       np.abs(oi['OI_VIS'][t[2]]['|V|'][w2,:])
-            oi['OI_T3'][k]['ET3AMP'] = np.zeros(oi['OI_T3'][k]['T3AMP'].shape)
+            #oi['OI_T3'][k]['ET3AMP'] = np.zeros(oi['OI_T3'][k]['T3AMP'].shape)
     if 'IM_VIS' in oi.keys():
         oi['IM_T3'] = {}
         for k in oi['OI_T3'].keys():
@@ -2515,6 +2551,7 @@ def computeSlopeVisOI(oi, errfilt={}):
     """
     compute the slope of the visibility
     """
+
 
 def testTelescopes(k, telescopes):
     """
@@ -2665,7 +2702,6 @@ def residualsOI(oi, param, timeit=False, what=False):
 
     t0 = time.time()
     if 'DPHI' in fit['obs']:
-        # TODO: this should take into account error filtering!
         oi = computeDiffPhiOI(oi, param)
         if timeit:
             print('residualsOI > dPHI %.3fms'%(1000*(time.time()-t0)))
@@ -3082,9 +3118,10 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     # -- fix az projangles and amplitudes
     fit['best'], changed = _updateAzAmpsProjangs(fit['best'])
     for k in changed:
-        n = int(k.split('az amp')[1])
-        fit['track'][k] = np.abs(fit['track'][k])
-        fit['track'][k.replace('az amp', 'az projang')] -= 180/n
+        if k.replace('az amp', 'az projang') in fit['track']:
+            n = int(k.split('az amp')[1])
+            fit['track'][k] = np.abs(fit['track'][k])
+            fit['track'][k.replace('az amp', 'az projang')] -= 180/n
 
     if type(verbose)==int and verbose>=1:
         print('# -- degrees of freedom:', fit['ndof'])

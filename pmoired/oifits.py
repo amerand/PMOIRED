@@ -958,11 +958,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
               '] um (R~%.0f)'%(np.mean(res['WL']/res['dWL'])),
               end=' ')
         if not binning is None:
-            print('(binned by x%d)'%binning, end=' ')
+            print('(binx%d)'%binning, end=' ')
         #print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
         #            end=' | ')
         Kz = sorted(list(filter(lambda x: x.startswith('OI_'), res.keys())))
-        print(dict(zip(Kz, [len(res[k].keys()) for k in Kz])), end=' | ')
+        _Kz = [_k.split('OI_')[1] for _k in Kz]
+        print(dict(zip(_Kz, [len(res[k].keys()) for k in Kz])), end=' | ')
 
         print('TELL:', res['TELLURICS'].min()<1
                         if not ignoredTellurics else 'IGNORED!', end=' ')

@@ -963,6 +963,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'B/wl': tmp['B'][b][:,None]/wl[None,:],
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
+                   'MJD2':tmp['MJD'][:,None]+0*wl[None,:],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
                    'V2':np.abs(VIS[b])**2 +
                         nv2*np.random.randn(len(lst), len(wl)),
@@ -976,6 +977,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                    'B/wl': tmp['B'][b][:,None]/wl[None,:],
                    'PA': tmp['PA'][b],
                    'MJD':tmp['MJD'],
+                   'MJD2':tmp['MJD'][:,None]+0*wl[None,:],
                    'FLAG':np.zeros((len(lst), len(wl)), bool),
                    '|V|':np.abs(VIS[b]) + nv*np.random.randn(len(lst), len(wl)),
                    'E|V|':nv,
@@ -998,6 +1000,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
                   'EFLUX': noise['FLUX']*np.ones((len(lst), len(wl)))*fflux(wl)[None,:],
                   'FLAG':np.zeros((len(lst), len(wl)), bool),
                   'MJD':tmp['MJD'],
+                  'MJD2':tmp['MJD'][:,None]+0*wl[None,:],
                   }
         for m in tmp['MJD']:
             conf[m].append(s)
@@ -1054,6 +1057,7 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
             OIT3[''.join(tri)] = {
                 'MJD':tmp['MJD'],
+                'MJD2':tmp['MJD'][:,None]+0*wl[None,:],
                 'FLAG':np.zeros((len(lst), len(wl)), bool),
                 'T3AMP':np.abs(T3)*(1+
                     noise['T3AMP']*np.random.randn(len(lst), len(wl))),
