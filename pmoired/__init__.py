@@ -545,6 +545,8 @@ class OI:
         print('median', self._limexpl['param'], ':', np.median(c), ' (mag)' if mag else '')
         print('1sigma (68%)', np.percentile(c, 16), '->',
                 np.percentile(c, 100-16))
+        print('       (90%)', np.percentile(c, 5), '->',
+                np.percentile(c, 100-5))
         if len(self.limgrid)>40:
             print('2sigma (95%)', np.percentile(c, 2.5), '->',
                     np.percentile(c, 100-2.5))
