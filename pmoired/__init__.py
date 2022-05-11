@@ -541,18 +541,23 @@ class OI:
             c =[-2.5*np.log10(r[self._limexpl['param']]) for r in self.limgrid]
         else:
             c =[r[self._limexpl['param']] for r in self.limgrid]
-
-        print('median', self._limexpl['param'], ':', np.median(c), ' (mag)' if mag else '')
-        print('1sigma (68%)', np.percentile(c, 16), '->',
-                np.percentile(c, 100-16))
-        print('       (90%)', np.percentile(c, 5), '->',
-                np.percentile(c, 100-5))
+        print('distribution of %.1fsigma detections:'%self._limexpl['nsigma'])
+        print(' median', self._limexpl['param'], ':', round(np.median(c),2), ' (mag)' if mag else '')
+        if len(self.limgrid)>13:
+            print(' 1sigma (68%%) %.2f -> %.2f'%(np.percentile(c, 16),
+                                               np.percentile(c, 100-16)))
         if len(self.limgrid)>40:
-            print('2sigma (95%)', np.percentile(c, 2.5), '->',
-                    np.percentile(c, 100-2.5))
+            print('        (90%%) %.2f -> %.2f'%(np.percentile(c, 5),
+                                               np.percentile(c, 100-5)))
+        if len(self.limgrid)>80:
+            print(' 2sigma (95%%) %.2f -> %.2f'%(np.percentile(c, 2.5),
+                                               np.percentile(c, 100-2.5)))
+        if len(self.limgrid)>200:
+            print('        (99%%) %.2f -> %.2f'%(np.percentile(c, 0.5),
+                                               np.percentile(c, 100-0.5)))
         if len(self.limgrid)>1600:
-            print('3sigma (99.7%)', np.percentile(c, 0.15), '->',
-                    np.percentile(c, 100-0.15))
+            print(' 3sigma (99.7%%) %.2f -> %.2f'%(np.percentile(c, .15),
+                                               np.percentile(c, 100-.15)))
 
         plt.scatter([r[px] for r in self.limgrid],
                     [r[py] for r in self.limgrid],
