@@ -960,7 +960,7 @@ class OI:
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
-                  imLegend=True, vWl0=None):
+                  imLegend=True, vWl0=None, WL=None):
         """
         model: parameter dictionnary, describing the model
 
@@ -978,6 +978,13 @@ class OI:
                     'best' in self.bestfit:
             model = self.bestfit['best']
         model = oimodels.computeLambdaParams(model)
+
+        # -- just if the function is used to show models
+        if len(self.data)==0 or (len(self.data)==1 and not WL is None):
+            assert not WL is None, 'specify wavelength vector "WL="'
+            # -- create fake data
+            self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}}]
+
 
         assert type(model)==dict, 'model should be a dictionnary!'
         if not imFov is None:
@@ -1003,7 +1010,7 @@ class OI:
             if c in cColors:
                 symbols[c]['c'] = cColors[c]
 
-        if imWl0 is None and showIM:
+        if imWl0 is None and showIM and not imFov is None:
             #imWl0 = self.images['WL'].min(), self.images['WL'].max()
             imWl0 = [np.mean(self.images['WL'])]
 
@@ -1061,7 +1068,7 @@ class OI:
                 else:
                     _imMax = imMax**imPow
             else:
-                _imMax = np.max(imMax**imPow)
+                _imMax = np.max(im**imPow)
 
             pc = plt.pcolormesh(self.images['X'], self.images['Y'],
                                 im**imPow, cmap=cmap, vmax=_imMax, vmin=0,
@@ -1102,7 +1109,10 @@ class OI:
             else:
                 cb.set_label('linear scale')
                 title =''
-            n = 2-np.log10(np.median(np.abs(np.diff(self.images['WL']))))
+            if len(self.images['WL'])>1:
+                n = 2-np.log10(np.median(np.abs(np.diff(self.images['WL']))))
+            else:
+                n = 3
 
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
@@ -1535,7 +1545,7 @@ def _computeSpectra(model, data, models):
         if not any(o['WL mask']):
             for clo in closest:
                 o['WL mask'][clo] = True
-        if 'NFLUX' in o['fit']['obs']:
+        if 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
             allWLs.extend(list(o['WL'][o['WL mask']]))
         else:
             allWLc.extend(list(o['WL'][o['WL mask']]))
