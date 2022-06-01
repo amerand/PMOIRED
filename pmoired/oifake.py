@@ -856,8 +856,8 @@ def fluxCube(cube, wl):
     tmp = np.sum(cube['image'], axis=(1,2))
     return np.interp(wl, cube['WL'], tmp)
 
-def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
-            diam=None, cube=None, noise=None, thres=None,
+def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
+            diam=None, cube=None, noise=0, thres=None,
             model=None, insname='fake'):
     """
     for VLTI!
@@ -1122,3 +1122,5 @@ def makeFake(t, target, lst, wl, mjd0=57000, lst0=0,
 
     res['configurations per MJD'] = conf
     return res
+
+makeFake = makeFakeVLTI # legacy

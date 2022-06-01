@@ -7,6 +7,8 @@ This code is a __research project in continuous development__ and not yet proper
 
 > ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***.
 
+There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0).
+
 ## Overview
 
 `PMOIRED` is a Python3 module which allows to model astronomical spectro-interferometric data stored in the OIFITS format ([Duvert et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A...8D/abstract)). Parametric modeling is used to describe the observed scene as blocks such as disks, rings and Gaussians which can be combined and their parameters linked. It includes plotting, least-square fitting and bootstrapping estimation of uncertainties. For spectroscopic instruments (such as GRAVITY), tools are provided to model spectral lines and correct spectra for telluric lines.
@@ -46,6 +48,7 @@ xargs rm -rf < files.txt
 ## Examples
 
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
+- [Model definition][https://github.com/amerand/PMOIRED/blob/master/examples/Model%20definitions%20and%20examples.ipynb] Illustrates the syntax for model definition. Start here!
 - [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervella et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening. Most `PMOIRED` basics are covered there.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting 2-components model with chromatic flux ratio.
 - [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
