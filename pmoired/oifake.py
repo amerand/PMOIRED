@@ -858,7 +858,7 @@ def fluxCube(cube, wl):
 
 def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
             diam=None, cube=None, noise=0, thres=None,
-            model=None, insname='fake'):
+            model=None, insname='fake', debug=False):
     """
     for VLTI!
 
@@ -955,7 +955,6 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
     for b in tmp['baselines']:
         # -- complex visibility for this baseline
         VIS[b] = fvis(tmp['u'][b], tmp['v'][b], wl)
-
         nv2 = noise['V2']*np.maximum(np.abs(VIS[b])**2, thres['V2'])
         OIV2[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
                    'u/wl': tmp['u'][b][:,None]/wl[None,:],
@@ -969,6 +968,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
                         nv2*np.random.randn(len(lst), len(wl)),
                    'EV2':nv2,
                    }
+        if debug:
+            print(b, list(OIV2[b].keys()))
 
         nv = noise['|V|']*np.maximum(np.abs(VIS[b]), thres['|V|'])
         OIV[b] = {'u':tmp['u'][b], 'v':tmp['v'][b],
@@ -1092,6 +1093,13 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
         param = model
         res['fit'] = {'obs':['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
         res = oimodels.VmodelOI(res, param, fullOutput=True)
+        # --
+        for k in ['PA']:
+            for b in res['OI_VIS']:
+                res['OI_VIS'][b][k] = tmp[k][b][:,None]+0*res['WL'][None,:]
+            for b in res['OI_VIS2']:
+                res['OI_VIS2'][b][k] = tmp[k][b][:,None]+0*res['WL'][None,:]
+
         # -- add noise
         def addnoise(e, k, o):
              res[e][k][o] += np.random.randn(res[e][k][o].shape[0],
