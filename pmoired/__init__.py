@@ -413,11 +413,10 @@ class OI:
                 print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
                 print(self.bestfit['not significant'], '\033[0m')
                 print('\033[34m-> Try checking the syntax of your model\033[0m')
-            if len(self.bestfit['not converging']):
+            if 'not converging' in self.bestfit and len(self.bestfit['not converging']):
                 print('\033[33mCAUTION: this(ese) parameter(s) may not be converging properly:', end=' ')
                 print(self.bestfit['not converging'], '\033[0m')
                 print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
-
                 # -- this is not robust!
                 # print('-> Try redefining parameters to be less sensitive to *relative* variations')
                 # for k in self.bestfit['not converging']:
