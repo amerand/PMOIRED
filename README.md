@@ -5,9 +5,9 @@
 
 This code is a __research project in continuous development__ and not yet properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
 
-> ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author***.
+> ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author.***.
 
-There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0).
+There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0). References to `PMOIRED` should be made as <a href="https://ascl.net/2205.001"><img src="https://img.shields.io/badge/ascl-2205.001-blue.svg?colorB=262255" alt="ascl:2205.001" /></a>
 
 ## Overview
 
