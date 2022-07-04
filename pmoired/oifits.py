@@ -73,7 +73,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         targets[k].append(hdu.data['TARGET_ID'][i])
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
-    assert targname in targets.keys(), 'unknown target "'+str(targname)+'", '+\
+    assert targname in targets.keys(), 'unknown targname "'+str(targname)+'", '+\
         'should be in ['+', '.join(['"'+t+'"' for t in list(targets.keys())])+']'
 
     if insname is None:
@@ -1317,7 +1317,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
             tmp = {}
             for k in r['fit'].keys():
                 # -- for differential quantities, this are globally defined
-                for p in ['DPHI', 'NFLUX']:
+                for p in ['DPHI', 'NFLUX', 'D|V|']:
                     if type(r['fit'][k]) is dict and p in r['fit'][k].keys():
                         if k in tmp:
                             if p in tmp[k] and tmp[k][p]!=r['fit'][k][p]:
@@ -1328,7 +1328,8 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                             tmp[k] = {p:r['fit'][k][p]}
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges',
                                                 'continuum ranges', 'prior', 'Nr',
-                                                'DPHI order', 'NFLUX order']
+                                                'DPHI order', 'D|V| order',
+                                                'NFLUX order']
                         if k in r['fit']}
             r['fit'].update(tmp)
 
@@ -1390,6 +1391,8 @@ def _filtFlag(ext, filt, debug=False):
         for k in filt['max error']:
             if k == 'DPHI':
                 k = 'PHI'
+            if k == 'D|V|':
+                k = '|V|'
             if k in filt['max error'] and 'E'+k in ext:
                 if debug:
                     print('flag: max', k, filt['max error'])
