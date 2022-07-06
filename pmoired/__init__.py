@@ -278,7 +278,7 @@ class OI:
             'V2': sqared Visibility
             '|V|': visibility modulus
             'DPHI': differential phase (wrt continuum)
-            'D|V|': differential visibility (wrt continuum)
+            'N|V|': differential visibility (wrt continuum)
             'T3PHI': closure phases
             'T3AMP': closure amplitude
 
@@ -766,7 +766,7 @@ class OI:
             models
         - fig: figure number (int)
         - obs: list of pbservables to show (in ['|V|', 'V2', 'T3PHI', 'DPHI',
-            'FLUX', 'D|V|']). Default will show all data. If fit was performed,
+            'FLUX', 'N|V|']). Default will show all data. If fit was performed,
             fitted observables will be shown.
         - logV, logB: show visibilities, baselines in log scale (boolean)
         - showFlagged: show data flagged in the file (boolean)
@@ -1626,12 +1626,12 @@ def _computeSpectra(model, data, models):
 def _checkObs(data, obs):
     """
     data: OI dict
-    obs: list of observable in ['|V|', 'V2', 'DPHI', 'D|V|', 'T3PHI', 'FLUX',
+    obs: list of observable in ['|V|', 'V2', 'DPHI', 'N|V|', 'T3PHI', 'FLUX',
                                 'NFLUX']
 
     returns list of obs actually in data
     """
-    ext = {'|V|':'OI_VIS', 'D|V|':'OI_VIS', 'DPHI':'OI_VIS', 'PHI':'OI_VIS',
+    ext = {'|V|':'OI_VIS', 'N|V|':'OI_VIS', 'DPHI':'OI_VIS', 'PHI':'OI_VIS',
            'V2':'OI_VIS2',
            'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
            'FLUX':'OI_FLUX',
@@ -1652,7 +1652,7 @@ def _checkSetupFit(fit):
             'ignore negative flux':bool,
             'prior':list,
             'DPHI order':int,
-            'D|V| order':int,
+            'N|V| order':int,
             'NFLUX order': int}
     ok = True
     for k in fit.keys():

@@ -23,6 +23,8 @@ try:
 except:
     import dpfit, dw
 
+from collections import Counter
+
 from astropy import constants
 
 _c = np.pi**2/180/3600/1000*1e6
@@ -1647,6 +1649,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
              v2smear=True, fullOutput=False, debug=False):
     global SMEA
     param = computeLambdaParams(p)
+    #display(param)
     if type(oi) == list:
         # -- iteration on "oi" if a list
         return [VmodelOI(o, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
@@ -2242,8 +2245,8 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         vorder = 1*order
     if 'fit' in oi and 'DPHI order' in oi['fit']:
         order = oi['fit']['DPHI order']
-    if 'fit' in oi and 'D|V| order' in oi['fit']:
-        vorder = oi['fit']['D|V| order']
+    if 'fit' in oi and 'N|V| order' in oi['fit']:
+        vorder = oi['fit']['N|V| order']
 
     if np.sum(oi['WL cont'])<order+1:
         print('WARNING: not enough WL to compute continuum!')
@@ -2294,22 +2297,22 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 vmask = w*~oi['OI_VIS'][k]['FLAG'][i,:]
                 if 'E|V|' in oi['OI_VIS'][k]:
                     verr = oi['OI_VIS'][k]['E|V|'][i,:]
-                    if 'max error' in oi['fit'] and 'D|V|' in oi['fit']['max error']:
+                    if 'max error' in oi['fit'] and 'N|V|' in oi['fit']['max error']:
                         # -- ignore data with large error bars
-                        vmask *= (verr<oi['fit']['max error']['D|V|'])
-                    if 'max relative error' in oi['fit'] and 'D|V|' in oi['fit']['max relative error']:
+                        vmask *= (verr<oi['fit']['max error']['N|V|'])
+                    if 'max relative error' in oi['fit'] and 'N|V|' in oi['fit']['max relative error']:
                         # -- ignore data with large error bars
-                        vmask *= (verr<(oi['fit']['max relative error']['D|V|']*
+                        vmask *= (verr<(oi['fit']['max relative error']['N|V|']*
                                         np.abs(oi['OI_VIS'][k]['|V|'][i,:])))
-                    if 'mult error' in fit and 'D|V|' in oi['fit']['mult error']:
+                    if 'mult error' in fit and 'N|V|' in oi['fit']['mult error']:
                         # -- force error to a minimum value
-                        verr *= oi['fit']['mult error']['D|V|']
-                    if 'min error' in fit and 'D|V|' in oi['fit']['min error']:
+                        verr *= oi['fit']['mult error']['N|V|']
+                    if 'min error' in fit and 'N|V|' in oi['fit']['min error']:
                         # -- force error to a minimum value
-                        verr = np.maximum(oi['fit']['min error']['D|V|'], verr)
-                    if 'min relative error' in fit and 'D|V|' in oi['fit']['min relative error']:
+                        verr = np.maximum(oi['fit']['min error']['N|V|'], verr)
+                    if 'min relative error' in fit and 'N|V|' in oi['fit']['min relative error']:
                         # -- force error to a minimum value
-                        verr = np.maximum(oi['fit']['min relative error']['D|V|']*
+                        verr = np.maximum(oi['fit']['min relative error']['N|V|']*
                                          np.abs(oi['OI_VIS'][k]['|V|'][i,:]), verr)
                     vmask *= verr>0
                 else:
@@ -2338,9 +2341,9 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         if 'EPHI' in oi['OI_VIS'][k]:
             oi['DVIS'][k]['EDPHI'] = oi['OI_VIS'][k]['EPHI']
         if visamp:
-            oi['DVIS'][k]['D|V|'] = np.array(vdata)
+            oi['DVIS'][k]['N|V|'] = np.array(vdata)
             if 'E|V|' in oi['OI_VIS'][k]:
-                oi['DVIS'][k]['ED|V|'] = oi['OI_VIS'][k]['E|V|']
+                oi['DVIS'][k]['EN|V|'] = oi['OI_VIS'][k]['E|V|']
 
     if 'IM_VIS' in oi.keys():
         for k in oi['IM_VIS'].keys():
@@ -2423,7 +2426,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 # -- effects of "vel" depends on the size of the disk and "fpow"
                 #dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
                 dwl = max(dwl, _param[k]*vel/2.998e5 )
-                w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
+                if any(np.abs(oi['WL']-_param[k])>=np.abs(dwl)):
+                    w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
 
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for spectra')
@@ -2729,17 +2733,17 @@ def residualsOI(oi, param, timeit=False, what=False):
 
     if type(oi)==list:
         for i,o in enumerate(oi):
-            if what:
-                tmp = residualsOI(o, param, timeit=timeit, what=True)
-                res = np.append(res, tmp[0])
-                wh += tmp[1]
-            else:
+            # if what:
+            #     tmp = residualsOI(o, param, timeit=timeit, what=True)
+            #     res = np.append(res, tmp[0])
+            #     wh += tmp[1]
+            # else:
                 res = np.append(res, residualsOI(o, param,
-                                                timeit=timeit, what=False))
-        if what:
-            return res, wh
-        else:
-            return res
+                                                timeit=timeit, what=what))
+        # if what:
+        #    return res, wh
+        # else:
+        return res
 
     if 'fit' in oi:
         fit = oi['fit']
@@ -2777,7 +2781,7 @@ def residualsOI(oi, param, timeit=False, what=False):
     ext = {'|V|':'OI_VIS',
             'PHI':'OI_VIS',
             'DPHI':'DVIS',
-            'D|V|':'DVIS',
+            'N|V|':'DVIS',
             'V2':'OI_VIS2',
             'T3AMP':'OI_T3',
             'T3PHI':'OI_T3',
@@ -2820,8 +2824,11 @@ def residualsOI(oi, param, timeit=False, what=False):
                         mask *= (err<oi['fit']['max error'][f])
                     if 'max relative error' in oi['fit'] and f in oi['fit']['max relative error']:
                         # -- ignore data with large error bars
+                        #mask *= (err<(oi['fit']['max relative error'][f]*
+                        #                np.abs(oi[ext[f]][k][f])))
+                        # -- above depends on computation, e.g. for NFLUX: can be an issue!
                         mask *= (err<(oi['fit']['max relative error'][f]*
-                                        np.abs(oi[ext[f]][k][f])))
+                                        np.median(np.abs(oi[ext[f]][k][f][mask]))))
                     if 'mult error' in fit and f in oi['fit']['mult error']:
                         # -- force error to a minimum value
                         err *= oi['fit']['mult error'][f]
@@ -2872,10 +2879,13 @@ def residualsOI(oi, param, timeit=False, what=False):
         res = np.append(res, tmp*np.sqrt(len(res)))
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
-    if what:
-        return res, wh
-    else:
-        return res
+    # if what:
+    #     return res, wh
+    # else:
+    #print(len(res), np.round(res[:3], 3), np.round(res[-8:], 3), param)
+    #print(len(res), end=' ')
+    #print(Counter(wh))
+    return res
 
 def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
                 doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8,
@@ -4021,7 +4031,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
     obs: observable to show (default oi['fit']['obs'] if found, else all available)
-        list of ('V2', '|V|', 'PHI', 'T3PHI', 'T3AMP', 'DPHI', 'D|V|', 'FLUX')
+        list of ('V2', '|V|', 'PHI', 'T3PHI', 'T3AMP', 'DPHI', 'N|V|', 'FLUX')
     fig: figure number (default 1)
     figWidth: width of the figure (default 9)
     allInOne: plot all data files in a single plot, as function of baseline
@@ -4243,7 +4253,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     # -- force recomputing differential quantities
     if 'WL cont' in oi.keys():
         oi.pop('WL cont')
-    if 'DPHI' in obs or 'D|V|' in obs:
+    if 'DPHI' in obs or 'N|V|' in obs:
         if debug:
             print(' (re-)compute DiffPhi in data')
         oi = computeDiffPhiOI(oi, computeLambdaParams(param))
@@ -4309,7 +4319,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             'DPHI':{'ext':'DVIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
             'PHI':{'ext':'OI_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
             '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
-            'D|V|':{'ext':'DVIS', 'var':'D|V|', 'X':'B/wl', 'C':'PA'},
+            'N|V|':{'ext':'DVIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
             'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA'},
             }
     imdata = {
@@ -4322,13 +4332,13 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              'DPHI':{'ext':'IM_VIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
              'PHI':{'ext':'IM_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
              '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
-             'D|V|':{'ext':'IM_VIS', 'var':'D|V|', 'X':'B/wl', 'C':'PA'},
+             'N|V|':{'ext':'IM_VIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
              }
 
     # -- plot in a certain order
     obs = list(filter(lambda x: x in obs,
-            ['FLUX', 'NFLUX', 'T3PHI', 'PHI', 'DPHI', 'T3AMP', '|V|', 'D|V|', 'V2']))
+            ['FLUX', 'NFLUX', 'T3PHI', 'PHI', 'DPHI', 'T3AMP', '|V|', 'N|V|', 'V2']))
     ncol = len(obs)
 
     if showUV:
@@ -4702,7 +4712,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         showLabel = True and not spectro
                     else:
                         showLabel = False
-                if  l in ['V2', '|V|', 'DPHI', 'D|V|']:
+                if  l in ['V2', '|V|', 'DPHI', 'N|V|']:
                     if not k in mcB:
                         mcB[k]  = (markers[mcB['i']%len(markers)],
                                     colors[mcB['i']%len(colors)] )
@@ -4845,7 +4855,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             '--g', alpha=0.5, linewidth=2, where='mid')
 
                 # -- show continuum for differetial PHI and normalized FLUX
-                if (l=='DPHI' or l=='NFLUX' or l=='D|V|') and 'WL cont' in oi:
+                if (l=='DPHI' or l=='NFLUX' or l=='N|V|') and 'WL cont' in oi:
                     maskc = ~oi[data[l]['ext']][k]['FLAG'][j,:]*\
                                     oi['WL cont']*oi['WL mask']
                     _m = np.mean(oi[data[l]['ext']][k][data[l]['var']][j,maskc])
