@@ -147,7 +147,7 @@ class OI:
             name += '.pmrd'
         assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists'
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
-                'images', '_grid']
+                'images']
         with open(name, 'wb') as f:
             data = {k:self.__dict__[k] for k in ext}
             if type(data['bestfit'])==dict and 'func' in data['bestfit']:
