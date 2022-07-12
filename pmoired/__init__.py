@@ -797,6 +797,7 @@ class OI:
         - showSED: True
         """
         oimodels.FIG_MAX_WIDTH = FIG_MAX_WIDTH
+        oimodels.FIG_MAX_HEIGHT = FIG_MAX_HEIGHT
 
         t0 = time.time()
 

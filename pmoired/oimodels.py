@@ -4028,6 +4028,8 @@ ai1ax = {} # initialise global list of axes
 ai1i = [] # initialise global list of axes position
 
 FIG_MAX_WIDTH = 9.5
+FIG_MAX_HEIGHT = 6
+
 
 def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None,
            imPow=1., imWl0=None, cmap='bone', imX=0.0, imY=0.0, debug=False,
