@@ -26,6 +26,7 @@ import time
 import requests
 
 FIG_MAX_WIDTH = 9.5
+FIG_MAX_HEIGHT = 6
 
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
@@ -1036,12 +1037,12 @@ class OI:
         figWidth, figHeight = None, 4
 
         if figWidth is None and figHeight is None:
-            figHeight =  min(max(nplot, 8), 5)
+            figHeight =  min(max(nplot, 8), FIG_MAX_HEIGHT)
             figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
         if figWidth is None and not figHeight is None:
             figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
         if not figWidth is None and figHeight is None:
-            figHeight =  max(figWidth/nplot, 6)
+            figHeight =  max(figWidth/nplot, FIG_MAX_HEIGHT)
         plt.close(fig)
         plt.figure(fig, figsize=(figWidth, figHeight))
         i = -1 # default, in case only SED

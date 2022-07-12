@@ -4374,12 +4374,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         colors = matplotlib.cm.nipy_spectral(np.linspace(0, .9, len(oi['baselines'])))
 
     if figWidth is None and figHeight is None:
-        figHeight =  min(max(ncol, 10), 6)
+        figHeight =  min(max(ncol, 10), FIG_MAX_HEIGHT)
         figWidth = min(figHeight*ncol, FIG_MAX_WIDTH)
     if figWidth is None and not figHeight is None:
         figWidth = min(figHeight*ncol, FIG_MAX_WIDTH)
     if not figWidth is None and figHeight is None:
-        figHeight =  max(figWidth/ncol, 6)
+        figHeight =  max(figWidth/ncol, FIG_MAX_HEIGHT)
     if not allInOne or ai1ax == {}:
         plt.close(fig)
         plt.figure(fig, figsize=(figWidth, figHeight))
@@ -5075,12 +5075,12 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
     #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
 
     if figWidth is None and figHeight is None:
-        figHeight =  min(max(nplot, 8), 5)
+        figHeight =  min(max(nplot, 8), FIG_MAX_HEIGHT)
         figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
     if figWidth is None and not figHeight is None:
         figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
     if not figWidth is None and figHeight is None:
-        figHeight =  max(figWidth/nplot, 6)
+        figHeight =  max(figWidth/nplot, FIG_MAX_HEIGHT)
 
     #print('showModel: fighWidth, figHeight=', figWidth, figHeight)
 
