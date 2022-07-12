@@ -25,6 +25,8 @@ import pickle
 import time
 import requests
 
+FIG_MAX_WIDTH = 9.5
+
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
@@ -73,6 +75,7 @@ try:
 except:
     # -- cannot get versions of jupyter tools
     pass
+
 
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
@@ -143,7 +146,7 @@ class OI:
             name += '.pmrd'
         assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists'
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
-                'images']
+                'images', '_grid']
         with open(name, 'wb') as f:
             data = {k:self.__dict__[k] for k in ext}
             if type(data['bestfit'])==dict and 'func' in data['bestfit']:
@@ -629,13 +632,13 @@ class OI:
         assert not model is None, 'first guess should be provided: model={...}'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         prior = self._setPrior(model, prior, autoPrior)
-        self._grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
+        self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn, constrain=constrain,
                                        prior=prior)
         self._expl = expl
-        self.grid = oimodels.analyseGrid(self._grid, self._expl)
+        self.grid = oimodels.analyseGrid(self.grid, self._expl)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
         #self.computeModelSpectra()
@@ -792,6 +795,8 @@ class OI:
             the SED plot
         - showSED: True
         """
+        oimodels.FIG_MAX_WIDTH = FIG_MAX_WIDTH
+
         t0 = time.time()
 
         if not imFov is None and imPix is None:
@@ -1029,11 +1034,12 @@ class OI:
             fig = self.fig
             self.fig+=1
         figWidth, figHeight = None, 4
+
         if figWidth is None and figHeight is None:
             figHeight =  min(max(nplot, 8), 5)
-            figWidth = min(figHeight*nplot, 9.5)
+            figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
         if figWidth is None and not figHeight is None:
-            figWidth = min(figHeight*nplot, 9.5)
+            figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
         if not figWidth is None and figHeight is None:
             figHeight =  max(figWidth/nplot, 6)
         plt.close(fig)

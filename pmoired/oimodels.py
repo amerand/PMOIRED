@@ -1275,6 +1275,8 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             incl: disk inclination (degrees, 0 is face-on)
             projang: projection angle (degrees, 0 is N and 90 is E)
             x, y: position in the field (mas, optional: default is 0,0)
+            optional:
+            [Vrad] radial velocity, in Km/s
 
         spectral lines (? can be anything)
             line_?_wl0: central wavelength of line (um)
@@ -1341,19 +1343,24 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     elif 'V1mas' in param:
         Vin = param['V1mas']*Rin**beta
 
+    if 'Vrad' in param:
+        Vrad = param['Vrad']
+    else:
+        Vrad = 0.0
+
 
     # -- delta wl corresponding to max velocity / max(line width, spectral resolution)
     tmp = []
     for a in As:
         if a.replace('wl0', 'gaussian') in param:
-            tmp.append(param[a]*np.abs(Vin)/2.998e5/
+            tmp.append(param[a]*np.sqrt(Vin**2+Vrad**2)/2.998e5/
                        max(param[a.replace('wl0', 'gaussian')]/1000, obs_dwl))
         elif a.replace('wl0', 'lorentzian') in param:
-            tmp.append(0.5*param[a]*np.abs(Vin)/2.998e5/
+            tmp.append(0.5*param[a]*np.sqrt(Vin**2+Vrad**2)/2.998e5/
                        max(param[a.replace('wl0', 'lorentzian')]/1000, obs_dwl))
         else:
             # -- default gaussian profile based on spectral resolution
-            tmp.append(param[a]*np.abs(Vin)/2.998e5/obs_dwl)
+            tmp.append(param[a]*np.sqrt(Vin**2+Vrad**2)/2.998e5/obs_dwl)
 
     # -- step size, in mas, as inner radius
     drin = min(reso, 2*np.pi*Rin/8)
@@ -1394,9 +1401,9 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             P.append([r*np.sin(t),
                       r*np.cos(t)*ci,
                       r*np.cos(t)*si,
-                      Vin*(r/Rin)**beta*np.cos(t),
-                      Vin*(r/Rin)**beta*np.sin(t)*ci,
-                      Vin*(r/Rin)**beta*np.sin(t)*si,
+                      Vin*(r/Rin)**beta*np.cos(t)+Vrad*np.sin(t),
+                      (Vin*(r/Rin)**beta*np.sin(t)+Vrad*np.cos(t))*ci,
+                      (Vin*(r/Rin)**beta*np.sin(t)+Vrad*np.cos(t))*si,
                       r/Rin, (t+3*np.pi/2)%(2*np.pi), dS])
             # -- rotation around z axis (projang)
             P[-1] = [P[-1][0]*cp+P[-1][1]*sp, -P[-1][0]*sp+P[-1][1]*cp, P[-1][2],
@@ -4020,6 +4027,8 @@ ai1mcT = {'i':0} # initialize global marker/color for triangles
 ai1ax = {} # initialise global list of axes
 ai1i = [] # initialise global list of axes position
 
+FIG_MAX_WIDTH = 9.5
+
 def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None,
            imPow=1., imWl0=None, cmap='bone', imX=0.0, imY=0.0, debug=False,
            showChi2=False, wlMin=None, wlMax=None, spectro=None, imMax=None,
@@ -4366,9 +4375,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
     if figWidth is None and figHeight is None:
         figHeight =  min(max(ncol, 10), 6)
-        figWidth = min(figHeight*ncol, 9.5)
+        figWidth = min(figHeight*ncol, FIG_MAX_WIDTH)
     if figWidth is None and not figHeight is None:
-        figWidth = min(figHeight*ncol, 9.5)
+        figWidth = min(figHeight*ncol, FIG_MAX_WIDTH)
     if not figWidth is None and figHeight is None:
         figHeight =  max(figWidth/ncol, 6)
     if not allInOne or ai1ax == {}:
@@ -5067,9 +5076,9 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
 
     if figWidth is None and figHeight is None:
         figHeight =  min(max(nplot, 8), 5)
-        figWidth = min(figHeight*nplot, 9.5)
+        figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
     if figWidth is None and not figHeight is None:
-        figWidth = min(figHeight*nplot, 9.5)
+        figWidth = min(figHeight*nplot, FIG_MAX_WIDTH)
     if not figWidth is None and figHeight is None:
         figHeight =  max(figWidth/nplot, 6)
 
@@ -5540,7 +5549,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
         print('done')
 
     if figWidth is None:
-        figWidth = min(9.5, 1+2*len(boot['fitOnly']))
+        figWidth = min(FIG_MAX_WIDTH, 1+2*len(boot['fitOnly']))
 
     fontsize = max(min(4*figWidth/len(boot['fitOnly']), 14), 6)
     plt.close(fig)
