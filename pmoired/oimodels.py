@@ -3654,8 +3654,9 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         pass
     return res
 
-def showGrid(res, px, py, color='chi2', logV=False,
-            fig=0, aspect=None, vmin=None, vmax=None, cmap='gist_stern'):
+def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
+             vmin=None, vmax=None, cmap='gist_stern', interpolate=False,
+             expl=None, tight=False):
     """
     res: results from a gridFitOI
     px, py: the two parameters to show (default 2 first alphabetically)
@@ -3679,6 +3680,7 @@ def showGrid(res, px, py, color='chi2', logV=False,
     y = [r['best'][py] for r in res if ~r['bad']]
 
     # -- initial positions
+    ix, iy = [], []
     for r in res:
         for f in r['firstGuess']:
             if r['bad']:
@@ -3688,11 +3690,38 @@ def showGrid(res, px, py, color='chi2', logV=False,
                     plt.plot(f[px], f[py], '+', color='k', alpha=0.3)
                     plt.plot([f[px], r['best'][px]],
                              [f[py], r['best'][py]], '-k', alpha=0.2)
+                    ix.append(f[px])
+                    iy.append(f[py])
+
                 elif type(f)==list:
                     for _f in f:
                         plt.plot(_f[px], _f[py], '+', color='k', alpha=0.3)
                         plt.plot([_f[px], r['best'][px]],
                                  [_f[py], r['best'][py]], '-k', alpha=0.2)
+                        ix.append(_f[px])
+                        iy.append(_f[py])
+
+    S = 3 # interpolation factor
+    if type(expl) is dict and 'grid' in expl and px in expl['grid']:
+        dx = expl['grid'][px][2]
+        IX = np.linspace(expl['grid'][px][0]-expl['grid'][px][2]/2,
+                         expl['grid'][px][1]+expl['grid'][px][2]/2,
+                         S*int((expl['grid'][px][1]-expl['grid'][px][0])/
+                              expl['grid'][px][2]+2)
+                         )
+    else:
+        dx = np.ptp(ix)/np.sqrt(len(ix))
+        IX = np.linspace(np.min(ix)-dx/2, np.max(ix)+dx/2, S*int(np.ptp(ix)/dx+1))
+
+    if type(expl) is dict and 'grid' in expl and py in expl['grid']:
+        dy = expl['grid'][py][2]
+        IY = np.linspace(expl['grid'][py][0]-expl['grid'][py][2]/2,
+                         expl['grid'][py][1]+expl['grid'][py][2]/2,
+                         S*int((expl['grid'][py][1]-expl['grid'][py][0])/
+                              expl['grid'][py][2]+2))
+    else:
+        dy = np.ptp(iy)/np.sqrt(len(iy))
+        IY = np.linspace(np.min(iy)-dy/2, np.max(iy)+dy/2, S*int(np.ptp(iy)/dy+1))
 
     if type(vmax)==str:
         vmax = np.percentile(c, float(vmax))
@@ -3710,14 +3739,27 @@ def showGrid(res, px, py, color='chi2', logV=False,
         vmin = np.log10(vmin)
         vmax = np.log10(vmax)
 
-    # c[c>vmax] += np.inf
-    # if type(cmap)==str:
-    #     cmap = matplotlib.cm.__dict__[cmap]
-    #     cmap.set_bad(color='k', alpha=0.25)
-
     plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap,
                 plotnonfinite=True)
     plt.colorbar(label=color)
+
+    if interpolate:
+        nX, nY = len(IX), len(IY)
+        IX, IY = np.meshgrid(IX, IY)
+        #plt.plot(IX.flatten(), IY.flatten(), '.g')
+        grP = np.array([(x[i], y[i]) for i in range(len(x))])
+        gr = np.array([IX, IY]).reshape(2, -1).T
+        tmp = scipy.interpolate.RBFInterpolator(grP, c,
+                                                kernel='linear', neighbors=4,
+                                                #kernel='thin_plate_spline',
+                                                #kernel='cubic',
+                                                )(gr).reshape((nY, nX))
+        plt.pcolormesh(IX, IY, tmp, cmap=cmap, alpha=0.5)
+
+    if tight:
+        plt.xlim(np.min(IX)-dx/2, np.max(IX)+dx/2)
+        plt.ylim(np.min(IY)-dy/2, np.max(IY)+dy/2)
+
     # -- global minimum
     plt.plot(x[0], y[0], marker=r'$\bigodot$',
              color=matplotlib.cm.get_cmap(cmap)(0),
@@ -3794,7 +3836,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             if tmp>60:
                 print('approx %.1fmin remaining'%(tmp/60))
             else:
-                print('approx %.1fs remaining'%(tmp))
+                print('approx %.1fsec remaining'%(tmp))
 
             pool = multiprocessing.Pool(Np)
             for i in range(max(N-Np, 0)):

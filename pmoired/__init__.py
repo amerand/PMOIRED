@@ -113,6 +113,7 @@ class OI:
         self.boot = None
         # -- grid / random fits:
         self.grid = None
+        self._expl = None
         # -- detection limit grid / random fits:
         self.limgrid = None
         # -- CANDID results:
@@ -147,13 +148,19 @@ class OI:
             name += '.pmrd'
         assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists'
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
-                'images']
+                'images', '_expl']
         with open(name, 'wb') as f:
             data = {k:self.__dict__[k] for k in ext}
             if type(data['bestfit'])==dict and 'func' in data['bestfit']:
                 data['bestfit']['func'] = None # avoid potential problems...
                 data['bestfit']['x'] = None # takes too much space
                 data['bestfit']['y'] = None # takes too much space
+            if type(data['grid'])==list:
+                for g in data['grid']:
+                    if 'func' in g:
+                        g['func'] = None # avoid potential problems...
+                        g['x'] = None # takes too much space
+                        g['y'] = None # takes too much space
 
             pickle.dump(data, f)
         print('object saved as "'+name+'"', end=' ')
@@ -646,7 +653,8 @@ class OI:
         return
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
-                vmin=None, vmax=None, logV=False, cmap='spring', fig=None):
+                vmin=None, vmax=None, logV=False, cmap='spring', fig=None,
+                interpolate=False, legend=True, tight=False):
         """
         show the results from `gridFit` as 2D coloured map.
 
@@ -657,6 +665,7 @@ class OI:
         vmin, vmax: apply cuts to the colours (default: None)
         logV: show the colour as log scale
         cmap: valid matplotlib colour map (default="spring")
+        interpolate: show a continuous interpolation of the minimum chi2 map
 
         The crosses are the starting points of the fits, and the circled dot
         is the global minimum.
@@ -684,7 +693,8 @@ class OI:
 
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
-                          logV=logV)
+                          logV=logV, interpolate=interpolate,
+                          expl=self._expl, tight=tight)
         if xy:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
@@ -708,7 +718,7 @@ class OI:
                     leg = True
             plt.xlabel('E $\leftarrow$ '+px)
             plt.ylabel(py+r'$\rightarrow$ N')
-            if leg:
+            if leg and legend:
                 plt.legend(fontsize=7)
         return
 
