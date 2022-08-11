@@ -7,7 +7,7 @@ This code is a __research project in continuous development__ and not yet proper
 
 > ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author.***.
 
-References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://arxiv.org/abs/2207.11047). There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0). 
+References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://arxiv.org/abs/2207.11047). There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0).
 
 
 ## Overview
@@ -45,6 +45,16 @@ To uninstall (assuming you have recorded the install files at described above):
 ```
 xargs rm -rf < files.txt
 ```
+
+## Dependencies
+
+The latest version of `PMOIRED` has been tested on:
+- python 3.10.6
+- numpy 1.23.1
+- scipy 1.9.0
+- astropy 5.1
+- astroquery 0.4.6
+- matplotlib 3.5.3 
 
 ## Examples
 

@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__='20220811' # tested with python 3.10
+__version__='20220811' # tested with 3.10.6
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
