@@ -341,7 +341,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 #if debug:
                 #    print(' | ', k, any(w))
                 if k in res['OI_VIS'] and any(w):
-                    for k1, k2 in [('|V|', 'VIS2AMP'), ('E|V|', 'VISAMPERR'),
+                    for k1, k2 in [('|V|', 'VISAMP'), ('E|V|', 'VISAMPERR'),
                                     ('PHI', 'VISPHI'), ('EPHI', 'VISPHIERR'),
                                     ('FLAG', 'FLAG')]:
                         res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],

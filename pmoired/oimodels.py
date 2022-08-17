@@ -3164,9 +3164,9 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
         fitOnly = list(firstGuess.keys())
 
     fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z,
-                        verbose=bool(verbose),
-                        maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
-                        doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
+                           verbose=bool(verbose),
+                           maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
+                           doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
 
     fit['prior'] = prior
     # -- fix az projangles and inclinations
