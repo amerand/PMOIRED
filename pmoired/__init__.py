@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20220811' # tested with 3.10.6
+__version__= '20220811' 
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -52,7 +52,7 @@ def checkCurrentVersion():
     lines = f.text.split('\n')
     lines = list(filter(lambda x: x.replace(' ', '').startswith('__version__='), lines))
     if len(lines)==1:
-        return lines[0].split('__version__=')[1].replace('"', '').replace("'",'')
+        return lines[0].split('__version__=')[1].replace('"', '').replace("'",'').strip()
     else:
         return None
 
