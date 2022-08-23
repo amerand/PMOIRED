@@ -7,8 +7,7 @@ This code is a __research project in continuous development__ and not yet proper
 
 > ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author.***.
 
-References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://arxiv.org/abs/2207.11047). There are already several works published using `PMOIRED`: check the list on [ADS](https://ui.adsabs.harvard.edu/search/filter_database_fq_database=AND&filter_database_fq_database=database%3A%22astronomy%22&fq=%7B!type%3Daqp%20v%3D%24fq_database%7D&fq_database=(database%3A%22astronomy%22)&q=%20full%3A%22PMOIRED%22&sort=date%20desc%2C%20bibcode%20desc&p_=0).
-
+References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://arxiv.org/abs/2207.11047). There are already several works published using `PMOIRED`: check the [curated bibliography](https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA) I maintain.
 
 ## Overview
 
@@ -54,15 +53,16 @@ The latest version of `PMOIRED` has been tested on:
 - scipy 1.9.0
 - astropy 5.1
 - astroquery 0.4.6
-- matplotlib 3.5.3 
+- matplotlib 3.5.3
+- jupyter-notebook 6.4.12
 
 ## Examples
 
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
 - [Model definition](https://github.com/amerand/PMOIRED/blob/master/examples/Model%20definitions%20and%20examples.ipynb) Illustrates the syntax for model definition. Start here!
-- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervella et al. A&A 597, 137 (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening. Most `PMOIRED` basics are covered there.
+- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/alphaCenA.ipynb) PIONIER data from [Kervella et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening. Most `PMOIRED` basics are covered there.
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting 2-components model with chromatic flux ratio.
-- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
+- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/AXCir.ipynb) PIONIER data from [Gallenne et al. 2015](https://ui.adsabs.harvard.edu/abs/2015A%26A...579A..68G/abstract), shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
 
 ## Limitations and known issues
 
