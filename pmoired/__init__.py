@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20220811' 
+__version__= '20220824'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -248,7 +248,7 @@ class OI:
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, debug=self.debug, binning=binning))
         return
-    def setSED(self, wl, sed, err=0.01):
+    def setSED(self, wl, sed, err=0.01, unit=None):
         """
         force the SED in data to "sed" as function of "wl" (in um)
         err is the relative error (default 0.01 == 1%)
@@ -256,7 +256,7 @@ class OI:
         will update/create OI_FLUX and interpolate the SED in "FLUX" for
         each telescope.
         """
-        for d in self.data:
+        for i,d in enumerate(self.data):
             if 'OI_FLUX' in d:
                 # -- replace flux
                 tmp = np.interp(d['WL'], wl, sed)
@@ -276,8 +276,16 @@ class OI:
                 s = np.interp(d['WL'], wl, sed)[None,:] + 0*mjd[:,None]
                 for t in d['telescopes']:
                     flux[t] = {'FLUX':s, 'RFLUX':s, 'EFLUX':err*s, 'FLAG':s==0, 'MJD':mjd}
-                d['OI_FLUX'] = flux
+                self.data[i]['OI_FLUX'] = flux
+            if not unit is None:
+                if 'units' in self.data[i]:
+                    self.data[i]['units']['FLUX'] = unit
+                else:
+                    self.data[i]['units'] = {'FLUX': unit}
+
+
         return
+
     def setupFit(self, fit, update=False, debug=False):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length
@@ -292,6 +300,7 @@ class OI:
             'N|V|': differential visibility (wrt continuum)
             'T3PHI': closure phases
             'T3AMP': closure amplitude
+            'CF': correlated flux
 
         'wl ranges': gives a list of wavelength ranges (in um) where to fit.
             e.g. [(1.5, 1.6), (1.65, 1.75)]
@@ -920,6 +929,8 @@ class OI:
                             _obs.append('V2')
                         if 'OI_VIS' in d:
                             _obs.append('|V|')
+                        if 'OI_CF' in d:
+                            _obs.append('CF')
                         if 'OI_FLUX' in d:
                             _obs.append('FLUX')
                         if not 'fit' in d:
@@ -1645,7 +1656,7 @@ def _checkObs(data, obs):
     """
     data: OI dict
     obs: list of observable in ['|V|', 'V2', 'DPHI', 'N|V|', 'T3PHI', 'FLUX',
-                                'NFLUX']
+                                'NFLUX', 'CF']
 
     returns list of obs actually in data
     """
@@ -1654,6 +1665,7 @@ def _checkObs(data, obs):
            'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
            'FLUX':'OI_FLUX',
            'NFLUX':'OI_FLUX',
+           'CF': 'OI_CF'
            }
     return [o for o in obs if o in ext and ext[o] in data]
 

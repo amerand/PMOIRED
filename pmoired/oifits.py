@@ -171,6 +171,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['OI_VIS'] = {}
     res['OI_T3'] = {}
     res['OI_FLUX'] = {}
+    res['OI_CF'] = {}
     ignoredTellurics = False
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
@@ -319,7 +320,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          medFilt=medFilt)
                         res['OI_VIS2'][k]['FLAG'] = flag
 
-
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
                     hdu.header['INSNAME']==insname:
@@ -336,33 +336,55 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG: loading OI_VIS', set(sta2))
                 #print(' | ', targets[targname], hdu.data['TARGET_ID'])
 
+            if 'AMPTYP' in hdu.header and hdu.header['AMPTYP'] == 'correlated flux':
+                ext = 'OI_CF'
+                vis = 'CF'
+                for k in hdu.header:
+                    if k.startswith('TTYPE') and hdu.header[k].strip()=='VISAMP':
+                        _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
+                if 'units' in res:
+                    res['units']['CF'] = _unit
+                else:
+                    res['units']={'CF':_unit}
+            else:
+                ext = 'OI_VIS'
+                vis = '|V|'
+
+            for k in hdu.header:
+                if k.startswith('TTYPE') and hdu.header[k].strip()=='VISPHI':
+                    _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
+            if 'units' in res:
+                res['units']['PHI'] = _unit
+            else:
+                res['units']={'PHI':_unit}
+
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
                 #if debug:
                 #    print(' | ', k, any(w))
-                if k in res['OI_VIS'] and any(w):
-                    for k1, k2 in [('|V|', 'VISAMP'), ('E|V|', 'VISAMPERR'),
+                if k in res[ext] and any(w):
+                    for k1, k2 in [(vis, 'VISAMP'), ('E'+vis, 'VISAMPERR'),
                                     ('PHI', 'VISPHI'), ('EPHI', 'VISPHIERR'),
                                     ('FLAG', 'FLAG')]:
-                        res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],
+                        res[ext][k][k1] = np.append(res[ext][k][k1],
                                                          hdu.data[k2][w].reshape(w.sum(), -1), axis=0)
                     for k1, k2 in [('u', 'UCOORD'), ('v', 'VCOORD'), ('MJD', 'MJD')]:
-                        res['OI_VIS'][k][k1] = np.append(res['OI_VIS'][k][k1],
+                        res[ext][k][k1] = np.append(res[ext][k][k1],
                                                           hdu.data[k2][w])
                     tmp = hdu.data['UCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS'][k]['u/wl'] = np.append(res['OI_VIS'][k]['u/wl'],
+                    res[ext][k]['u/wl'] = np.append(res[ext][k]['u/wl'],
                                                          tmp, axis=0)
                     tmp = hdu.data['VCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS'][k]['v/wl'] = np.append(res['OI_VIS'][k]['v/wl'],
+                    res[ext][k]['v/wl'] = np.append(res[ext][k]['v/wl'],
                                                          tmp, axis=0)
-                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                             ~np.isfinite(res['OI_VIS'][k]['|V|']))
-                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                             ~np.isfinite(res['OI_VIS'][k]['E|V|']))
+                    res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
+                                                             ~np.isfinite(res[ext][k][vis]))
+                    res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
+                                                             ~np.isfinite(res[ext][k]['E'+vis]))
 
                 elif any(w):
-                    res['OI_VIS'][k] = {'|V|':hdu.data['VISAMP'][w].reshape(w.sum(), -1),
-                                        'E|V|':hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
+                    res[ext][k] = {vis:hdu.data['VISAMP'][w].reshape(w.sum(), -1),
+                                        'E'+vis:hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
                                         'PHI':hdu.data['VISPHI'][w].reshape(w.sum(), -1),
                                         'EPHI':hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
@@ -376,50 +398,54 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
                 if any(w):
-                    res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u/wl']**2+
-                                                       res['OI_VIS'][k]['v/wl']**2)
-                    res['OI_VIS'][k]['PA'] = np.angle(res['OI_VIS'][k]['v/wl']+
-                                                   1j*res['OI_VIS'][k]['u/wl'], deg=True)
+                    res[ext][k]['B/wl'] = np.sqrt(res[ext][k]['u/wl']**2+
+                                                       res[ext][k]['v/wl']**2)
+                    res[ext][k]['PA'] = np.angle(res[ext][k]['v/wl']+
+                                                   1j*res[ext][k]['u/wl'], deg=True)
 
-                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                             ~np.isfinite(res['OI_VIS'][k]['|V|']))
-                    res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'],
-                                                              ~np.isfinite(res['OI_VIS'][k]['E|V|']))
+                    res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
+                                                             ~np.isfinite(res[ext][k][vis]))
+                    res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
+                                                              ~np.isfinite(res[ext][k]['E'+vis]))
 
                     if not binning is None:
-                        _w = ~res['OI_VIS'][k]['FLAG']
-                        res['OI_VIS'][k]['|V|'],  flag =\
+                        _w = ~res[ext][k]['FLAG']
+                        res[ext][k][vis],  flag =\
                                                    binOI(res['WL'], _WL,
-                                                         res['OI_VIS'][k]['|V|'],
-                                                         res['OI_VIS'][k]['FLAG'],
-                                                         res['OI_VIS'][k]['E|V|'],
+                                                         res[ext][k][vis],
+                                                         res[ext][k]['FLAG'],
+                                                         res[ext][k]['E'+vis],
                                                          medFilt=medFilt,
                                                          retFlag=True)
-                        res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
-                                                         res['OI_VIS'][k]['PHI'],
-                                                         res['OI_VIS'][k]['FLAG'],
-                                                         res['OI_VIS'][k]['EPHI'],
+                        res[ext][k]['PHI'] = binOI(res['WL'], _WL,
+                                                         res[ext][k]['PHI'],
+                                                         res[ext][k]['FLAG'],
+                                                         res[ext][k]['EPHI'],
                                                          medFilt=medFilt)
 
                         # -- KLUDGE!
-                        res['OI_VIS'][k]['E|V|'] = binOI(res['WL'], _WL,
-                                                         res['OI_VIS'][k]['E|V|'],
-                                                         res['OI_VIS'][k]['FLAG'],
-                                                         res['OI_VIS'][k]['E|V|'],
+                        res[ext][k]['E'+vis] = binOI(res['WL'], _WL,
+                                                         res[ext][k]['E'+vis],
+                                                         res[ext][k]['FLAG'],
+                                                         res[ext][k]['E|V|'],
                                                          medFilt=medFilt)
-                        res['OI_VIS'][k]['EPHI'] = binOI(res['WL'], _WL,
-                                                         res['OI_VIS'][k]['EPHI'],
-                                                         res['OI_VIS'][k]['FLAG'],
-                                                         res['OI_VIS'][k]['EPHI'],
+                        res[ext][k]['EPHI'] = binOI(res['WL'], _WL,
+                                                         res[ext][k]['EPHI'],
+                                                         res[ext][k]['FLAG'],
+                                                         res[ext][k]['EPHI'],
                                                          medFilt=medFilt)
-                        res['OI_VIS'][k]['FLAG'] = flag
+                        res[ext][k]['FLAG'] = flag
 
         #elif debug and 'EXTNAME' in hdu.header:
         #    print('DEBUG:', hdu.header['EXTNAME'])
         #elif debug:
         #    print('DEBUG: skipping HDU')
 
+    if res['OI_CF'] == {}:
+        res.pop('OI_CF')
+
     # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
+    # (this is purely due to a limitation of PMOIRED)
     if 'OI_VIS' in res and 'OI_VIS2' in res:
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
         for k in kz:
@@ -502,7 +528,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 #print(' VIS :',  res['OI_VIS'][k]['MJD'])
                 #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
 
-
     sta2 = list(set(sta2))
 
     #if 'OI_VIS' in res and 'E1S2' in res['OI_VIS']:
@@ -533,6 +558,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
+
+            for k in hdu.header:
+                if k.startswith('TTYPE') and hdu.header[k].strip()=='T3PHI':
+                    _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
+            if 'units' in res:
+                res['units']['T3PHI'] = _unit
+            else:
+                res['units']={'T3PHI':_unit}
+
             for k in set(sta3):
                 w = (np.array(sta3)==k)*wTarg(hdu, targname, targets)
                 # -- find triangles
@@ -658,6 +692,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         key = 'OI_VIS2'
     if res['OI_VIS2']=={}:
         res.pop('OI_VIS2')
+    if 'OI_CF' in res and res['OI_CF']=={}:
+        res.pop('OI_CF')
     if res['OI_FLUX']=={}:
         res.pop('OI_FLUX')
     if res['OI_T3']=={}:
@@ -1078,7 +1114,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
             print('  will be merged with', i0)
             print('  merging...')
         # -- extensions to be merged:
-        exts = ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_FLUX']
+        exts = ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_FLUX', 'OI_CF']
         for l in filter(lambda e: e in exts, oi.keys()):
             if not l in res[i0].keys():
                 # -- extension not present, using the one from oi
@@ -1112,7 +1148,7 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     res[i0][l][k] = copy.deepcopy(oi[l][k])
                     if 'FLUX' in l:
                         res[i0]['telescopes'].append(k)
-                    elif 'VIS' in l:
+                    elif 'VIS' in l or 'CF' in l:
                         res[i0]['baselines'].append(k)
                     elif 'T3' in l:
                         res[i0]['triangles'].append(k)
@@ -1139,6 +1175,9 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
                     elif l=='OI_VIS':
                         ext1 = ['u', 'v', 'MJD']
                         ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
+                    elif l=='OI_CF':
+                        ext1 = ['u', 'v', 'MJD']
+                        ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
@@ -1449,7 +1488,7 @@ def _allInOneOI(oi, verbose=False, debug=False):
         oi[e]['all']['MJD2'] = oi[e]['all']['MJD'][:,None]+\
                             0*oi['WL'][None,:]
 
-    for e in filter(lambda x: x in oi.keys(), ['OI_VIS', 'OI_VIS2', 'OI_T3']):
+    for e in filter(lambda x: x in oi.keys(), ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_CF']):
         tmp = {'NAME':[]}
         for k in filter(lambda x: x!='all', sorted(oi[e].keys())): # each Tel/B/Tri
             tmp['NAME'].extend([k for i in range(len(oi[e][k]['MJD']))])

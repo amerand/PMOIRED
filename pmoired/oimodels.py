@@ -935,6 +935,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     # -- build observables:
     res['OI_VIS'] = {}
     res['OI_VIS2'] = {}
+    if 'OI_CF' in oi:
+        res['OI_CF'] = {}
     tv = time.time()
     for k in baselines: # -- for each baseline
         tmp = {}
@@ -1002,6 +1004,26 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                         tmp[l] = oi['OI_VIS2'][k][l].copy()
                 tmp['EV2'] = np.zeros(tmp['V2'].shape)
             res['OI_VIS2'][k] = tmp
+        if 'OI_CF' in oi.keys():
+            tmp = {}
+            for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
+                if '/wl' in l and cwl!=1:
+                    tmp[l] = oi['OI_CF'][k][l]/cwl
+                else:
+                    tmp[l] = oi['OI_CF'][k][l].copy()
+            if 'NAME' in oi['OI_CF'][k]:
+                tmp['NAME'] = oi['OI_CF'][k]['NAME'].copy()
+
+            tmp['CF'] = np.abs(flux[None,:]*V)
+            if fullOutput or not imFov is None:
+                # -- slow down the code!
+                for l in ['u', 'v', 'u/wl', 'v/wl']:
+                    if '/wl' in l and cwl!=1:
+                        tmp[l] = oi['OI_CF'][k][l]/cwl
+                    else:
+                        tmp[l] = oi['OI_CF'][k][l].copy()
+                tmp['ECF'] = np.zeros(tmp['CF'].shape)
+            res['OI_CF'][k] = tmp
 
     if timeit:
         print(' '*indent+'VsingleOI > complex vis %.3fms'%(1000*(time.time()-tv)))
@@ -1696,6 +1718,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
          'V2':('OI_VIS2', 'B/wl'),
          'T3PHI':('OI_T3', 'Bmax/wl'),
          'T3AMP':('OI_T3', 'Bmax/wl'),
+         'CF':('OI_CF', 'B/wl'),
         }
     assert 'fit' in oi, "'fit' should be defined!"
     # -- in m/um
@@ -1790,7 +1813,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 # -- correct wavelenth offset
                 _cwl = 1.0 + _dwl/np.mean(res['WL'])
                 res['WL'] -= _dwl
-                for x in ['OI_VIS', 'OI_VIS2', 'OI_T3']:
+                for x in ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_CF']:
                     if not x in res:
                         continue
                     for k in res[x]:
@@ -1904,9 +1927,24 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
 
     t0 = time.time()
-    # -- normalise by total flux; compute OI_VIS and OI_VIS2
+    # -- compute OI_VIS and OI_VIS2 (and OI_CF if needed)
     for b in res['MOD_VIS'].keys():
-        # TODO: flux as function of MJD
+        # -- correlated flux == abs(non normalised visibility)
+        if 'OI_CF' in oi.keys():
+            if not 'MOD_CF' in res:
+                res['MOD_CF'] = {b: np.abs(res['MOD_VIS'][b])}
+            else:
+                res['MOD_CF'][b] = np.abs(res['MOD_VIS'][b])
+            if 'OI_CF' in oi and not 'OI_CF' in res:
+                res['OI_CF'] = {}
+            if not b in res['OI_CF']:
+                res['OI_CF'][b] = oi['OI_CF'][b].copy()
+            res['OI_CF'][b]['CF'] = res['MOD_CF'][b]
+        else:
+            pass
+            #print('no OI_CF')
+
+        # -- TODO: flux as function of MJD
         if 'totalflux(MJD)' in res['MODEL']:
             tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
             tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD']"%b)
@@ -1939,8 +1977,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                                  'FLAG': oi['OI_FLUX'][k]['FLAG'],
                                  'MJD': oi['OI_FLUX'][k]['MJD'],
             }
-    if timeit:
-        print(' '*indent+'VmodelOI > fluxes %.3fms'%(1000*(time.time()-t0)))
+        if timeit:
+            print(' '*indent+'VmodelOI > fluxes %.3fms'%(1000*(time.time()-t0)))
 
     t0 = time.time()
     if 'OI_T3' in oi.keys():
@@ -2022,6 +2060,14 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 if 'DPHI' in res.keys():
                     res['DVIS'][k]['DPHI'][i] = np.convolve(
                                 res['DVIS'][k]['DPHI'][i], ker, mode='same')
+        if 'OI_CF' in res:
+            for k in res['OI_CF'].keys():
+                for i in range(res['OI_CF'][k]['CF'].shape[0]):
+                    res['OI_CF'][k]['CF'][i] = np.convolve(
+                                res['OI_CF'][k]['CF'][i], ker, mode='same')
+                    res['OI_CF'][k]['PHI'][i] = np.convolve(
+                                res['OI_CF'][k]['PHI'][i], ker, mode='same')
+
         for k in res['OI_VIS2'].keys():
             for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
                 res['OI_VIS2'][k]['V2'][i] = np.convolve(
@@ -2793,7 +2839,8 @@ def residualsOI(oi, param, timeit=False, what=False):
             'T3AMP':'OI_T3',
             'T3PHI':'OI_T3',
             'NFLUX':'NFLUX', # flux normalized to continuum
-            'FLUX':'OI_FLUX' # flux, corrected from tellurics
+            'FLUX':'OI_FLUX', # flux, corrected from tellurics
+            'CF':'OI_CF', # correlated flux
             }
     w = np.ones(oi['WL'].shape)
 
@@ -2867,8 +2914,9 @@ def residualsOI(oi, param, timeit=False, what=False):
                     #             'model:', m[ext[f]][k][f].shape,
                     #             )
                 else:
+                    print('ignoring', ext[f], k)
                     pass
-                    #print('ignoring', ext[f], k)
+
             #print('')
         else:
             print('WARNING: unknown observable:', f)
@@ -4101,7 +4149,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         cmap: color map ('bone')
         imX: center of FoV (in mas, default:0.0)
         imY: center of FoV (in mas, default:0.0)
-
     """
     global ai1ax, ai1mcB, ai1mcT, ai1i
 
@@ -4289,6 +4336,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             obs.append('V2')
         if 'OI_VIS' in oi:
             obs.append('|V|')
+        if 'OI_CF' in oi:
+            obs.append('CF')
         if 'OI_FLUX' in oi:
             obs.append('FLUX')
     elif 'obs' in oi['fit'] and obs is None:
@@ -4362,8 +4411,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
     c = 1 # column
     ax0 = None
-    data = {
-            'FLUX':{'ext':'OI_FLUX', 'var':'FLUX', 'unit':'detector counts'},
+    data = {'FLUX':{'ext':'OI_FLUX', 'var':'FLUX', 'unit':'detector counts'},
             'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalized'},
             'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
             'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
@@ -4374,9 +4422,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
             'N|V|':{'ext':'DVIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
             'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA'},
+            'CF':{'ext':'OI_CF', 'var':'CF', 'X':'B/wl', 'C':'PA'},
             }
-    imdata = {
-             'FLUX':{'ext':'IM_FLUX', 'var':'FLUX', 'unit':'detector counts'},
+    imdata = {'FLUX':{'ext':'IM_FLUX', 'var':'FLUX', 'unit':'detector counts'},
              'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalized'},
              'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
              'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
@@ -4387,11 +4435,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
              'N|V|':{'ext':'IM_VIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
+             'CF':{'ext':'IM_VIS', 'var':'CF', 'X':'B/wl', 'C':'PA'},
              }
 
     # -- plot in a certain order
     obs = list(filter(lambda x: x in obs,
-            ['FLUX', 'NFLUX', 'T3PHI', 'PHI', 'DPHI', 'T3AMP', '|V|', 'N|V|', 'V2']))
+            ['FLUX', 'NFLUX', 'T3PHI', 'PHI', 'DPHI', 'T3AMP', '|V|', 'N|V|', 'V2', 'CF']))
     ncol = len(obs)
 
     if showUV:
@@ -4765,7 +4814,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         showLabel = True and not spectro
                     else:
                         showLabel = False
-                if  l in ['V2', '|V|', 'DPHI', 'N|V|']:
+                if  l in ['V2', '|V|', 'DPHI', 'N|V|', 'CF']:
                     if not k in mcB:
                         mcB[k]  = (markers[mcB['i']%len(markers)],
                                     colors[mcB['i']%len(colors)] )
@@ -5021,8 +5070,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             #axr.minorticks_off()
             if i==0:
                 title = l
-                if 'unit' in data[l]:
+                if 'units' in oi and l in oi['units']:
+                        title += ' (%s)'%oi['units'][l]
+                elif 'unit' in data[l]:
                     title += ' (%s)'%data[l]['unit']
+
                 ax.set_title(title)
                 if not vWl0 is None:
                     axv.set_xlabel('velocity (km/s)', fontsize=6)
