@@ -558,9 +558,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
-
+            _unit = 'deg'
             for k in hdu.header:
-                if k.startswith('TTYPE') and hdu.header[k].strip()=='T3PHI':
+                if k.startswith('TTYPE') and hdu.header[k].strip()=='T3PHI' and\
+                        k.replace('TYPE','UNIT') in hdu.header:
                     _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
             if 'units' in res:
                 res['units']['T3PHI'] = _unit

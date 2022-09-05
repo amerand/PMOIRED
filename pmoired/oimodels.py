@@ -872,8 +872,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         try:
             sparse_param = VuLensBin(MJD, _param)
         except:
-            print(MJD)
+            print('ERROR! for MJD=', MJD)
             print(_param)
+        # == this does not work (yet)
+        # MJDs = sorted(list(sparse_param['sparse'].keys()))
+        # if len(MJDs)==1:
+        #     flux *= np.sum(sparse_param['sparse'][MJDs[0]]['I'])
+        # else:
+        #     _param['spectrum(mjd)'] = 'np.interp($MJD, %s, %s)'%(str(MJDs),
+        #         str([np.sum(sparse_param['sparse'][_mjd]['I']) for _mjd in MJDs]))
+
+        #flux *= np.sum(sparse_param['I'])
 
         # -- UGLY: duplicate code -> make sure to update "sparse" below !
         Vf = lambda z: VsparseImage(z['u'], z['v'], res['WL'][wwl], sparse_param, z['MJD'])
@@ -892,7 +901,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             tmp = VsparseImage(np.array([1]), np.array([1]), res['WL'][wwl],
                                sparse_param, imMJD, fullOutput=True,
                                imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
-            I = tmp[1]/np.sum(tmp[1])
+            I = tmp[1]#/np.sum(tmp[1])
+
     else:
         # -- default == fully resolved flux == zero visibility
         Vf = lambda z: np.zeros(_Bwl(z).shape)
@@ -1057,16 +1067,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     res['MODEL']['totalflux'] = flux
     res['MODEL']['negativity'] = negativity # 0 is image is >=0, 0<p<=1 otherwise
     if False:
+        # -- this is not working properly :(
         if 'spectrum(mjd)' in _param:
             # WARNING: this will ignore any other "flux" or "spectrum" definition!!!
-            tmp = _param['fmjd']
+            tmp = _param['spectrum(mjd)']
             if '$MJD' in tmp:
                 if '$WL' in tmp:
                     tmp.replace('$WL', '$WL[None,:]')
-                    tmp.replace('$MJD', '$MJD[:,None]')
+                    #tmp.replace('$MJD', '$MJD[:,None]')
                     res['MODEL']['totalflux(MJD)'] = tmp
                 else:
-                    tmp.replace('$MJD', '$MJD[:,None]')
+                    #tmp.replace('$MJD', '$MJD[:,None]')
                     tmp += ' + $WL[None,:]'
                     res['MODEL']['totalflux(MJD)'] = tmp
                 # -- KLUDGE: average out the flux over MJD
@@ -1075,7 +1086,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 print('spectrum(mjd) should be as function of "$MJD"')
         else:
             # -- this works (I think)
-            res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD[:,None]'
+            res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD'
 
     return res
 
@@ -1276,7 +1287,6 @@ def VuLensBin(mjd, param):
 
     if 'ul flip' in param and param['ul flip']=='y':
         tmp['flip']='y'
-    #print(tmp)
     return tmp
 
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
@@ -1857,7 +1867,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 # TODO: flux as function of time!
                 if 'totalflux(MJD)' in res['MODEL']:
                     tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
-                    tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD']"%k)
+                    tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD2']"%k)
                     tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
                     res['MOD_VIS'][k] = eval(tmp)*res['OI_VIS'][k]['|V|']*\
                                         np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
@@ -1913,10 +1923,13 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             for k in res['OI_VIS'].keys(): # for each baseline
                 if 'totalflux(MJD)' in res['MODEL']:
                     tmp = m['MODEL']['totalflux(MJD)'].replace('$WL', "m['MODEL']['WL']")
-                    tmp = tmp.replace('$MJD', "m['OI_VIS']['%s']['MJD']"%k)
+                    tmp = tmp.replace('$MJD', "m['OI_VIS']['%s']['MJD2']"%k)
                     tmp = tmp.replace('$TFLUX', "m['MODEL']['totalflux']")
-                    res['MOD_VIS'][k] += eval(tmp)*m['OI_VIS'][k]['|V|']*\
+                    try:
+                        res['MOD_VIS'][k] += eval(tmp)*m['OI_VIS'][k]['|V|']*\
                                         np.exp(1j*np.pi*m['OI_VIS'][k]['PHI']/180)
+                    except:
+                        print('ERROR!', tmp)
                 else:
                     res['MOD_VIS'][k] += m['MODEL']['totalflux'][None,:]*\
                                          m['OI_VIS'][k]['|V|']*\
@@ -1947,7 +1960,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # -- TODO: flux as function of MJD
         if 'totalflux(MJD)' in res['MODEL']:
             tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
-            tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD']"%b)
+            tmp = tmp.replace('$MJD', "res['OI_VIS']['%s']['MJD2']"%b)
             tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
             res['MOD_VIS'][b] /= eval(tmp)
         else:
@@ -1965,7 +1978,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         for k in oi['OI_FLUX'].keys():
             if 'totalflux(MJD)' in res['MODEL']:
                 tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
-                tmp = tmp.replace('$MJD', "oi['OI_FLUX']['%s']['MJD']"%k)
+                tmp = tmp.replace('$MJD', "oi['OI_FLUX']['%s']['MJD2']"%k)
                 tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
                 totalflux = eval(tmp)
             else:
@@ -4127,7 +4140,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
-           cColors={}, cMarkers={}, imoi=None):
+           cColors={}, cMarkers={}, imoi=None, bckgGrid=True):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -4200,7 +4213,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    logB=logB, logV=logV, color=color, showFlagged=showFlagged,
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
-                   debug=debug, vWl0=vWl0,
+                   debug=debug, vWl0=vWl0, bckgGrid=bckgGrid,
                    cColors=cColors, cMarkers=cMarkers, imoi=_imoi)
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
@@ -4704,7 +4717,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             else:
                                 ax = plt.subplot(n_flux+1, ncol, ncol*(i_flux)+1,
                                                 sharex=ax0)
-                        ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                        if bckgGrid:
+                            ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
                 else:
                     if not spectro:
                         # -- as function of baseline/wl
@@ -5033,7 +5047,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                             ha='left', va='top', fontsize=6, color=col)
                 ax.tick_params(axis='x', labelsize=6)
                 ax.tick_params(axis='y', labelsize=6)
-                ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                if bckgGrid:
+                    ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
             else:
                 if l in ['V2', '|V|']:
                     if logV:
@@ -5103,13 +5118,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         showModel(oi, param, m=m, fig=fig+1, imPow=imPow, cmap=cmap,
                  figWidth=None,#figWidth,
                  imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                 imWl0=imWl0, imMax=imMax, cColors=cColors, cMarkers=cMarkers)
+                 imWl0=imWl0, imMax=imMax, cColors=cColors, cMarkers=cMarkers,
+                 bckgGrid=bckgGrid)
     return m
 
 def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               imFov=None, imPix=None, imPow=1.0, imX=0., imY=0., imWl0=None,
               cmap='bone', imMax=None, logS=False, showSED=True, legend=True,
-              cColors={}, cMarkers={}, imPlx=None):
+              cColors={}, cMarkers={}, imPlx=None, bckgGrid=True):
     """
     oi: result from loadOI for mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
@@ -5392,8 +5408,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                 plt.plot(m['WL'][mask][w0], fS(m['MODEL'][k][mask][w0]), '.-',
                          label=k.split(',')[0].strip(),
                          color=symbols[k.split(',')[0].strip()]['c'])
-
-    plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+    if bckgGrid:
+        plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
     plt.legend(fontsize=5)
     plt.xlabel('wavelength ($\mu$m)')
     ax.tick_params(axis='x', labelsize=6)

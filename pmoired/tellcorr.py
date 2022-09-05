@@ -41,7 +41,7 @@ tran0 = f[1].data['EMISSION'][0].copy()
 tran80 += np.interp(lbda, lbda0[::50], tran0[::50])
 f.close()
 
-def Ftran(l, param):
+def Ftran(l, param, retWL=False):
     """
     'dl0', 'wl0', 'dl1',
 
@@ -61,6 +61,9 @@ def Ftran(l, param):
     for i in [2,3,4,5,6,7,8,9,10]:
         if 'dl'+str(i) in param.keys() and 'wl0' in param.keys():
             tmpL += param['dl'+str(i)]*(tmpL-param['wl0'])**i
+
+    if retWL:
+        return np.interp(l, tmpL, lbda)
 
     if 'pwv' in param.keys():
         tmpT = tran20 + (param['pwv']-2.0)*(tran80-tran20)/6.0
@@ -279,8 +282,10 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         c2 = fits.Column(name='RAW_SPEC', array=sp, format='D')
         c3 = fits.Column(name='TELL_TRANS', array=Ftran(wl, p), format='D')
         c4 = fits.Column(name='CORR_SPEC', array=sp/Ftran(wl, fit['best']), format='D')
+        c5 = fits.Column(name='CORR_WAVE', array=Ftran(wl, fit['best'], retWL=True)*1e-6,
+                        format='D', unit='m')
 
-        hdu = fits.BinTableHDU.from_columns([c1, c2, c3, c4])
+        hdu = fits.BinTableHDU.from_columns([c1, c2, c3, c4, c5])
         hdu.header['EXTNAME'] = 'TELLURICS'
         hdu.header['ORIGIN'] = 'https://github.com/amerand/OIUTILS'
         hdu.header['AUTHOR'] = 'amerand@eso.org'

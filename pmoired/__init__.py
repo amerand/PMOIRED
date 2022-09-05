@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20220824'
+__version__= '20220905'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -782,7 +782,7 @@ class OI:
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
-             showSED=None, showPhotCent=False, imLegend=True):
+             showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -901,7 +901,7 @@ class OI:
                         logB=logB, showFlagged=showFlagged, showIm=False,
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None, checkImVis=False, vWl0=vWl0,
-                        showChi2=showChi2, debug=self.debug)
+                        showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid)
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -911,7 +911,7 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
             return
         elif allInOne:
             if checkImVis:
@@ -944,7 +944,7 @@ class OI:
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=False, vWl0=vWl0, showChi2=showChi2,
-                    debug=self.debug)
+                    debug=self.debug, bckgGrid=bckgGrid)
             if allInOne:
                 self.fig += 1
             else:
@@ -955,7 +955,7 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -972,7 +972,7 @@ class OI:
                 self._model.append(oimodels.showOI([d], param=model, fig=self.fig,
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
-                        checkImVis=checkImVis, vWl0=vWl0,
+                        checkImVis=checkImVis, vWl0=vWl0, bckgGrid=bckgGrid,
                         showChi2=showChi2, debug=self.debug, imoi=imoi))
                 self.fig += 1
             if not imFov is None or showSED:
@@ -981,14 +981,14 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
-                  imLegend=True, vWl0=None, WL=None):
+                  imLegend=True, vWl0=None, WL=None, bckgGrid=True):
         """
         model: parameter dictionnary, describing the model
 
@@ -1219,7 +1219,8 @@ class OI:
                 #plt.plt.plot(self.spectra[key+'WL'][w],
                 #             self.spectra[key+'TOTAL'][w],
                 #             'sc', label='cont.', alpha=0.5)
-            plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+            if bckgGrid:
+                plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
             if not imLegend or len(imWl0)==0:
                 plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
