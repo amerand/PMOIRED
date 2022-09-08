@@ -1101,7 +1101,7 @@ class OI:
 
             pc = plt.pcolormesh(self.images['X'], self.images['Y'],
                                 im**imPow, cmap=cmap, vmax=_imMax, vmin=0,
-                                shading='auto')
+                                shading='auto', rasterized=True)
             cb = plt.colorbar(pc, ax=ax,
                               orientation='horizontal' if len(imWl0)>1 else
                               'vertical')

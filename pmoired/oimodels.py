@@ -3815,7 +3815,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
                                                 #kernel='thin_plate_spline',
                                                 #kernel='cubic',
                                                 )(gr).reshape((nY, nX))
-        plt.pcolormesh(IX, IY, tmp, cmap=cmap, alpha=0.5)
+        plt.pcolormesh(IX, IY, tmp, cmap=cmap, alpha=0.5, rasterized=True)
 
     if tight:
         plt.xlim(np.min(IX)-dx/2, np.max(IX)+dx/2)
@@ -5310,7 +5310,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
 
         pc = plt.pcolormesh(m['MODEL']['X']*imScale, m['MODEL']['Y']*imScale,
                             im, vmin=vmin, vmax=vmax,
-                            cmap=cmap, shading='auto')
+                            cmap=cmap, shading='auto', rasterized=True)
         cb = plt.colorbar(pc, ax=axs[-1],
                           orientation='horizontal' if len(imWl0)>1 else
                           'vertical')
@@ -5596,7 +5596,8 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     if not fig is None:
         plt.close(fig); plt.figure(fig, figsize=(9, 5))
         ax = plt.subplot(121, aspect='equal')
-        plt.pcolormesh(_X, _Y, I, vmax=np.percentile(I, 99.5), shading='auto')
+        plt.pcolormesh(_X, _Y, I, vmax=np.percentile(I, 99.5),
+                        shading='auto', rasterized=True)
         plt.title('de-rotated model')
         t = np.linspace(0, 2*np.pi, 100)[:-1]
         plt.plot(rh*np.cos(t), rh*np.sin(t), ':y', alpha=0.5, label='half light radius')
@@ -6228,7 +6229,7 @@ def testAzVar():
                         bottom=0.12, hspace=0.25, wspace=0)
     ax = plt.subplot(1,4,1)
     ax.set_aspect('equal')
-    plt.pcolormesh(X, Y, I, cmap='inferno', vmin=0, shading='auto')
+    plt.pcolormesh(X, Y, I, cmap='inferno', vmin=0, shading='auto', rasterized=True)
     # plt.imshow(I, cmap='gist_heat', vmin=0, origin='lower',
     #             extent=[_r[0], _r[-1], _r[0], _r[-1]])
     title = r'image %imX%d, $\theta$=%.2fmas'%(Nx, Nx, diam)
@@ -6252,14 +6253,16 @@ def testAzVar():
     plt.title('|V| numerical')
     ax0.set_aspect('equal')
     pvis = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, np.abs(Vis),
-                          cmap='gist_stern', vmin=0, vmax=1, shading='auto')
+                          cmap='gist_stern', vmin=0, vmax=1,
+                          shading='auto', rasterized=True)
     plt.colorbar(pvis)
 
     ax = plt.subplot(2,4,3, sharex=ax0, sharey=ax0)
     plt.title('|V| semi-analytical')
     ax.set_aspect('equal')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, np.abs(Visp),
-                    cmap='gist_stern', vmin=0, vmax=1, shading='auto')
+                    cmap='gist_stern', vmin=0, vmax=1,
+                    shading='auto', rasterized=True)
 
     ax = plt.subplot(2,4,4, sharex=ax0, sharey=ax0)
     imYn = 1. # in 1/100 visibility
@@ -6270,6 +6273,7 @@ def testAzVar():
                     res, cmap='RdBu', shading='auto',
                     vmin=-np.max(np.abs(res)),
                     vmax=np.max(np.abs(res)),
+                    rasterized=True
                     )
     plt.colorbar(pv)
     print('median  |V|  residual (abs.) = %.3f'%np.median(np.abs(res)), '%')
@@ -6280,7 +6284,8 @@ def testAzVar():
     ax.set_aspect('equal')
     plt.title('$\phi$ numerical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Vis),
-                    cmap='hsv', vmin=-180, vmax=180, shading='auto')
+                    cmap='hsv', vmin=-180, vmax=180, shading='auto',
+                    rasterized=True)
     plt.colorbar()
 
     ax = plt.subplot(2,4,7, sharex=ax0, sharey=ax0)
@@ -6288,7 +6293,8 @@ def testAzVar():
     ax.set_aspect('equal')
     plt.title('$\phi$ semi-analytical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Visp),
-                    cmap='hsv', vmin=-180, vmax=180, shading='auto')
+                    cmap='hsv', vmin=-180, vmax=180, shading='auto',
+                    rasterized=True)
 
     ax = plt.subplot(2,4,8, sharex=ax0, sharey=ax0)
     imYn = 1
@@ -6296,7 +6302,7 @@ def testAzVar():
     ax.set_aspect('equal')
     res = 180/np.pi*((np.angle(Vis)-np.angle(Visp)+np.pi)%(2*np.pi)-np.pi)
     pp = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, res, shading='auto',
-                        cmap='RdBu', vmin=-imYn, vmax=imYn)
+                        cmap='RdBu', vmin=-imYn, vmax=imYn, rasterized=True)
     print('median phase residual (abs.) = %.3f'%np.median(np.abs(res)), 'deg')
     print('90perc phase residual (abs.) = %.3f'%np.percentile(np.abs(res), 90), 'deg')
 
