@@ -334,3 +334,21 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     except:
         pass
     return
+
+def showTellurics(filename, fig=0):
+    if not fig is None:
+        plt.close(fig)
+        plt.figure(0)
+    h = fits.open(filename)
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['RAW_SPEC'], alpha=0.2, label='raw spectrum')
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
+             '-k', label='corrected spectrum')
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['TELL_TRANS']*np.mean(h['TELLURICS'].data['RAW_SPEC']),
+             '-y', label='telluric model', alpha=0.5)
+    plt.legend()
+    plt.title(filename)
+    plt.xlabel('wavelength ($\mu$m)')
+    plt.ylabel("flux (arb. unit)")
+
+    h.close()
+    return
