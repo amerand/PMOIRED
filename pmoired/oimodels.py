@@ -4140,7 +4140,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
-           cColors={}, cMarkers={}, imoi=None, bckgGrid=True):
+           cColors={}, cMarkers={}, imoi=None, bckgGrid=True, barycentric=False):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -4214,7 +4214,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi)
+                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi, barycentric=barycentric)
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
                     if 'WL mask' in m:
@@ -4291,6 +4291,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         print('starting plotting in showOI')
 
     #print('->', computeLambdaParams(param))
+
     if not vWl0 is None:
         um2kms = lambda um: (um-vWl0)/um*2.998e5
         kms2um = lambda kms: vWl0*(1 + kms/2.998e5)
@@ -4684,6 +4685,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             # -- for each telescope / baseline / triangle
             X = lambda r, j: r['WL']
             Xlabel = r'wavelength ($\mu$m)'
+            if barycentric and 'barycorr_km/s' in oi:
+                X = lambda r, j: r['WL']*(1+oi['barycorr_km/s']/2.998e5)
+                Xlabel = r'barycentric wavelength ($\mu$m)'
+
             Xscale = 'linear'
             if not spectro:
                 if 'X' in data[l]:

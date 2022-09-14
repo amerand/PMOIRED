@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20220905'
+__version__= '202209014'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -81,7 +81,8 @@ except:
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
-                 tellurics=None, debug=False, verbose=True):
+                 tellurics=None, debug=False, verbose=True,
+                 useTelluricsWL=False):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str). Can also be the name of a ".pmrd" binary file from another
@@ -101,6 +102,8 @@ class OI:
         tellurics: pass a telluric correction vector, or a list of vectors,
             one per file. If nothing given, will use the tellurics in the OIFITS
             file (from 'pmoired.tellcorr')
+
+        useTelluricsWL: use telluric calibrated wavelength (False)
 
         verbose: default is True
 
@@ -131,7 +134,8 @@ class OI:
         elif not filenames is None:
             self.addData(filenames, insname=insname, targname=targname,
                             verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                            tellurics=tellurics, binning=binning)
+                            tellurics=tellurics, binning=binning,
+                            useTelluricsWL=useTelluricsWL)
         else:
             self.data = []
         self._merged = []
@@ -217,7 +221,8 @@ class OI:
         return
 
     def addData(self, filenames, insname=None, targname=None, withHeader=True,
-                medFilt=None, tellurics=None, binning=None, verbose=True):
+                medFilt=None, tellurics=None, binning=None, verbose=True,
+                useTelluricsWL=False):
         """
         add data to the existing ones:
 
@@ -239,6 +244,8 @@ class OI:
             one per file. If nothing given, will use the tellurics in the OIFITS
             file. Works with results from 'pmoired.tellcorr'
 
+        useTelluricsWL: use telluric calibrated wavelength (False)
+
         verbose: default is True
 
         """
@@ -246,7 +253,8 @@ class OI:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                        tellurics=tellurics, debug=self.debug, binning=binning))
+                        tellurics=tellurics, debug=self.debug, binning=binning,
+                        useTelluricsWL=useTelluricsWL))
         return
     def setSED(self, wl, sed, err=0.01, unit=None):
         """
@@ -777,12 +785,33 @@ class OI:
                                showChi2=showChi2)
         return
 
+    def showTellurics(self, fig=None):
+        """
+        show telluric corrections
+        """
+        if not fig is None:
+            self.fig = fig
+        else:
+            self.fig += 1
+            fig = self.fig
+        showAny = False
+        for d in self.data:
+            if 'TELLURICS' in d:
+                showAny = True
+        if not showAny:
+            print('nothing to show!')
+            return
+        plt.close(self.fig)
+        plt.figure(self.fig)
+
+
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
-             showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True):
+             showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True,
+             barycentric=False):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -799,6 +828,7 @@ class OI:
             around this central wavelength (in microns)
         - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
         - allInOne: all data in a single figure
+        - barycentric: use barycentric velocities, if possible
 
         show image and spectrum of model: set imFov to a value to show image
         - imFov: field of view in mas
@@ -901,7 +931,8 @@ class OI:
                         logB=logB, showFlagged=showFlagged, showIm=False,
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None, checkImVis=False, vWl0=vWl0,
-                        showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid)
+                        showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
+                        barycentric=barycentric)
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -911,7 +942,8 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                               barycentric=barycentric)
             return
         elif allInOne:
             if checkImVis:
@@ -944,7 +976,8 @@ class OI:
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=False, vWl0=vWl0, showChi2=showChi2,
-                    debug=self.debug, bckgGrid=bckgGrid)
+                    debug=self.debug, bckgGrid=bckgGrid,
+                    barycentric=barycentric)
             if allInOne:
                 self.fig += 1
             else:
@@ -955,7 +988,8 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                               barycentric=barycentric)
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -973,7 +1007,8 @@ class OI:
                         obs=_obs, logV=logV, logB=logB, showFlagged=showFlagged,
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vWl0=vWl0, bckgGrid=bckgGrid,
-                        showChi2=showChi2, debug=self.debug, imoi=imoi))
+                        showChi2=showChi2, debug=self.debug, imoi=imoi,
+                        barycentric=barycentric))
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
@@ -981,14 +1016,16 @@ class OI:
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid)
+                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                               barycentric=barycentric)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
                   imPow=1, imMax=None, imWl0=None, cColors={}, cMarkers={},
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
-                  imLegend=True, vWl0=None, WL=None, bckgGrid=True):
+                  imLegend=True, vWl0=None, WL=None, bckgGrid=True,
+                  barycentric=False):
         """
         model: parameter dictionnary, describing the model
 
@@ -1038,9 +1075,15 @@ class OI:
             if c in cColors:
                 symbols[c]['c'] = cColors[c]
 
+        # assumes first data set has barycentric correction
+        if barycentric and 'barycorr_km/s' in self.data[0]:
+            bcorr = (1+self.data[0]['barycorr_km/s']/2.998e5)
+        else:
+            bcorr = 1.0
+
         if imWl0 is None and showIM and not imFov is None:
             #imWl0 = self.images['WL'].min(), self.images['WL'].max()
-            imWl0 = [np.mean(self.images['WL'])]
+            imWl0 = [np.mean(self.images['WL'])*bcorr]
 
         if not type(imWl0)==list and not type(imWl0)==tuple and \
             not type(imWl0)==set and not type(imWl0)==np.ndarray and \
@@ -1083,7 +1126,7 @@ class OI:
                     axx.set_xlabel('AU at\n'+r'$\varpi$=%.2fmas'%imPlx,
                                     color=(0.7,0.5,0.2), x=0, fontsize=5)
             # -- index of image in cube, closest wavelength
-            i0 = np.argmin(np.abs(self.images['WL']-wl0))
+            i0 = np.argmin(np.abs(self.images['WL']*bcorr-wl0))
             # -- normalised image
             im = np.abs(self.images['cube'][i0]/np.max(self.images['cube'][i0]))
             # -- photocenter:
@@ -1146,7 +1189,7 @@ class OI:
             title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
             title = title%self.images['WL'][i0]
             if not vWl0 is None:
-                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]-vWl0)/self.images['WL'][i0]*299792)
+                title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]*bcorr-vWl0)/self.images['WL'][i0]*299792)
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
             if imLegend:
@@ -1195,9 +1238,9 @@ class OI:
             for c in sorted(self.spectra[key+'COMP']):
                 col = symbols[c]['c']
                 w = self.spectra[key+'COMP'][c]>0
-                plt.plot(self.spectra[key+'WL'][w], self.spectra[key+'COMP'][c][w],
+                plt.plot(self.spectra[key+'WL'][w]*bcorr, self.spectra[key+'COMP'][c][w],
                         '-', label=c, color=col, linewidth=1.5)
-            plt.plot(self.spectra[key+'WL'], self.spectra[key+'TOTAL'],
+            plt.plot(self.spectra[key+'WL']*bcorr, self.spectra[key+'TOTAL'],
                     '-', label='TOTAL', linewidth=2, color='0.4')
             # -- show imWl0
             #plt.scatter(imWl0, np.interp(imWl0, self.spectra[key+'WL'], self.spectra[key+'TOTAL']),
@@ -1209,7 +1252,11 @@ class OI:
                 plt.yscale('log')
             else:
                 plt.ylim(0)
-            plt.xlabel('wavelength ($\mu$m)')
+            if bcorr==1:
+                plt.xlabel('wavelength ($\mu$m)')
+            else:
+                plt.xlabel('barycentric wavelength ($\mu$m)')
+
             if key=='flux ':
                 plt.title('SED', fontsize=9)
             else:
@@ -1640,7 +1687,11 @@ def _computeSpectra(model, data, models):
                       )
         else:
             efluxes={}
-        M['normalised spectrum CMASK'] = tmp['WL cont']
+        if 'WL cont' in tmp:
+            M['normalised spectrum CMASK'] = tmp['WL cont']
+        else:
+            M['normalised spectrum CMASK'] = np.ones(len(allWLs), dtype=bool)
+
         M['normalised spectrum WL'] = allWLs
         M['normalised spectrum COMP'] = fluxes
         M['err normalised spectrum COMP'] = efluxes

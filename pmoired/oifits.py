@@ -3,9 +3,15 @@ from astropy.io import fits
 import scipy.signal
 import copy
 
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation
+import astropy.constants as aC
+import astropy.units as aU
+
+
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
-           binning=None):
+           binning=None, useTelluricsWL=True, barycentric=False):
     """
     load OIFITS "filename" and return a dict:
 
@@ -31,6 +37,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     many dictionnary as they are instruments (either single dict for single
     instrument, of list of dictionnary).
 
+    binning: binning factor (integer)
+    useTelluricsWL: use wavelength calibration provided by the tellurics (default==True)
+    barycentric: compute barycentric velocities (default=False)
+
     """
     if debug:
         print('DEBUG: loadOI', filename)
@@ -42,7 +52,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         for f in filename:
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
                          medFilt=medFilt, tellurics=tellurics, targname=targname,
-                         verbose=verbose, debug=debug, binning=binning)
+                         verbose=verbose, debug=debug, binning=binning,
+                         useTelluricsWL=useTelluricsWL, barycentric=barycentric)
             if type(tmp)==list:
                 res.extend(tmp)
             elif type(tmp)==dict:
@@ -83,8 +94,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             h.close()
             print('insname not specified, loading %s'%str(instruments))
             # -- return list: one dict for each insname
-            return [loadOI(filename, insname=ins, withHeader=withHeader, verbose=verbose,
-                            medFilt=medFilt) for ins in instruments]
+            return [loadOI(filename, insname=ins, withHeader=withHeader,
+                           verbose=verbose, medFilt=medFilt,
+                           useTelluricsWL=useTelluricsWL,
+                           barycentric=barycentric) for ins in instruments]
 
     assert insname in instruments, 'unknown instrument "'+insname+'", '+\
         'should be in ['+', '.join(['"'+t+'"' for t in instruments])+']'
@@ -130,6 +143,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     except:
         pass
 
+    # -- wavelength
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
@@ -159,7 +173,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             oiarrays[arrname] = dict(zip(hdu.data['STA_INDEX'],
                                          np.char.strip(hdu.data['STA_NAME'])))
 
-
     #print('oiarrays:', oiarrays)
     # -- assumes there is only one array!
     #oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
@@ -177,6 +190,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
             if not tellurics is False:
                 if not binning is None and len(hdu.data['TELL_TRANS'])==len(_WL):
+                    if useTelluricsWL:
+                        # -- corrected wavelength
+                        res['WL'] = hdu.data['CORR_WAVE']*1e6
+                        if not binning is None:
+                            # -- keep track of true wavelength
+                            _WL = res['WL']*1.0
+                            # -- binned
+                            res['WL'] = np.linspace(res['WL'].min(),
+                                                    res['WL'].max(),
+                                                    len(res['WL'])//binning)
+
+
                     res['TELLURICS'] = binOI(res['WL'], _WL,
                                              np.array([hdu.data['TELL_TRANS']]),
                                              np.array([hdu.data['TELL_TRANS']<0]),
@@ -185,6 +210,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['PWV'] = hdu.header['PWV']
                 elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
+                    if useTelluricsWL:
+                        # -- corrected wavelength
+                        res['WL'] = hdu.data['CORR_WAVE']*1e6
+
                     res['PWV'] = hdu.header['PWV']
             else:
                 ignoredTellurics = True
@@ -980,6 +1009,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     # -- all MJDs in the file
     res['MJD'] = np.array(sorted(set(res['configurations per MJD'].keys())))
 
+    # -- mean barycentric correction for the dataset
+    if 'ORIGIN' in h[0].header and h[0].header['ORIGIN']=='ESO-PARANAL':
+        Paranal = EarthLocation.of_site('Paranal')
+        sc = SkyCoord(ra=h[0].header['RA']*aU.deg,
+                      dec=h[0].header['DEC']*aU.deg)
+        # -- correction in m/s
+        barycorr = sc.radial_velocity_correction(location=Paranal,
+                    obstime=Time(h[0].header['DATE-OBS']))
+        res['barycorr_km/s'] = barycorr.value/1000
+
     if verbose:
         mjd = []
         for e in ['OI_VIS2', 'OI_VIS', 'OI_T3', 'OI_FLUX']:
@@ -1012,6 +1051,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #       'baselines:', res['baselines'],
         #       'triangles:', res['triangles'])
     # -- done!
+    h.close()
     return res
 
 def wTarg(hdu, targname, targets):
