@@ -606,7 +606,7 @@ class OI:
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
                 maxfev=None, ftol=None, multi=True, epsfcn=None, prior=None,
-                autoPrior=True, constrain=None):
+                autoPrior=True, constrain=None, verbose=2):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
@@ -661,9 +661,9 @@ class OI:
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn, constrain=constrain,
-                                       prior=prior)
+                                       prior=prior, verbose=verbose)
         self._expl = expl
-        self.grid = oimodels.analyseGrid(self.grid, self._expl)
+        self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
         #self.computeModelSpectra()
@@ -739,7 +739,7 @@ class OI:
                 plt.legend(fontsize=7)
         return
 
-    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False):
+    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
         by a previously ran fit. By default Nfits is set to the number of
@@ -757,7 +757,7 @@ class OI:
         model = self.bestfit
 
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
-                                            multi=multi, keepFlux=keepFlux)
+                                            multi=multi, keepFlux=keepFlux, verbose=verbose)
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
@@ -794,16 +794,24 @@ class OI:
         else:
             self.fig += 1
             fig = self.fig
-        showAny = False
+        showAny = 0
         for d in self.data:
             if 'TELLURICS' in d:
-                showAny = True
+                showAny += 1
         if not showAny:
             print('nothing to show!')
             return
         plt.close(self.fig)
         plt.figure(self.fig)
-
+        p = 1
+        for d in self.data:
+            if 'TELLURICS' in d:
+                plt.subplot(showAny, 1, p)
+                p+=1
+                plt.plot(d['WL'], d['TELLURICS'])
+                plt.xlabel('wavelength ($\mu$m)')
+                plt.ylabel("flux (arb. unit)")
+        return
 
     def show(self, model='best', fig=None, obs=None, logV=False, logB=False, logS=False,
              showFlagged=False, spectro=None, showUV=True, perSetup=True,

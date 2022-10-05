@@ -2394,7 +2394,8 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     vdata.append(vis/np.polyval(c, oi['WL']))
                 else:
                     # -- not polynomial fit, use median
-                    vdata.append(vis/np.median(vis))
+                    if np.median(vis)!=0:
+                        vdata.append(vis/np.median(vis))
         # -- end visamp
 
         oi['DVIS'][k] = {'DPHI':np.array(data),
@@ -2523,14 +2524,17 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     for k in oi['OI_FLUX'].keys():
         data = []
         edata = []
+        cont = []
         for i, flux in enumerate(oi['OI_FLUX'][k]['FLUX']):
             mask = w*~oi['OI_FLUX'][k]['FLAG'][i,:]
             # -- continuum
             if np.sum(mask)>order:
                 c = np.polyfit(oi['WL'][w]-np.mean(oi['WL'][w]), flux[w], order)
-                data.append(flux/np.polyval(c, oi['WL']-np.mean(oi['WL'][w])))
+                _cont = np.polyval(c, oi['WL']-np.mean(oi['WL'][w]))
             else:
-                data.append(flux/np.nanmedian(flux))
+                _cont = np.nanmedian(flux)*np.ones(len(flux))
+            data.append(flux/_cont)
+            cont.append(_cont)
 
             #edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.polyval(c, oi['WL']))
             # -- err normalisation cannot depend on the mask nor continuum calculation!
@@ -2550,10 +2554,12 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
         data = np.array(data)
         edata = np.array(edata)
+        cont = np.array(cont)
         oi['NFLUX'][k] = {'NFLUX':data,
                           'ENFLUX':edata,
                           'FLAG':oi['OI_FLUX'][k]['FLAG'],
                           'MJD':oi['OI_FLUX'][k]['MJD'],
+                          'CONT': cont,
                           }
         # -- for boostrapping
         if 'NAME' in oi['OI_FLUX'][k]:
@@ -3442,7 +3448,8 @@ def get_processor_info():
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
-              dLimParam=None, dLimSigma=3, debug=False, constrain=None, prior=None):
+              dLimParam=None, dLimSigma=3, debug=False, constrain=None,
+              prior=None, verbose=2):
     """
     perform "N" fit on "oi", starting from "param", with grid / randomised
     parameters. N can be determined from "expl" if
@@ -3518,7 +3525,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 print('WARNING: could not compute constraint "'+resi+'"')
         if all(np.array(res)==0):
             PARAM.append(tmp)
-    if len(PARAM)<N:
+    if len(PARAM)<N and verbose:
         print(N-len(PARAM), 'grid points were not within constraints')
 
     N = len(PARAM)
@@ -3532,7 +3539,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
             Np = min(multiprocessing.cpu_count(), N)
         else:
             Np = min(multi, N)
-        print(time.asctime()+': running', N, 'fits on', Np, 'processes')
+        if verbose:
+            print(time.asctime()+': running', N, 'fits on', Np, 'processes')
         # -- estimate fitting time by running 'Np' fit in parallel
         t = time.time()
         pool = multiprocessing.Pool(Np)
@@ -3546,17 +3554,19 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
-        print('  one fit takes ~%.2fs'%(
-                (time.time()-t)/min(Np, N)), end=' ')
-        print('[~%.1f fit/minute]'%( 60*min(Np, N)/(time.time()-t)))
+        if verbose:
+            print('  one fit takes ~%.2fs'%(
+                    (time.time()-t)/min(Np, N)), end=' ')
+            print('[~%.1f fit/minute]'%( 60*min(Np, N)/(time.time()-t)))
         # -- run the remaining
         if N>Np:
             tmp = (N-Np)*(time.time()-t)/Np
-            print(time.asctime()+':', end=' ')
-            if tmp>60:
-                print('approx %.1fmin remaining'%(tmp/60))
-            else:
-                print('approx %.1fs remaining'%(tmp))
+            if verbose:
+                print(time.asctime()+':', end=' ')
+                if tmp>60:
+                    print('approx %.1fmin remaining'%(tmp/60))
+                else:
+                    print('approx %.1fs remaining'%(tmp))
             pool = multiprocessing.Pool(Np)
             for i in range(max(N-Np, 0)):
                 if dLimParam is None:
@@ -3578,10 +3588,11 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         else:
             kwargs = {'nsigma': dLimSigma}
             res.append(limitOI(oi, PARAM[0], dLimParam, **kwargs))
-        print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
-        print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
+        if verbose:
+            print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
+            print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
         for i in range(N-1):
-            if i%10==0:
+            if i%10==0 and verbose:
                 print('%s | grid fit %d/%d'%(time.asctime(), i, N-1))
             if dLimParam is None:
                 kwargs['iter'] = i
@@ -3589,10 +3600,11 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
             else:
                 kwargs = {'nsigma': dLimSigma}
                 res.append(limitOI(oi, PARAM[Np+i], dLimParam, **kwargs))
-    print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
+    if verbose:
+        print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
-    print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+        print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
 
     #if dLimParam is None:
     #    res = analyseGrid(res, expl, verbose=1)
@@ -3705,12 +3717,13 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         if type(res[-1]['firstGuess'])!=list:
             res[-1]['firstGuess'] = [res[-1]['firstGuess'].copy()]
         res[-1]['bad'] = True
-
-    print('-'*12)
-    print('best fit: chi2=', res[0]['chi2'])
-    dpfit.dispBest(res[0])
+    if verbose:
+        print('-'*12)
+        print('best fit: chi2=', res[0]['chi2'])
+        dpfit.dispBest(res[0])
     try:
-        dpfit.dispCor(res[0])
+        if type(verbose)==int and verbose>1:
+            dpfit.dispCor(res[0])
     except:
         pass
     return res
@@ -3831,7 +3844,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     return
 
 def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
-                    multi=True, prior=None, keepFlux=False):
+                    multi=True, prior=None, keepFlux=False, verbose=2):
     """
     """
     if N is None:
@@ -3875,7 +3888,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             Np = min(multiprocessing.cpu_count(), N)
         else:
             Np = min(multi, N)
-        print(time.asctime()+': running', N, 'fits on', Np, 'processes')
+        if verbose:
+            print(time.asctime()+': running', N, 'fits on', Np, 'processes')
 
         # -- estimate fitting time by running 'Np' fit in parallel
         t = time.time()
@@ -3886,18 +3900,20 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
-        print('  one fit takes ~%.2fs'%(
-                (time.time()-t)/min(Np, N)), end=' ')
-        print('[~%.1f fit/minutes]'%( 60*min(Np, N)/(time.time()-t)))
+        if verbose:
+            print('  one fit takes ~%.2fs'%(
+                    (time.time()-t)/min(Np, N)), end=' ')
+            print('[~%.1f fit/minutes]'%( 60*min(Np, N)/(time.time()-t)))
 
         # -- run the remaining
         if N>Np:
             tmp = (N-Np)*(time.time()-t)/Np
-            print(time.asctime()+':', end=' ')
-            if tmp>60:
-                print('approx %.1fmin remaining'%(tmp/60))
-            else:
-                print('approx %.1fsec remaining'%(tmp))
+            if verbose:
+                print(time.asctime()+':', end=' ')
+                if tmp>60:
+                    print('approx %.1fmin remaining'%(tmp/60))
+                else:
+                    print('approx %.1fsec remaining'%(tmp))
 
             pool = multiprocessing.Pool(Np)
             for i in range(max(N-Np, 0)):
@@ -3910,29 +3926,31 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         Np = 1
         t = time.time()
         res.append(fitOI(oi, firstGuess, **kwargs))
-        print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
-        print('[%.1f fit/minutes]'%( 60/(time.time()-t)))
+        if verbose:
+            print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
+            print('[%.1f fit/minutes]'%( 60/(time.time()-t)))
 
         for i in range(N-1):
             kwargs['iter'] = i
-            if i%10==0:
+            if i%10==0 and verbose:
                 print('%s | bootstrap fit %d/%d'%(time.asctime(), i, N-1))
             res.append(fitOI(oi, firstGuess, **kwargs))
-    print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
+    if verbose:
+        print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
 
-    try:
-        print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
-    except:
-        print(time)
+        try:
+            print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+        except:
+            print(time)
 
     try:
-        res = analyseBootstrap(res, sigmaClipping=sigmaClipping)
+        res = analyseBootstrap(res, sigmaClipping=sigmaClipping, verbose=verbose)
         res['fit to all data'] = fit
         return res
     except:
-        print('analysing bootstrap failed! returning all fits')
+        print('WARNING: analysing bootstrap failed! returning all fits')
         return res
 
 def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
@@ -4734,7 +4752,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 # -- no model
                                 ax = plt.subplot(1, ncol, i_col+1)
                             else:
-                                # -- TODO: use GridSpec!
+                                # -- TODO: use GridSpec?
                                 ax = plt.subplot(2, ncol, i_col+1)
                                 axr = plt.subplot(2, ncol, ncol+i_col+1, sharex=ax)
                                 axr.set_title('residuals ($\sigma$)',
@@ -5061,6 +5079,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         ax.set_yscale('log')
                     else:
                         ax.set_ylim(0,1)
+
+            #if l=='NFLUX' and 'TELLURICS' in oi:
+            #    plt.plot(oi['WL'], oi['TELLURICS'])
 
             if i==N-1:
                 if not spectro and not param is None and not 'FLUX' in l:
