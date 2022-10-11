@@ -8,6 +8,7 @@ from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.constants as aC
 import astropy.units as aU
 
+from collections import OrderedDict
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
@@ -1052,6 +1053,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #       'triangles:', res['triangles'])
     # -- done!
     h.close()
+    res['recipes'] = getESOPipelineParams(res['header'], verbose=False)
     return res
 
 def wTarg(hdu, targname, targets):
@@ -1708,3 +1710,47 @@ def n_JHK(wl, T=None, P=None, H=None):
 
 def OI2FITS(oi, fitsfile):
     pass
+
+def getESOPipelineParams(H, verbose=True):
+    """
+    H is a header
+    """
+    P = {}
+    last_rec = ''
+    p = OrderedDict()
+    for k in filter(lambda x: 'PARAM' in x and 'NAME' in x, H.keys()):
+        rec = k.split('ESO PRO ')[1].split()[0]
+        if rec!=last_rec:
+            if verbose:
+                print('\033[46m'+rec, H['ESO PRO '+rec+' ID'],
+                        '['+H['ESO PRO '+rec+' PIPE ID']+']\033[0m', end=' ')
+            # -- find files:
+            F = []
+            for f in filter(lambda x: 'ESO PRO '+rec+' RAW' in x and 'NAME' in x, H.keys()):
+                F.append(H[f]+' ('+H[f.replace('NAME', 'CATG')]+')')
+            if verbose:
+                print(', '.join(F))
+            if last_rec!='':
+                P[last_rec] = {'ID':H['ESO PRO '+rec+' ID'],
+                            'DRS':H['ESO PRO '+rec+' DRS ID'],
+                            'PIPE ID': H['ESO PRO '+rec+' PIPE ID'],
+                            'parameters':p,
+                            'files':F}
+                p = OrderedDict()
+            last_rec = rec
+        if H[k.replace('NAME', 'VALUE')]=='true':
+            c = '\033[32m'
+        elif H[k.replace('NAME', 'VALUE')]=='false':
+            c = '\033[31m'
+        else:
+            c = '\033[34m'
+        p[H[k]] = H[k.replace('NAME', 'VALUE')]
+        if verbose:
+            print(H[k]+'='+c+H[k.replace('NAME', 'VALUE')]+'\033[0m', end=', ')
+    if p!={} and last_rec!='':
+        P[last_rec] = {'ID':H['ESO PRO '+rec+' ID'],
+                    'DRS':H['ESO PRO '+rec+' DRS ID'],
+                    'PIPE ID': H['ESO PRO '+rec+' PIPE ID'],
+                    'parameters':p,
+                    'files':F}
+    return P

@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '202209014'
+__version__= '20221011'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -48,7 +48,7 @@ def checkCurrentVersion():
     """
     global __version__
     link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
-    f = requests.get(link, verify=False, timeout=10)
+    f = requests.get(link, verify=False, timeout=5)
     lines = f.text.split('\n')
     lines = list(filter(lambda x: x.replace(' ', '').startswith('__version__='), lines))
     if len(lines)==1:
@@ -255,6 +255,14 @@ class OI:
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, debug=self.debug, binning=binning,
                         useTelluricsWL=useTelluricsWL))
+        return
+
+    def getESOPipelineParams(self, verbose=True):
+        for i,d in enumerate(self.data):
+            if 'header' in d:
+                print('=', d['filename'], '='*20)
+                self.data[i]['recipes'] = oifits.getESOPipelineParams(d['header'],
+                                                                    verbose=verbose)
         return
     def setSED(self, wl, sed, err=0.01, unit=None):
         """
