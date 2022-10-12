@@ -1722,12 +1722,17 @@ def getESOPipelineParams(H, verbose=True):
         rec = k.split('ESO PRO ')[1].split()[0]
         if rec!=last_rec:
             if verbose:
+                if last_rec!='':
+                    print()
                 print('\033[46m'+rec, H['ESO PRO '+rec+' ID'],
                         '['+H['ESO PRO '+rec+' PIPE ID']+']\033[0m', end=' ')
             # -- find files:
             F = []
             for f in filter(lambda x: 'ESO PRO '+rec+' RAW' in x and 'NAME' in x, H.keys()):
                 F.append(H[f]+' ('+H[f.replace('NAME', 'CATG')]+')')
+            for f in filter(lambda x: 'ESO PRO '+rec+' CAL' in x and 'NAME' in x, H.keys()):
+                F.append(H[f]+' ('+H[f.replace('NAME', 'CATG')]+')')
+
             if verbose:
                 print(', '.join(F))
             if last_rec!='':
@@ -1746,7 +1751,7 @@ def getESOPipelineParams(H, verbose=True):
             c = '\033[34m'
         p[H[k]] = H[k.replace('NAME', 'VALUE')]
         if verbose:
-            print(H[k]+'='+c+H[k.replace('NAME', 'VALUE')]+'\033[0m', end=', ')
+            print(H[k]+'='+c+H[k.replace('NAME', 'VALUE')]+'\033[0m', end=' ')
     if p!={} and last_rec!='':
         P[last_rec] = {'ID':H['ESO PRO '+rec+' ID'],
                     'DRS':H['ESO PRO '+rec+' DRS ID'],

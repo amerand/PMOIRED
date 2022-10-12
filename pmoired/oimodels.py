@@ -72,6 +72,9 @@ def Ssingle(oi, param, noLambda=False):
             dwl = _param['line_'+i+'_lorentzian'] # in nm
             #f += _param[l]*1/(1+(oi['WL']-wl0)**2/(dwl/1000)**2)
             f += _param[l]*(0.5*dwl/1000)**2/((oi['WL']-wl0)**2 + (0.5*dwl/1000)**2)
+        if 'line_'+i+'_truncexp' in _param.keys():
+            dwl = _param['line_'+i+'_truncexp'] # in nm
+            f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)/(dwl/1000))*(oi['WL']>=wl0)
         if 'line_'+i+'_gaussian' in _param.keys():
             dwl = _param['line_'+i+'_gaussian'] # in nm
             if 'line_'+i+'_power' in _param.keys():
@@ -2277,7 +2280,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
-
                 vel = 0.0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
@@ -2293,6 +2295,11 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
                 dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
+                if k.replace('_wl0', '_truncexp') in _param.keys():
+                    dwl = 1.5*_param[k.replace('wl0', 'truncexp')]/1000.
+                    w *= ~(((oi['WL']-_param[k])<=dwl)*
+                            (oi['WL']>_param[k]))
+
 
     if np.sum(w)==0:
         #print('WARNING: no continuum!?')
@@ -2470,9 +2477,9 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 dwl = 0.
                 if k.replace('wl0', 'gaussian') in _param.keys():
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
-
                 if k.replace('wl0', 'lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
+
                 vel = 0
 
                 if ',' in k:
@@ -2495,6 +2502,9 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 dwl = max(dwl, _param[k]*vel/2.998e5 )
                 if any(np.abs(oi['WL']-_param[k])>=np.abs(dwl)):
                     w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
+                if k.replace('wl0', 'truncexp') in _param.keys():
+                    dwl = 1.5*_param[k.replace('wl0', 'truncexp')]/1000.
+                    w *= ~((oi['WL']<=_param[k]+dwl)*oi['WL']>=_param[k])
 
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for spectra')
@@ -4079,6 +4089,8 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                     dwl = 1.5*param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in param.keys():
                     dwl = 3*param[k.replace('wl0', 'lorentzian')]/1000.
+                if k.replace('wl0', 'truncexp') in param.keys():
+                    dwl = 5*param[k.replace('wl0', 'lorentzian')]/1000.
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'

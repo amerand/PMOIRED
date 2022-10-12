@@ -205,7 +205,7 @@ class OI:
         Print out information about the current session
         """
         # -- data
-        print('== DATA', '='*40)
+        print('== DATA', '='*5)
         for i,d in enumerate(self.data):
             print(' >', i, 'file="'+d['filename']+'"', 'ins="'+d['insname']+'"',
                 '-'.join(d['telescopes']),
