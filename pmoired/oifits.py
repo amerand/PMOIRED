@@ -1053,7 +1053,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #       'triangles:', res['triangles'])
     # -- done!
     h.close()
-    res['recipes'] = getESOPipelineParams(res['header'], verbose=False)
+    try:
+        res['recipes'] = getESOPipelineParams(res['header'], verbose=False)
+    except:
+        print('WARNING: error while reading ESO pipelines parameters')
     return res
 
 def wTarg(hdu, targname, targets):
