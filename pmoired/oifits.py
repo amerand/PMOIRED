@@ -44,11 +44,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     """
     if debug:
-        print('DEBUG: loadOI', filename)
+        print('DEBUG: loadOI', type(filename), type(filename)==np.str_)#filename)
     if tellurics is True:
         tellurics = None
 
-    if type(filename)!=str:
+    if type(filename)!=str and type(filename)!=np.str_: # for Guillaume B
         res = []
         for f in filename:
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
