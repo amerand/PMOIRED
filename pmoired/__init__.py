@@ -46,7 +46,7 @@ def checkCurrentVersion():
     """
     ugly!
     """
-    global __version__
+    global __version__,
     link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
     f = requests.get(link, verify=False, timeout=5)
     lines = f.text.split('\n')
@@ -56,18 +56,19 @@ def checkCurrentVersion():
     else:
         return None
 
-print('checking for newer version... ', end='')
-try:
-    curver = checkCurrentVersion()
-    if not curver is None and curver>__version__:
-        print('\033[44mNew version available on github: ', curver, end='\033[0m ')
-    if not curver is None and curver==__version__:
-        print('Up to date', end=' ')
-    if not curver is None and curver<__version__:
-        print('You have a newer version than github!?', end=' ')
-    print('[you have '+__version__+']' )
-except:
-    print('failed (no connection to github?)')
+if False:
+    print('checking for newer version... ', end='')
+    try:
+        curver = checkCurrentVersion()
+        if not curver is None and curver>__version__:
+            print('\033[44mNew version available on github: ', curver, end='\033[0m ')
+        if not curver is None and curver==__version__:
+            print('Up to date', end=' ')
+        if not curver is None and curver<__version__:
+            print('You have a newer version than github!?', end=' ')
+        print('[you have '+__version__+']' )
+    except:
+        print('failed (no connection to github?)')
 
 try:
     jup = os.popen('jupyter --version').readlines()

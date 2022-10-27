@@ -79,7 +79,7 @@ def Ssingle(oi, param, noLambda=False):
             else:
                 pow = 1.0
             f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**pow/(dwl/1000)**pow)*(oi['WL']>=wl0)
-            f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**(2*pow)/(dwl/1000/5)**(2*pow))*(oi['WL']<wl0)
+            f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**(2*pow)/(dwl/1000/10)**(2*pow))*(oi['WL']<wl0)
 
         if 'line_'+i+'_gaussian' in _param.keys():
             dwl = _param['line_'+i+'_gaussian'] # in nm
@@ -2304,7 +2304,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 if k.replace('_wl0', '_truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
                     w *= ~(((oi['WL']-_param[k])<=1.3*dwl)*
-                            (oi['WL']>_param[k]-dwl/4))
+                            (oi['WL']>_param[k]-dwl/8))
 
 
     if np.sum(w)==0:
@@ -2372,6 +2372,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 data.append(phi-np.median(phi))
         if visamp:
             vdata = []
+            edata = []
             for i,vis in enumerate(oi['OI_VIS'][k]['|V|']):
                 vmask = w*~oi['OI_VIS'][k]['FLAG'][i,:]
                 if 'E|V|' in oi['OI_VIS'][k]:
@@ -2403,12 +2404,15 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     else:
                         c = np.polyfit(oi['WL'][vmask], vis[vmask],
                                         vorder)
-
                     vdata.append(vis/np.polyval(c, oi['WL']))
                 else:
                     # -- not polynomial fit, use median
                     if np.median(vis)!=0:
                         vdata.append(vis/np.median(vis))
+                    else:
+                        vdata.append(np.ones(len(vis)))
+                edata.append(np.std(vdata[-1][vmask]))
+
         # -- end visamp
 
         oi['DVIS'][k] = {'DPHI':np.array(data),
@@ -2423,7 +2427,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         if visamp:
             oi['DVIS'][k]['N|V|'] = np.array(vdata)
             if 'E|V|' in oi['OI_VIS'][k]:
-                oi['DVIS'][k]['EN|V|'] = oi['OI_VIS'][k]['E|V|']
+                # -- very crude estimation
+                #oi['DVIS'][k]['EN|V|'] = oi['OI_VIS'][k]['E|V|']
+                oi['DVIS'][k]['EN|V|'] = np.array(edata)[:,None]+\
+                                        0*oi['OI_VIS'][k]['E|V|']
 
     if 'IM_VIS' in oi.keys():
         for k in oi['IM_VIS'].keys():
@@ -2511,7 +2518,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if k.replace('wl0', 'truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
                     w *= ~((oi['WL']<=_param[k]+1.3*dwl)*
-                           (oi['WL']>=_param[k]-dwl/4))
+                           (oi['WL']>=_param[k]-dwl/8))
 
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for spectra')
@@ -2918,7 +2925,7 @@ def residualsOI(oi, param, timeit=False, what=False):
                         #                np.abs(oi[ext[f]][k][f])))
                         # -- above depends on computation, e.g. for NFLUX: can be an issue!
                         mask *= (err<(oi['fit']['max relative error'][f]*
-                                        np.median(np.abs(oi[ext[f]][k][f][mask]))))
+                                 np.median(np.abs(oi[ext[f]][k][f][mask]))))
                     if 'mult error' in fit and f in oi['fit']['mult error']:
                         # -- multiply all errors by value
                         err *= oi['fit']['mult error'][f]
@@ -2932,10 +2939,14 @@ def residualsOI(oi, param, timeit=False, what=False):
 
                     if ext[f] in oi and ext[f] in m:
                         # -- sometimes computation of DPHI fails :(
-                        tmp = rf(oi[ext[f]][k][f][mask] -
-                                  m[ext[f]][k][f][mask])/err[mask]
-                        tmp = tmp.flatten()
-                        res = np.append(res, tmp)
+                        try:
+                            tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])/err[mask]
+                            tmp = tmp.flatten()
+                            res = np.append(res, tmp)
+                        except:
+                            print('!!', ext[f], k, f, oi[ext[f]][k][f].shape,
+                                 m[ext[f]][k][f].shape, mask.shape, err.shape)
+
                         if what:
                             wh.extend([f+':'+k]*len(tmp))
                     else:

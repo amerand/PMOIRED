@@ -340,10 +340,14 @@ def showTellurics(filename, fig=0):
         plt.close(fig)
         plt.figure(0)
     h = fits.open(filename)
-    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['RAW_SPEC'], '-y', alpha=0.5, label='raw spectrum')
-    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['RAW_SPEC'],
+             '-y', alpha=0.5, label='raw spectrum')
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
              '-k', label='corrected spectrum')
-    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6, h['TELLURICS'].data['TELL_TRANS']*np.mean(h['TELLURICS'].data['RAW_SPEC']),
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['TELL_TRANS']*np.mean(h['TELLURICS'].data['RAW_SPEC']),
              '-b', label='telluric model', alpha=0.5)
     plt.legend()
     plt.title(filename, fontsize=7)
