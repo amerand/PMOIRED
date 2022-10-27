@@ -46,7 +46,7 @@ def checkCurrentVersion():
     """
     ugly!
     """
-    global __version__,
+    global __version__
     link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
     f = requests.get(link, verify=False, timeout=5)
     lines = f.text.split('\n')
