@@ -1401,8 +1401,8 @@ def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
         if 'fit' in r:
             tmp = {}
             for k in r['fit'].keys():
-                # -- for differential quantities, this are globally defined
-                for p in ['DPHI', 'NFLUX', 'D|V|']:
+                # -- for differential quantities, these are globally defined
+                for p in ['DPHI', 'NFLUX', 'N|V|']:
                     if type(r['fit'][k]) is dict and p in r['fit'][k].keys():
                         if k in tmp:
                             if p in tmp[k] and tmp[k][p]!=r['fit'][k][p]:

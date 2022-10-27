@@ -79,6 +79,8 @@ def Ssingle(oi, param, noLambda=False):
             else:
                 pow = 1.0
             f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**pow/(dwl/1000)**pow)*(oi['WL']>=wl0)
+            f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**(2*pow)/(dwl/1000/5)**(2*pow))*(oi['WL']<wl0)
+
         if 'line_'+i+'_gaussian' in _param.keys():
             dwl = _param['line_'+i+'_gaussian'] # in nm
             if 'line_'+i+'_power' in _param.keys():
@@ -2301,8 +2303,8 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
                 if k.replace('_wl0', '_truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
-                    w *= ~(((oi['WL']-_param[k])<=dwl)*
-                            (oi['WL']>_param[k]))
+                    w *= ~(((oi['WL']-_param[k])<=1.3*dwl)*
+                            (oi['WL']>_param[k]-dwl/4))
 
 
     if np.sum(w)==0:
@@ -2382,7 +2384,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                         vmask *= (verr<(oi['fit']['max relative error']['N|V|']*
                                         np.abs(oi['OI_VIS'][k]['|V|'][i,:])))
                     if 'mult error' in fit and 'N|V|' in oi['fit']['mult error']:
-                        # -- force error to a minimum value
+                        # -- multiply all errors by factor
                         verr *= oi['fit']['mult error']['N|V|']
                     if 'min error' in fit and 'N|V|' in oi['fit']['min error']:
                         # -- force error to a minimum value
@@ -2508,7 +2510,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                     w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
                 if k.replace('wl0', 'truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
-                    w *= ~((oi['WL']<=_param[k]+dwl)*oi['WL']>=_param[k])
+                    w *= ~((oi['WL']<=_param[k]+1.3*dwl)*
+                           (oi['WL']>=_param[k]-dwl/4))
 
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for spectra')
@@ -2917,7 +2920,7 @@ def residualsOI(oi, param, timeit=False, what=False):
                         mask *= (err<(oi['fit']['max relative error'][f]*
                                         np.median(np.abs(oi[ext[f]][k][f][mask]))))
                     if 'mult error' in fit and f in oi['fit']['mult error']:
-                        # -- force error to a minimum value
+                        # -- multiply all errors by value
                         err *= oi['fit']['mult error'][f]
                     if 'min error' in fit and f in oi['fit']['min error']:
                         # -- force error to a minimum value
