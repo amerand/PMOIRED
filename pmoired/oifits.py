@@ -66,6 +66,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     # -- how many instruments?
     instruments = []
+    ins2targ = {}
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH':
             instruments.append(hdu.header['INSNAME'])
@@ -83,6 +84,20 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         targets[k] = [targets[k], hdu.data['TARGET_ID'][i]]
                     else:
                         targets[k].append(hdu.data['TARGET_ID'][i])
+        if 'INSNAME' in hdu.header:
+            if 'TARGET_ID' in hdu.data.columns.names:
+                if not hdu.header['INSNAME'] in ins2targ:
+                    ins2targ[hdu.header['INSNAME']] = set(hdu.data['TARGET_ID'])
+                else:
+                    ins2targ[hdu.header['INSNAME']] = set(list(ins2targ[hdu.header['INSNAME']])+
+                                                        list(hdu.data['TARGET_ID']))
+    
+    # -- keep only targets for the instrument, if specified
+
+    if not insname is None and insname in ins2targ:
+        targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
+        print(insname, '->', targets)
+
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
     assert targname in targets.keys(), 'unknown targname "'+str(targname)+'", '+\
@@ -1056,7 +1071,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     try:
         res['recipes'] = getESOPipelineParams(res['header'], verbose=False)
     except:
-        print('WARNING: error while reading ESO pipelines parameters')
+        if verbose:
+            print('WARNING: error while reading ESO pipelines parameters')
     return res
 
 def wTarg(hdu, targname, targets):
