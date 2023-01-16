@@ -1,2 +1,0 @@
-rm binlen.*.so
-f2py -c *.f -m binlen
