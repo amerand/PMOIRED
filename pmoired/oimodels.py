@@ -1185,7 +1185,7 @@ def VsparseImage(u, v, wl, param, mjd=None,  fullOutput=False,
         cpa = np.cos(np.pi/180*param['projang'])
         spa = np.sin(np.pi/180*param['projang'])
         _x = cpa*_sparse_image['x']*flipx - spa*_sparse_image['y']*flipy
-        _y = +spa*_sparse_image['x']*flipx + cpa*_sparse_image['y']*flipy
+        _y = spa*_sparse_image['x']*flipx + cpa*_sparse_image['y']*flipy
         if 'incl' in param:
             _y *= np.cos(np.pi/180*param['incl'])
     else:
