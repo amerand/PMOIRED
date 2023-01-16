@@ -445,7 +445,7 @@ class OI:
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
-                                      follow=follow, factor=factor)
+                                      follow=follow, factor=factor, prior=prior)
         if verbose:
             if len(self.bestfit['not significant']):
                 print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
@@ -938,7 +938,8 @@ class OI:
                 data = []
                 for s in perSetup:
                     data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
-                                    if s in self.data[i]['insname']], verbose=False))
+                                    if s in self.data[i]['insname']], 
+                                    collapse=False, verbose=False))
 
             for j,g in enumerate(data):
                 if 'fit' in g and 'obs' in g['fit']:

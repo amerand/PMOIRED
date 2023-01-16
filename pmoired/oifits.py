@@ -1123,7 +1123,7 @@ def _binVec(x, X, Y, E=None, medFilt=None):
             y[i] = np.sum(k*Y)/np.sum(k)
     return y
 
-def mergeOI(OI, collapse=False, groups=None, verbose=True, debug=False):
+def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
     """
     takes OI, a list of oifits files readouts (from loadOI), and merge them into
     a smaller number of entities based with same spectral coverage
