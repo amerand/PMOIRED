@@ -613,7 +613,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                                imMJD, fullOutput=True, imFov=imFov, imPix=imPix,
                                imX=imX, imY=imY, imN=imN)
             I = tmp[1]/np.sum(tmp[1])
-    elif 'Vin' in _param or 'V1mas' in _param: # == Keplerian disk ===============================
+    elif 'Vin' in _param or 'V1mas' in _param or 'Vin_Mm/s' in _param: # == Keplerian disk ==
         # == TODO: make this faster by only computing for needed wavelength
         if imFov is None:
             imN = None
@@ -1350,9 +1350,9 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     As = list(filter(lambda x: x.endswith('_wl0'), param.keys()))
 
     if 'Rin' in param:
-        Rin = param['Rin']
+        Rin = np.abs(param['Rin'])
     elif 'diamin' in param:
-        Rin = param['diamin']/2
+        Rin = np.abs(param['diamin'])/2
     else:
         assert False, 'Rin or diamin must be defined for Keplerian disk'
 
@@ -1370,16 +1370,19 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         if k.startswith('line_') and k.endswith('fwhm'):
             fwhm.append(param[k])
     if len(fwhm)>0:
-        Rout = max(Rout, 1.2*np.max(fwhm))
+        Rout = max(Rout, 1.2*np.max(np.abs(fwhm)))
 
-    assert Rout>0, 'Rout, diamout or fwhm must be defined'
+    assert Rout>0, 'Rout, diamout or fwhm must be defined: '+\
+        'Rout='+str(Rout)+' fwhm='+str(fwhm)
 
     if 'beta' in param:
         beta = param['beta']
     else:
         beta = -0.5
 
-    if 'Vin' in param:
+    if 'Vin_Mm/s' in param:
+        Vin = param['Vin_Mm/s']*1000
+    elif 'Vin' in param:
         Vin = param['Vin']
     elif 'V1mas' in param:
         Vin = param['V1mas']*Rin**beta
@@ -1619,19 +1622,21 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         R2 = _Xp**2+_Yp**2
         cube = np.zeros((len(wl), len(X), len(Y)))
         # -- interpolate for each WL:
-        # @@@@@@@ THIS IS VERY SLOW! @@@@@@@@@@@@@@@@@@@@
+        # @@@@@@@ THIS IS EXTREMELY SLOW! @@@@@@@@@@@@@@@@@@@@
         grP = [(p[0], p[1]) for p in P]
         gr = np.array([_X, _Y]).reshape(2, -1).T
+        print('Vkepler images of shape', _X.shape, 'for', len(wl),
+                'wavelength bins:', end=' ')
+        t = time.time()
         for i in range(len(wl)):
-            #cube[i,:,:] = scipy.interpolate.Rbf([p[0] for p in P], [p[1] for p in P],
-            #                                    flux[i,:])(_X, _Y)
             cube[i,:,:] = scipy.interpolate.RBFInterpolator(grP, flux[i,:],
-                                                            #kernel='linear', neighbors=4,
-                                                            kernel='thin_plate_spline',
+                                                            kernel='linear', neighbors=3,
+                                                            #kernel='thin_plate_spline',
                                                             #kernel='cubic',
                                                             )(gr).reshape((imN, imN))
             cube[i,:,:] *= (R2>=Rin**2)*(R2<=Rout**2)
             cube[i,:,:] = np.maximum(0, cube[i,:,:])
+        print('in %.2fs'%(time.time()-t))
     else:
         _X, _Y, cube = None, None, None
 
@@ -2289,17 +2294,24 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 vel = 0.0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
+                    fv = 1.0
                 else:
                     kv = 'Vin'
+                    fv = 1.0
+                if not kv in _param:
+                    kv +='_Mm/s'
+                    fv = 1000.
                 if kv in _param:
-                    vel = _param[kv]
+                    vel = _param[kv]*fv
+
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
                 else:
                     kv = 'V1mas'
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
-                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/2.998e5)**2)
+
+                dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
                 if k.replace('_wl0', '_truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
@@ -2497,11 +2509,15 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
+                    fv = 1.0
                 else:
                     kv = 'Vin'
-
+                    fv = 1.0
+                if not kv in _param:
+                    kv+='_Mm/s'
+                    fv = 1000.0
                 if kv in _param:
-                    vel = _param[kv]
+                    vel = _param[kv]*fv
 
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
@@ -2512,7 +2528,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
                 # -- effects of "vel" depends on the size of the disk and "fpow"
                 #dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
-                dwl = max(dwl, _param[k]*vel/2.998e5 )
+                dwl = np.sqrt(dwl**2 + (0.5*_param[k]*vel/2.998e5 )**2)
                 if any(np.abs(oi['WL']-_param[k])>=np.abs(dwl)):
                     w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
                 if k.replace('wl0', 'truncexp') in _param.keys():
@@ -3192,8 +3208,9 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
     return firstGuess
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
-          maxfev=5000, ftol=1e-6, follow=None, prior=None,
-          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False):
+          maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
+          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
+          onlyMJD=None):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -3253,7 +3270,16 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     if randomise is False:
         tmp = oi
     else:
-        tmp = randomiseData2(oi,  verbose=False, keepFlux=keepFlux)
+        if onlyMJD:
+            MJD = []
+            for o in oi: # for each datasets
+                MJD.extend(o['MJD'])
+            MJD = set(MJD)
+            onlyMJD = random.sample(MJD, len(MJD)//2)
+        else:
+            onlyMJD = None
+        tmp = randomiseData2(oi, verbose=False, keepFlux=keepFlux,
+                             onlyMJD=onlyMJD)
     z = 0.0
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
@@ -3347,7 +3373,7 @@ def _chi2(oi, param):
     res2 = residualsOI(oi, param)**2
     return np.mean(res2)
 
-def randomiseData2(oi, verbose=False, keepFlux=False):
+def randomiseData2(oi, verbose=False, keepFlux=False, onlyMJD=None):
     """
     based on "configurations per MJD". Basically draw data from MJDs and/or
     configuration:
@@ -3362,18 +3388,26 @@ def randomiseData2(oi, verbose=False, keepFlux=False):
     res = []
 
     # -- build a dataset twice as big as original one, but with half the data...
+    Nignored = 0
+    Nall = 0
     for i in range(len(oi)*2):
         tmp = copy.deepcopy(oi[i%len(oi)])
         # -- collect all the "MJD+config"
         # where config covers the telescope / baselines / triangles
         mjd_c = []
         for k in tmp['configurations per MJD'].keys():
-            mjd_c.extend([str(k)+str(c) for c in tmp['configurations per MJD'][k]])
+            mjd_c.extend(['%.5f'%k+'|'+str(c) for c in tmp['configurations per MJD'][k]])
         mjd_c = list(set(mjd_c))
 
-        # -- ignore half the data, randomly
-        random.shuffle(mjd_c)
-        ignore = mjd_c[:len(mjd_c)//2]
+        if not onlyMJD is None:
+            ignore = list(filter(lambda f: any(['%.5f'%x in f for x in onlyMJD]), mjd_c))
+        else:
+            random.shuffle(mjd_c)
+            ignore = mjd_c[:len(mjd_c)//2]
+
+        Nignored += len(ignore)
+        Nall += len(mjd_c)
+
         if keepFlux:
             # -- do not randomise flux
             exts = list(filter(lambda x: x in ['OI_VIS', 'OI_VIS2',
@@ -3389,12 +3423,12 @@ def randomiseData2(oi, verbose=False, keepFlux=False):
         for l in exts:
             if list(tmp[l].keys()) == ['all']: # merged data
                 for i,mjd in enumerate(tmp[l]['all']['MJD']):
-                    if str(mjd)+tmp[l]['all']['NAME'][i] in ignore:
+                    if '%.5f'%mjd+'|'+tmp[l]['all']['NAME'][i] in ignore:
                         tmp[l]['all']['FLAG'][i,:] = True
             else:
                 for k in tmp[l].keys():
                     for i,mjd in enumerate(tmp[l][k]['MJD']):
-                        if str(mjd)+str(k) in ignore:
+                        if '%.5f'%mjd+'|'+str(k) in ignore:
                             tmp[l][k]['FLAG'][i,:] = True
         res.append(tmp)
     return res
@@ -3650,7 +3684,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
             test = False
             if 'grid' in expl:
                 for k in expl['grid']:
-                    test = test or f['uncer'][k]>expl['grid'][k][2]
+                    test = test or f['uncer'][k]>np.abs(expl['grid'][k][2])
             if test:
                 bad.append(f.copy())
                 bad[-1]['bad'] = True
@@ -3872,8 +3906,13 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     return
 
 def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
-                    multi=True, prior=None, keepFlux=False, verbose=2):
+                    multi=True, prior=None, keepFlux=False, verbose=2,
+                    strongMJD=False):
     """
+    randomised draw data and perform N fits. Some parameters of the fitting engine can be changed,
+    but overall the fitting context is the same as the last fit which was run.
+
+    see also: doFit 
     """
     if N is None:
         # count number of spectral vector data
@@ -3889,12 +3928,27 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
                 }
         if type(oi)==dict:
             oi = [oi]
-        for o in oi:
+        for o in oi: # for each datasets
             for p in o['fit']['obs']:
                 if ext[p] in o:
                     for k in o[ext[p]].keys():
                         N += len(o[ext[p]][k]['MJD'])
         N *= 2
+
+    if strongMJD:
+        # -- list all MJDs:
+        MJD = []
+        for o in oi: # for each datasets
+            MJD.extend(o['MJD'])
+        MJD = set(MJD)
+
+        if len(MJD)<5: # to get at least 100 combination
+            print('WARNING: cannot randomise only on MJD for', len(MJD), 'dates,',
+                 'randomising on MJD+baselines/triangles instead')
+            strongMJD = False
+        elif verbose:
+            print('randomising on', len(MJD), 'different dates')
+
 
     fitOnly = fit['fitOnly']
     doNotFit = fit['doNotFit']
@@ -3908,7 +3962,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1,
-              'keepFlux':keepFlux}
+              'keepFlux':keepFlux, 'onlyMJD':strongMJD}
 
     res = []
     if multi:
@@ -3967,7 +4021,6 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
-
         try:
             print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
         except:
@@ -4112,18 +4165,23 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
+                    fv = 1.0
                 else:
                     kv = 'Vin'
+                    fv = 1.0
+                if not kv in _param:
+                    kv+='_Mm/s'
+                    fv = 1000
+
                 if kv in _param:
-                    vel = _param[kv]
+                    vel = _param[kv]*fv
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
                 else:
                     kv = 'V1mas'
                 if kv in _param:
                     vel = _param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
-                dwl = np.sqrt(dwl**2 + (1.5*_param[k]*vel/2.998e5)**2)
-
+                dwl = np.sqrt(dwl**2 + (0.5*_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for clipping')

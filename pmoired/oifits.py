@@ -91,17 +91,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 else:
                     ins2targ[hdu.header['INSNAME']] = set(list(ins2targ[hdu.header['INSNAME']])+
                                                         list(hdu.data['TARGET_ID']))
-    
-    # -- keep only targets for the instrument, if specified
 
+    # -- keep only targets for the instrument, if specified
     if not insname is None and insname in ins2targ:
         targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
-        print(insname, '->', targets)
+        #print(insname, '->', targets)
 
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
     assert targname in targets.keys(), 'unknown targname "'+str(targname)+'", '+\
-        'should be in ['+', '.join(['"'+t+'"' for t in list(targets.keys())])+']'
+        'should be within ['+', '.join(['"'+t+'"' for t in list(targets.keys())])+']'
 
     if insname is None:
         if len(instruments)==1:

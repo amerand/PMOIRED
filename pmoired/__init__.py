@@ -31,7 +31,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20221011'
+__version__= '20230116'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -407,7 +407,7 @@ class OI:
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True,
               verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
-              prior=None, autoPrior=True):
+              prior=None, autoPrior=True, factor=100):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -445,7 +445,7 @@ class OI:
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
-                                      follow=follow)
+                                      follow=follow, factor=factor)
         if verbose:
             if len(self.bestfit['not significant']):
                 print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
@@ -579,21 +579,21 @@ class OI:
         else:
             c =[r[self._limexpl['param']] for r in self.limgrid]
         print('distribution of %.1fsigma detections:'%self._limexpl['nsigma'])
-        print(' median', self._limexpl['param'], ':', round(np.median(c),2), ' (mag)' if mag else '')
+        print(' median', self._limexpl['param'], ':', round(np.median(c),4), ' (mag)' if mag else '')
         if len(self.limgrid)>13:
-            print(' 1sigma (68%%) %.2f -> %.2f'%(np.percentile(c, 16),
+            print(' 1sigma (68%%) %.4f -> %.4f'%(np.percentile(c, 16),
                                                np.percentile(c, 100-16)))
         if len(self.limgrid)>40:
-            print('        (90%%) %.2f -> %.2f'%(np.percentile(c, 5),
+            print('        (90%%) %.4f -> %.4f'%(np.percentile(c, 5),
                                                np.percentile(c, 100-5)))
         if len(self.limgrid)>80:
-            print(' 2sigma (95%%) %.2f -> %.2f'%(np.percentile(c, 2.5),
+            print(' 2sigma (95%%) %.4f -> %.4f'%(np.percentile(c, 2.5),
                                                np.percentile(c, 100-2.5)))
         if len(self.limgrid)>200:
-            print('        (99%%) %.2f -> %.2f'%(np.percentile(c, 0.5),
+            print('        (99%%) %.4f -> %.4f'%(np.percentile(c, 0.5),
                                                np.percentile(c, 100-0.5)))
         if len(self.limgrid)>1600:
-            print(' 3sigma (99.7%%) %.2f -> %.2f'%(np.percentile(c, .15),
+            print(' 3sigma (99.7%%) %.4f -> %.4f'%(np.percentile(c, .15),
                                                np.percentile(c, 100-.15)))
 
         plt.scatter([r[px] for r in self.limgrid],
@@ -748,7 +748,7 @@ class OI:
                 plt.legend(fontsize=7)
         return
 
-    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2):
+    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2, strongMJD=False):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
         by a previously ran fit. By default Nfits is set to the number of
@@ -766,7 +766,9 @@ class OI:
         model = self.bestfit
 
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
-                                            multi=multi, keepFlux=keepFlux, verbose=verbose)
+                                            multi=multi, keepFlux=keepFlux,
+                                            verbose=verbose, strongMJD=strongMJD)
+
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):

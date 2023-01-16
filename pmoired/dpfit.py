@@ -256,7 +256,7 @@ trackP={}
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
-               follow=None, maxfev=5000, bounds={}):
+               follow=None, maxfev=5000, bounds={}, factor=100):
     """
     - params is a Dict containing the first guess.
 
@@ -343,6 +343,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     t0=time.time()
     mesg=''
     if np.iterable(err) and len(np.array(err).shape)==2:
+        if verbose:
+            print('[dpfit] using scipy.optimize.curve_fit')
         # -- assumes err matrix is co-covariance
         _func = func
         pfitKeys = fitOnly
@@ -358,7 +360,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                       scipy.optimize.leastsq(_fitFunc, pfit,
                             args=(fitOnly,x,y,err,func,pfix,verbose,follow,),
                             full_output=True, epsfcn=epsfcn, ftol=ftol,
-                            maxfev=maxfev)
+                            maxfev=maxfev, factor=factor)
             info['exec time'] = time.time() - t0
             mesg = mesg.replace('\n', '')
         else:
@@ -523,6 +525,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                'track':trackP, 'mesg':mesg,
                'not significant':notsig,
                'not converging':notconverg,
+               'factor':factor,
         }
         if type(verbose)==int and verbose>2 and np.size(cor)>1:
             dispCor(pfix)
