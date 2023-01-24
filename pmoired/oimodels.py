@@ -3508,6 +3508,26 @@ def get_processor_info():
         return subprocess.check_output(command, shell=True).strip().decode()
     return "unknown processor"
 
+_prog_N = 1
+_prog_Nmax = 0
+_prog_t0 = time.time()
+def progress(results=None):
+    global _prog_N, _prog_Nmax, _prog_t0
+    _nb = 60 # length of the progress bar
+    tleft = (time.time()-_prog_t0)/_prog_N*(_prog_Nmax-_prog_N)
+    if tleft>100:
+        tleft = '%2.0fmin'%(tleft/60)
+    else:
+        tleft = '%2.0fs  '%(tleft)
+    fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
+    fmt = '%s/%s'%(fmt, fmt)+' done in %s'
+    #print('['+bytes((219,)).decode('cp437')*_prog_N+'.'*(_prog_Nmax-_prog_N)+'] %3d/%3d %s %5.0fs remaining'%(_prog_N, _prog_Nmax, time.asctime(), (time.time()-_prog_t0)/_prog_N*(_prog_Nmax-_prog_N)), end='\r')
+    print(time.asctime()+':', 
+        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/_prog_Nmax)+
+        '.'*(_nb-int(_nb*_prog_N/_prog_Nmax)) + ']'+
+        fmt%(_prog_N, _prog_Nmax, tleft), end='\r')
+    _prog_N+=1
+
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
               dLimParam=None, dLimSigma=3, debug=False, constrain=None,
@@ -3530,9 +3550,9 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
 
     constrain: list of conditions, with same syntax as priors (see computePriorL).
-
-
     """
+    global _prog_N, _prog_Nmax, _prog_t0
+
     assert type(expl)==dict, "expl must be a dict"
     assert 'grid' in expl or 'rand' in expl or 'randn' in expl
     # -- compute N and vectors for grid parameters
@@ -3552,6 +3572,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
     # -- Prepare list of starting parameters' dict:
     PARAM = []
+
     for i in range(N):
         tmp = param.copy()
         if 'grid' in expl:
@@ -3588,7 +3609,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         if all(np.array(res)==0):
             PARAM.append(tmp)
     if len(PARAM)<N and verbose:
-        print(N-len(PARAM), 'grid points were not within constraints')
+        print(N-len(PARAM), 'grid point%s not within constraints'%('' if (N-len(PARAM))==1 else 's'))
 
     N = len(PARAM)
     # -- run all fits
@@ -3596,6 +3617,10 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'iter':-1, 'prior':prior}
     res = []
+    _prog_N = 1
+    _prog_Nmax = N
+    _prog_t0 = time.time()
+
     if multi:
         if type(multi)!=int:
             Np = min(multiprocessing.cpu_count(), N)
@@ -3606,67 +3631,38 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         # -- estimate fitting time by running 'Np' fit in parallel
         t = time.time()
         pool = multiprocessing.Pool(Np)
-        for i in range(min(Np, N)):
+        for i in range(N):
             if dLimParam is None:
                 kwargs['iter'] = i
-                res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs))
+                res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs,
+                                            callback=progress))
             else:
                 kwargs = {'nsigma': dLimSigma}
-                res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam), kwargs))
+                res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam, ), kwargs,
+                                             callback=progress))
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
-        if verbose:
-            print('  one fit takes ~%.2fs'%(
-                    (time.time()-t)/min(Np, N)), end=' ')
-            print('[~%.1f fit/minute]'%( 60*min(Np, N)/(time.time()-t)))
-        # -- run the remaining
-        if N>Np:
-            tmp = (N-Np)*(time.time()-t)/Np
-            if verbose:
-                print(time.asctime()+':', end=' ')
-                if tmp>60:
-                    print('approx %.1fmin remaining'%(tmp/60))
-                else:
-                    print('approx %.1fs remaining'%(tmp))
-            pool = multiprocessing.Pool(Np)
-            for i in range(max(N-Np, 0)):
-                if dLimParam is None:
-                    kwargs['iter'] = Np+i
-                    res.append(pool.apply_async(fitOI, (oi, PARAM[Np+i], ), kwargs))
-                else:
-                    kwargs = {'nsigma': dLimSigma}
-                    res.append(pool.apply_async(limitOI, (oi, PARAM[Np+i], dLimParam, ), kwargs))
-            pool.close()
-            pool.join()
-            res = res[:Np]+[r.get(timeout=1) for r in res[Np:]]
     else:
         if debug:
             print('single thread')
-        Np = 1
         t = time.time()
-        if dLimParam is None:
-            res.append(fitOI(oi, PARAM[0], **kwargs))
-        else:
-            kwargs = {'nsigma': dLimSigma}
-            res.append(limitOI(oi, PARAM[0], dLimParam, **kwargs))
-        if verbose:
-            print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
-            print('[~%.1f fit/minute]'%( 60/(time.time()-t)))
-        for i in range(N-1):
-            if i%10==0 and verbose:
-                print('%s | grid fit %d/%d'%(time.asctime(), i, N-1))
+        for i in range(N):
             if dLimParam is None:
                 kwargs['iter'] = i
-                res.append(fitOI(oi, PARAM[i+1], **kwargs))
+                res.append(fitOI(oi, PARAM[i], **kwargs))
+                progress()
             else:
                 kwargs = {'nsigma': dLimSigma}
-                res.append(limitOI(oi, PARAM[Np+i], dLimParam, **kwargs))
+                res.append(limitOI(oi, PARAM[i], dLimParam, **kwargs))
+                progress()
+    print() # clear progress bar
+
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
-        print('[%.1f fit/minutes]'%( 60*N/(time.time()-t)))
+        print('[%.1f fit/minute]'%( 60*N/(time.time()-t)))
 
     #if dLimParam is None:
     #    res = analyseGrid(res, expl, verbose=1)
