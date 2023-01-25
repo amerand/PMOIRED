@@ -828,7 +828,7 @@ class OI:
              showFlagged=False, spectro=None, showUV=True, perSetup=True,
              allInOne=False, imFov=None, imPix=None, imPow=1., imMax=1, imPlx=None,
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
-             imX=0, imY=0, showChi2=False, cColors={}, cMarkers={},
+             imX=0, imY=0, imTight=False, showChi2=False, cColors={}, cMarkers={},
              showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True,
              barycentric=False):
         """
@@ -958,7 +958,7 @@ class OI:
                     plt.suptitle(perSetup[j])
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix,imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
@@ -1004,7 +1004,7 @@ class OI:
                 self.fig += len(self.data)
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
@@ -1032,7 +1032,7 @@ class OI:
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax,
+                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
                                imPhotCent=showPhotCent, imLegend=imLegend,
@@ -1045,7 +1045,7 @@ class OI:
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
                   imLegend=True, vWl0=None, WL=None, bckgGrid=True,
-                  barycentric=False):
+                  barycentric=False, imTight=False):
         """
         model: parameter dictionnary, describing the model
 
@@ -1179,6 +1179,11 @@ class OI:
             cb.set_ticks(Xcb)
             cb.set_ticklabels(XcbL)
             cb.ax.tick_params(labelsize=6)
+
+            if imTight:
+                ax.set_xlim(np.min(self.images['X']), np.max(self.images['X']))
+                ax.set_ylim(np.min(self.images['Y']), np.max(self.images['Y']))
+
             ax.invert_xaxis()
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
@@ -1292,6 +1297,7 @@ class OI:
                 plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
+
         try:
             plt.tight_layout()
         except:

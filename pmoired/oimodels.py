@@ -3520,7 +3520,7 @@ def progress(results=None):
     else:
         tleft = '%2.0fs  '%(tleft)
     fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
-    fmt = '%s/%s'%(fmt, fmt)+' done in %s'
+    fmt = '%s/%s'%(fmt, fmt)+' %s left'
     #print('['+bytes((219,)).decode('cp437')*_prog_N+'.'*(_prog_Nmax-_prog_N)+'] %3d/%3d %s %5.0fs remaining'%(_prog_N, _prog_Nmax, time.asctime(), (time.time()-_prog_t0)/_prog_N*(_prog_Nmax-_prog_N)), end='\r')
     print(time.asctime()+':', 
         '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/_prog_Nmax)+
@@ -3910,6 +3910,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
 
     see also: doFit 
     """
+    global _prog_N, _prog_Nmax, _prog_t0
+
     if N is None:
         # count number of spectral vector data
         N = 0
@@ -3961,6 +3963,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
               'keepFlux':keepFlux, 'onlyMJD':strongMJD}
 
     res = []
+    t = time.time()
     if multi:
         if type(multi)!=int:
             Np = min(multiprocessing.cpu_count(), N)
@@ -3969,50 +3972,32 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         if verbose:
             print(time.asctime()+': running', N, 'fits on', Np, 'processes')
 
-        # -- estimate fitting time by running 'Np' fit in parallel
-        t = time.time()
+
+        # -- run the remaining
         pool = multiprocessing.Pool(Np)
-        for i in range(min(Np, N)):
+        _prog_N = 1
+        _prog_Nmax = N
+        _prog_t0 = time.time()
+
+        for i in range(N):
             kwargs['iter'] = i
-            res.append(pool.apply_async(fitOI, (oi, firstGuess, ), kwargs))
+            res.append(pool.apply_async(fitOI, (oi,firstGuess, ), kwargs, 
+                                        callback=progress))
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
-        if verbose:
-            print('  one fit takes ~%.2fs'%(
-                    (time.time()-t)/min(Np, N)), end=' ')
-            print('[~%.1f fit/minutes]'%( 60*min(Np, N)/(time.time()-t)))
-
-        # -- run the remaining
-        if N>Np:
-            tmp = (N-Np)*(time.time()-t)/Np
-            if verbose:
-                print(time.asctime()+':', end=' ')
-                if tmp>60:
-                    print('approx %.1fmin remaining'%(tmp/60))
-                else:
-                    print('approx %.1fsec remaining'%(tmp))
-
-            pool = multiprocessing.Pool(Np)
-            for i in range(max(N-Np, 0)):
-                kwargs['iter'] = Np+i
-                res.append(pool.apply_async(fitOI, (oi,firstGuess, ), kwargs))
-            pool.close()
-            pool.join()
-            res = res[:Np]+[r.get(timeout=1) for r in res[Np:]]
     else:
         Np = 1
         t = time.time()
-        res.append(fitOI(oi, firstGuess, **kwargs))
-        if verbose:
-            print('one fit takes ~%.2fs'%(time.time()-t), end=' ')
-            print('[%.1f fit/minutes]'%( 60/(time.time()-t)))
+        _prog_N = 1
+        _prog_Nmax = N
+        _prog_t0 = time.time()
 
-        for i in range(N-1):
+        for i in range(N):
             kwargs['iter'] = i
-            if i%10==0 and verbose:
-                print('%s | bootstrap fit %d/%d'%(time.asctime(), i, N-1))
             res.append(fitOI(oi, firstGuess, **kwargs))
+            progress()
+    print()
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
