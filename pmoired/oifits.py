@@ -1231,14 +1231,14 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                         ext1 = ['MJD']
                         ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX']
                     elif l=='OI_VIS2':
-                        ext1 = ['u', 'v', 'MJD']
-                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD', 'PA']
+                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
                     elif l=='OI_VIS':
-                        ext1 = ['u', 'v', 'MJD']
-                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD', 'PA']
+                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
                     elif l=='OI_CF':
-                        ext1 = ['u', 'v', 'MJD']
-                        ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'PA', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD', 'PA']
+                        ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
