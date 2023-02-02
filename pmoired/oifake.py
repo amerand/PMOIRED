@@ -793,13 +793,13 @@ def visImage(image, scale, u, v, wl, debug=False):
         np.shape(_Y)!=np.shape(image):
         Ny, Nx = np.shape(image)
         x, y = np.arange(Nx)-(Nx-1)/2, np.arange(Ny)-(Ny-1)/2
-        _X, _Y = np.meshgrid(x, y)
+        _X, _Y = np.meshgrid(scale*x, scale*y)
         if debug:
             print('visImage: x', Nx, x.min(), x[Nx//2], x.max())
             print('visImage: y', Ny, y.min(), y[Ny//2], y.max())
 
     # -- fourier transform
-    c = scale*np.pi/180/3600/1000/1e-6
+    c = np.pi/180/3600/1000/1e-6
     if np.isscalar(wl):
         vis = image[:,:,None]*\
             np.exp(-2j*np.pi*c*(_X[:,:,None]*u[None,None,:]+
@@ -822,7 +822,9 @@ def visCube(cube, u, v, wl):
         u, v: spatial coordinates (vectors, in m)
         wl: wavelength (vector, in um)
     """
+    global _X, _Y
     res = np.zeros((len(u), len(wl)), np.complex)
+    _X, _Y = cube['X'], cube['Y']
     if False:
         # == Interpolate in visibility space =============================
         # -- compute V(u,v) for each wl of the cube:
@@ -842,6 +844,7 @@ def visCube(cube, u, v, wl):
             im = cube['image'][i1,:,:] + \
                 (x-cube['WL'][i1])/(cube['WL'][i2]-cube['WL'][i1])*\
                 (cube['image'][i2,:,:]-cube['image'][i1,:,:])
+
             res[:,i] = visImage(im, cube['scale'], u, v, x)
     return res
 
@@ -856,9 +859,11 @@ def fluxCube(cube, wl):
     tmp = np.sum(cube['image'], axis=(1,2))
     return np.interp(wl, cube['WL'], tmp)
 
-def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
+__mjd0 = 57000
+def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             diam=None, cube=None, noise=0, thres=None,
-            model=None, insname='fake', debug=False):
+            model=None, insname='fake', debug=False,
+            doubleDL=False):
     """
     for VLTI!
 
@@ -873,7 +878,9 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
         wl: wavelength vector in um (ignored if cube is 2D only)
         spectrum: spectrum (same lemgth as wl), should be sum(image, axis=(0,1))
     model = a dictionnary describing a model (usual PMOIRED syntax)
+    doubleDL = use double passage delay line (default=False)
     """
+    global __mjd0
     if noise == 0:
         noise = {k:0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
     if noise is None:
@@ -887,7 +894,10 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
         # -- threshold for noise behavior (absolute)
         thres = {'V2':0.01, '|V|':0.02, 'T3AMP':0.05, 'FLUX':0.01}
 
-    tmp = nTelescopes(t, target, lst)
+    if doubleDL:
+        tmp = nTelescopes(t, target, lst, max_OPD=200)        
+    else:
+        tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
         print('WARNING: %2d out of %d LST are not observable!'%
                 (np.sum(~tmp['observable']), len(lst)),end=' ')
@@ -903,6 +913,10 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=57000, lst0=0,
         #print(tmp)
 
     # -- fake MJD
+    if mjd0 == None:
+        # -- needed to simulate data taken at different dates
+        mjd0 = __mjd0 + 1
+        __mjd0 += 1
     tmp['MJD'] = (np.array(lst)-lst0)/24 + mjd0
     res = {'insname':'%s_%.3f_%.3fum_R%.0f'%(insname, min(wl), max(wl),
                         np.mean(wl/np.gradient(wl))),

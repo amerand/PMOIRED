@@ -1458,7 +1458,7 @@ class OI:
         if imPix is None:
             imPix = imFov/101
 
-        if 'model' in self.images and self.images['model']==model and\
+        if 'model' in self.images and str(self.images['model'])==str(model) and\
             np.abs(imFov-np.ptp(self.images['X']))<1e-6 and\
             np.abs(imPix-np.diff(self.images['X'])[0][0])<1e-6 and\
             np.abs(imX-np.mean(self.images['X']))<1e-6 and\

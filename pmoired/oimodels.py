@@ -1310,6 +1310,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             Rin, Rout: inner and outer radii (mas)
                 or
             diamin, diamout: inner and outer diameter (mas)
+            [diamout/Rout can be ommited in case sizes are defined by fwhm ]
 
             Vin: velocity at Rin (km/s)
             beta: velocity radial power law (default keplerian=-0.5)
@@ -1323,10 +1324,13 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             line_?_wl0: central wavelength of line (um)
             line_?_EW: equivalent width in nm (multiplied by total continuum)
             line_?_rpow: radial power law
+             or line_?_fwhm: full width half max (mas)
 
         continuum flux (optional):
             cont_f: continuum total flux (at average wavelength)
             cont_rpow: power low variation of continuum (R/Rin). Should be <=0
+             or cont_fwhm: full width half max (mas)
+
             cont_spx: spectral index of continuum (in [wl/mean(wl)]**cont_spx)
 
     returns:
@@ -1370,7 +1374,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         if k.startswith('line_') and k.endswith('fwhm'):
             fwhm.append(param[k])
     if len(fwhm)>0:
-        Rout = max(Rout, 1.2*np.max(np.abs(fwhm)))
+        Rout = max(Rout, 2*np.max(np.abs(fwhm)))
 
     assert Rout>0, 'Rout, diamout or fwhm must be defined: '+\
         'Rout='+str(Rout)+' fwhm='+str(fwhm)
@@ -1391,7 +1395,6 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         Vrad = param['Vrad']
     else:
         Vrad = 0.0
-
 
     # -- delta wl corresponding to max velocity / max(line width, spectral resolution)
     tmp = []
@@ -1494,8 +1497,9 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
 
     # -- lines profiles:
     #loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/maximum(dwl/1000, obs_dwl/2)**2)
+    #gauss = lambda x, wl0, dwl: np.exp(-(x-wl0)**2/(2*(np.maximum(dwl/1000, obs_dwl)/2.35482)**2))
     loren = lambda x, wl0, dwl: (0.5*dwl/1000)**2/((x-wl0)**2 + (0.5*dwl/1000)**2)
-    gauss = lambda x, wl0, dwl: np.exp(-(x-wl0)**2/(2*(np.maximum(dwl/1000, obs_dwl)/2.35482)**2))
+    gauss = lambda x, wl0, dwl: np.exp(-(x-wl0)**2/(2*dwl/1000/2.35482)**2)
 
     for a in As: # for each spectral lines
         # -- radial power law variation of the amplitude
@@ -1518,17 +1522,19 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             vel_dwl = np.abs(0.25*np.mean(wl)*Vin*P[:,6]**beta/2.998e5)
             #obs_dwl = np.maximum(obs_dwl, vel_dwl)
             obs_dwl = np.sqrt(obs_dwl**2 +  vel_dwl**2)
-            dwl = 1.*obs_dwl*1000
+            dwl = obs_dwl*1000 
 
         # -- line amplitude
         if a.replace('wl0', 'EW') in param:
             if not Pin is None:
                 amp = (P[:,6])**(Pin)
-            else: # gaussian radial profile
-                #amp = np.exp(-4*np.log(2)*(P[:,6]*Rin)**2/(0.5*fwhm)**2)
+            else: # -- gaussian radial profile
                 amp = np.exp(-(P[:,6]*Rin)**2/(2*(fwhm/2.35482)**2))
-            # -- equivalent width in nm
-            amp *= param[a.replace('wl0', 'EW')]/dwl/1.064/np.sum(amp*P[:,8])
+            # -- equivalent width in nm: assumes gaussian profile!
+            amp *= param[a.replace('wl0', 'EW')]/dwl/1.5053/np.sum(amp*P[:,8])
+            # -- equivalent width in nm: assumes lorentzian profile!
+            #amp *= param[a.replace('wl0', 'EW')]/dwl/1.54580/np.sum(amp*P[:,8])
+
         else:
             amp = P[:,6]**(Pin)
 
@@ -1548,9 +1554,14 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             flux += amp[None,:]*loren(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
                                       param[a], param[a.replace('wl0', 'lorentzian')])
         else:
-            # -- default gaussian, based on spectral resolution
+            # -- default: gaussian, based on spectral resolution
             flux += amp[None,:]*gauss(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
-                                      param[a], dwl)
+                                     param[a], dwl)
+            # -- default: lorentzian, based on spectral resolution
+            #flux += amp[None,:]*loren(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
+            #                         param[a], dwl)
+
+
 
     if False:
         # -- trying to be clever integrating...
@@ -2294,10 +2305,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 vel = 0.0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 1.0
+                    fv = 1.2
                 else:
                     kv = 'Vin'
-                    fv = 1.0
+                    fv = 1.2
                 if not kv in _param:
                     kv +='_Mm/s'
                     fv = 1000.
@@ -2317,7 +2328,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
                     w *= ~(((oi['WL']-_param[k])<=1.3*dwl)*
                             (oi['WL']>_param[k]-dwl/8))
-
 
     if np.sum(w)==0:
         #print('WARNING: no continuum!?')
@@ -2504,15 +2514,13 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('wl0', 'lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
-
                 vel = 0
-
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 1.0
+                    fv = 1.2
                 else:
                     kv = 'Vin'
-                    fv = 1.0
+                    fv = 1.2
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000.0

@@ -18,8 +18,8 @@ f = fits.open(os.path.join(this_dir, 'transnir'+wv1+'.fits'))
 lbda = f[1].data['WAVELENGTH'][0].copy()
 tran = f[1].data['TRANSMISSION'][0].copy()
 f.close()
-tran = tran[(lbda<2.45)*(lbda>1.95)]
-lbda = lbda[(lbda<2.45)*(lbda>1.95)]
+tran = tran[(lbda<2.5)*(lbda>1.95)]
+lbda = lbda[(lbda<2.5)*(lbda>1.95)]
 tran20, lbda = 1.0*tran[::50], lbda[::50]
 f = fits.open(os.path.join(this_dir, 'emisnir'+wv1+'.fits'))
 lbda0 = f[1].data['WAVELENGTH'][0].copy()
@@ -32,8 +32,8 @@ f = fits.open(os.path.join(this_dir, 'transnir'+wv2+'.fits'))
 lbda = f[1].data['WAVELENGTH'][0].copy()
 tran = f[1].data['TRANSMISSION'][0].copy()
 f.close()
-tran = tran[(lbda<2.45)*(lbda>1.95)]
-lbda = lbda[(lbda<2.45)*(lbda>1.95)]
+tran = tran[(lbda<2.5)*(lbda>1.95)]
+lbda = lbda[(lbda<2.5)*(lbda>1.95)]
 tran80, lbda = 1.0*tran[::50], lbda[::50]
 f = fits.open(os.path.join(this_dir, 'emisnir'+wv2+'.fits'))
 lbda0 = f[1].data['WAVELENGTH'][0].copy()
@@ -117,7 +117,6 @@ def Ftran(l, param, retWL=False):
     if len(X)==len(Y) and len(X):
         tmpT *= scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], kind='cubic', fill_value='extrapolate')(tmpL)
     return np.interp(l, tmpL, tmpT)
-
 
 def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             fig=None, force=False):
@@ -209,16 +208,26 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     # -- FIT TELLURIC MODEL -------------------------------------------
     if MR:
-        p = {'dl0':-0.000378, 'wl0':2.0, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
-             'kern':4e-3, 'kernp':.9, 'pwv':5.0, 'pow':0.85,
-             'p_2.3717':0.8}
+        p = {'dl0':0.000, 'wl0':2.22, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0, 
+             #'kern':1e-3, 
+             'kern_min':3e-3, 'kern_max':5e-3, 
+             #'kernp':1.0,
+             'kernp_min':0.8, 'kernp_max':1.0,
+             'pwv':2.0, 'pow':1.0, #'p_2.3717':0.8
+             }
     else:
-        p = {'dl0':-0.000378, 'wl0':2.0, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
-             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7, 'pwv':5.0, 'pow':0.85,
-             'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0, }
+        p = {'dl0':0.0, 'wl0':2., 'dl1':1.0, 'dl2':0.0, 'dl3':0.0, 
+             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7, 
+             'pwv':2.0, 'pow':1,
+             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0, 
+             }
+
 
     # -- spectrum model using spline nodes
-    for i,x in enumerate(np.linspace(wl[w].min(), wl[w].max(), 12 if MR else 35)):
+    Nn =  12 if MR else 35
+    Nn =  12 if MR else 35
+    
+    for i,x in enumerate(np.linspace(wl[w].min(), wl[w].max(), Nn)):
         test = True
         # -- makes sure the node is not in an avoidance zone:
         if not avoid is None:
@@ -252,25 +261,33 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         #print('wl', wl.shape, 'sp', sp.shape)
         fit = dpfit.leastsqFit(Ftran, wl[w], p, sp[w], verbose=0, fitOnly=fitOnly, maxfev=1000)
         if MR:
-            doNotFit.extend(['kern', 'kernp'])
+            doNotFit.extend(['kern', 'kernp', 'pwv', 'pow'])
         else:
-            doNotFit.extend(['kern_min', 'kern_max', 'kernp_min', 'kernp_max'])
+            doNotFit.extend(['kern_min', 'kern_max', 'kernp_min', 'kernp_max', 'pwv', 'pow'])
 
         if not quiet:
             print('> fit all but spectral resolution (kernel)')
-        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=0, doNotFit=doNotFit, maxfev=8000, follow=['pwv', 'pow', 'kern', 'kern_min', 'kern_max', 'kernp'])
+        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=0, 
+                                doNotFit=doNotFit, maxfev=8000, 
+                                follow=['pwv', 'pow', 'kern', 'kern_min', 'kern_max', 'kernp'])
         if not quiet:
             print('> fit everything')
-            verbose=1
+            verbose=2
         else:
             verbose=0
         if MR:
             doNotFit.remove('kern')
             doNotFit.remove('kernp')
+            doNotFit.remove('pwv')
+            doNotFit.remove('pow')
         else:
             doNotFit.remove('kern_min'); doNotFit.remove('kern_max')
             doNotFit.remove('kernp_min'); doNotFit.remove('kernp_max');
-        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=verbose, doNotFit=doNotFit, maxfev=8000,
+            doNotFit.remove('pwv')
+            doNotFit.remove('pow')
+
+        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=verbose, 
+                               doNotFit=doNotFit, maxfev=8000,
                                follow=['pwv', 'pow', 'kern', 'kern_min', 'kern_max', 'kernp', 'kernp_min', 'kernp_max'])
 
     p = {k:fit['best'][k] for k in fit['best'].keys() if not 'S' in k}
@@ -288,7 +305,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
         hdu = fits.BinTableHDU.from_columns([c1, c2, c3, c4, c5])
         hdu.header['EXTNAME'] = 'TELLURICS'
-        hdu.header['ORIGIN'] = 'https://github.com/amerand/OIUTILS'
+        hdu.header['ORIGIN'] = 'https://github.com/amerand/PMOIRED'
         hdu.header['AUTHOR'] = 'amerand@eso.org'
         hdu.header['DATE'] = time.asctime()
         hdu.header['PWV'] = (round(fit['best']['pwv'], 3), 'mm of precipitable water')
@@ -303,7 +320,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     plt.plot(wl[~w], sp[~w], '.', color='orange', alpha=0.5, label='ignored')
 
     #plt.plot(wl[w], fit['model'], '-k', alpha=0.2, linewidth=1, label='model')
-    plt.plot(wl, Ftran(wl, fit['best']), '-k', alpha=0.2, linewidth=1, label='model')
+    plt.plot(wl, Ftran(wl, fit['best']), '-k', alpha=0.2, linewidth=1, 
+        label='model PWV=%.2fmm'%fit['best']['pwv'])
 
     plt.plot(wl, sp/Ftran(wl, p)+np.median(sp)/8, '-b', label='telluric corrected + offset')
     plt.title(filename);
