@@ -1,0 +1,37 @@
+; Global simulation parameters
+256; size of the simulation in pixel
+30.000000; field of view in D*
+51; number of wavelengths
+21661.000000; line central wavelength in angstrom
+2.700000; delta lam in angstroms
+5.400000; Resolution in angstroms 14 for AMBER MR and 1.8 for AMBER HR, 1.3 for VEGA
+
+; Central Star
+45.000000; inclination angle
+5.000000; Rstar in solar radii
+100.000000; distance in pc
+none; file for stellar flux variation in the line
+
+; Disk geometry in the continuum
+gauss; gauss, uniform, or map
+2.000000; major-axis FWHM or diameter in D*
+60.000000; disk P.A
+none; file for the envelope continuum map
+0.500000; envelope relative flux in the continuum
+
+; Disk geometry in the line
+10.000000; line equivalent width in Angstroms
+gauss; gauss, uniform, or map
+5.000000; major-axis FWHM or diameter in D* (> 0)
+none; file for the envelope line map
+
+; Kinematics
+500.000000; stellar rotational velocity in km/s
+-0.500000; exponent of the rotational velocity law
+0.000000; radial velocity at the stellar surface
+0.000000; terminal radial velocity
+0.000000; exponent of the CAK type of radial velocity law
+
+; Non-coherent scattering
+10.000000; global width in angstroms (> 0)
+0.000000; ratio of emission scattered in the line (0 <= ratio <= 1)
