@@ -347,6 +347,9 @@ class OI:
             Lorentzian in model with defined syntax ("line_...")
 
         'ignore negative flux':bool. Default is False
+
+        example: oi.setupFit({'obs':['V2', 'T3PHI'], 'max error':{'T3PHI':10}})
+          to fit V2 and T3PHI data, reject data with errors in T3PHI>10 degrees 
         """
         correctType = type(fit)==dict
         correctType = correctType or (type(fit)==list and
@@ -635,8 +638,8 @@ class OI:
         if "grid" are defined, they will define N as:
         Nfits = prod_i (max_i-min_i)/step_i + 1
 
-        constain: set of conditions on the grid search. same as prior's syntax,
-        but wille exclude some initial guesses.
+        constrain: set of conditions on the grid search. same as prior's syntax,
+        but will exclude some initial guesses.
 
         See Also: showGrid, detectionLimit
         """
