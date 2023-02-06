@@ -13,24 +13,24 @@ ldc2000fit = """oi.setupFit({'obs':['V2'], 'max relative error':{'V2':0.5}})
 # -- Teff=3500, logg=1.0, fixed parameters
 oi.doFit({'star,diam':2.5, 
           'star,profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
-          'A1':1.5899, 
-          'A2':-1.6835, 
-          'A3':1.0073, 
-          'A4':-0.2389}, 
+          'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389}, 
           doNotFit=['A1', 'A2', 'A3', 'A4'])
 oi.show(logV=True, imFov=5)
 
-"""
+# -- Teff=3500, logg=1.0, fit the 4 limb-darkening parameters (it does not converge)
+oi.doFit({'star,diam':2.5, 
+          'star,profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
+          'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389})
+oi.show(logV=True, imFov=5)
+oi.showFit()"""
 
 ldc2000fitprior = """oi.setupFit({'obs':['V2'], 'max relative error':{'V2':0.5}})
 m = {'star,diam':2.5, 
     'star,profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
-    'A1':1.5899, 
-    'A2':-1.6835, 
-    'A3':1.0073, 
-    'A4':-0.2389}
+    'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389}
 oi.doFit(m, prior=[('np.abs(A1)', '<', 2), ('np.abs(A2)', '<', 2), ('np.abs(A3)', '<', 2), ('np.abs(A4)', '<', 2)])
-oi.show(logV=True, imFov=5)"""
+oi.show(logV=True, imFov=5)
+oi.showFit()"""
 
 
 ldalphafit = """oi.setupFit({'obs':['V2'],'max relative error':{'V2':0.5}})
@@ -87,7 +87,7 @@ prior = [('spot,diam', '<', 'star,diam/4'),
 # -- we define our exploration pattern (random uniform)
 expl = {'rand':{'spot,x':(-m['star,diam']/2, m['star,diam']/2), 'spot,y':(-m['star,diam']/2, m['star,diam']/2)}}
 
-# -- we define additional constrain to the exploration pattern
+# -- we constrain the exploration pattern so the spot is on the star
 constrain = [('spot,x**2+spot,y**2', '<', '(star,diam/2)**2')]
 
 # -- grid fit: 64 randomisation
@@ -98,3 +98,6 @@ oi.showGrid()
 
 # -- show best fit model
 oi.show(imFov=5, imMax='99', logV=1)"""
+
+bootstrap = """oi.bootstrapFit(100)
+oi.showBootstrap()"""
