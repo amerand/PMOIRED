@@ -4964,7 +4964,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 color = 'm' if not test else '0.5',
                                 alpha=0.5, #label='flag' if j==0 else ''
                                 )
-                        ax.errorbar(X(oi, j)[flagged], y[flagged], yerr=err[flagged],
+                        ax.errorbar(X(oi, j)[flagged], y[flagged], 
+                                    yerr=np.abs(err[flagged]),
                                     color='m', alpha=0.2, linestyle='None')
                 else:
                     # -- data spectra
