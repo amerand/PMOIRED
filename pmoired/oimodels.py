@@ -1023,7 +1023,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                         tmp[l] = oi['OI_VIS2'][k][l].copy()
                 tmp['EV2'] = np.zeros(tmp['V2'].shape)
             res['OI_VIS2'][k] = tmp
-        if 'OI_CF' in oi.keys():
+        if 'OI_CF' in oi.keys() and k in oi['OI_CF']:
             tmp = {}
             for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
                 if '/wl' in l and cwl!=1:
@@ -1968,7 +1968,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     # -- compute OI_VIS and OI_VIS2 (and OI_CF if needed)
     for b in res['MOD_VIS'].keys():
         # -- correlated flux == abs(non normalised visibility)
-        if 'OI_CF' in oi.keys():
+        if 'OI_CF' in oi.keys() and b in oi['OI_CF']:
             if not 'MOD_CF' in res:
                 res['MOD_CF'] = {b: np.abs(res['MOD_VIS'][b])}
             else:
@@ -2838,7 +2838,7 @@ def computePriorL(param, prior):
             print('WARNING: could not compute prior "'+resi+'"')
     return np.array(res)
 
-def residualsOI(oi, param, timeit=False, what=False):
+def residualsOI(oi, param, timeit=False, what=False, debug=False):
     """
     assumes dict OI has a key "fit" which list observable to fit:
 
@@ -2859,7 +2859,9 @@ def residualsOI(oi, param, timeit=False, what=False):
             #     wh += tmp[1]
             # else:
                 res = np.append(res, residualsOI(o, param,
-                                                timeit=timeit, what=what))
+                                                timeit=timeit, 
+                                                what=what,
+                                                debug=debug))
         # if what:
         #    return res, wh
         # else:
@@ -2910,6 +2912,9 @@ def residualsOI(oi, param, timeit=False, what=False):
             'CF':'OI_CF', # correlated flux
             }
     w = np.ones(oi['WL'].shape)
+
+    if debug:
+        print('residualsOI: fit=', fit)
 
     if 'wl ranges' in fit:
         w = np.zeros(oi['WL'].shape)
@@ -2968,7 +2973,7 @@ def residualsOI(oi, param, timeit=False, what=False):
                             tmp = tmp.flatten()
                             res = np.append(res, tmp)
                         except:
-                            print('!!', ext[f], k, f, oi[ext[f]][k][f].shape,
+                            print('!! residualsOI !!', ext[f], k, f, oi[ext[f]][k][f].shape,
                                  m[ext[f]][k][f].shape, mask.shape, err.shape)
 
                         if what:

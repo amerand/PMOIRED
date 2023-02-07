@@ -175,9 +175,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         len(res['WL'])//binning)
                 res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
             if debug:
-                print('DEBUG: OI_WAVELENGTH')
-                print(' | WL', res['WL'])
-                print(' | dWL', res['dWL'])
+                #print('DEBUG: OI_WAVELENGTH')
+                #print(' | WL', res['WL'])
+                #print(' | dWL', res['dWL'])
+                pass
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
     oiarrays = {}
@@ -376,9 +377,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
             #res['OI_ARRAY'] = oiarray
             sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
-            if debug:
-                print('DEBUG: loading OI_VIS', set(sta2))
-                #print(' | ', targets[targname], hdu.data['TARGET_ID'])
 
             if 'AMPTYP' in hdu.header and hdu.header['AMPTYP'] == 'correlated flux':
                 ext = 'OI_CF'
@@ -390,9 +388,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['units']['CF'] = _unit
                 else:
                     res['units']={'CF':_unit}
+                if debug:
+                    print('DEBUG: loading OI_CF', set(sta2))
+
             else:
                 ext = 'OI_VIS'
                 vis = '|V|'
+                if debug:
+                    print('DEBUG: loading OI_VIS', set(sta2))
 
             for k in hdu.header:
                 if k.startswith('TTYPE') and hdu.header[k].strip()=='VISPHI':
@@ -404,7 +407,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
-                #if debug:
+                # if debug:
                 #    print(' | ', k, any(w))
                 if k in res[ext] and any(w):
                     for k1, k2 in [(vis, 'VISAMP'), ('E'+vis, 'VISAMPERR'),
@@ -488,103 +491,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if res['OI_CF'] == {}:
         res.pop('OI_CF')
 
-    # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
-    # (this is purely due to a limitation of PMOIRED)
-    if 'OI_VIS' in res and 'OI_VIS2' in res:
-        kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
-        for k in kz:
-            if not k in res['OI_VIS']:
-                if debug:
-                    print(k, 'is in OI_VIS2 but \033[43mmissing from OI_VIS!\033[0m')
-                res['OI_VIS'][k] = {}
-                for x in res['OI_VIS2'][k].keys():
-                    if not 'V2' in x:
-                        res['OI_VIS'][k][x] = res['OI_VIS2'][k][x].copy()
-                # -- all data are invalid
-                res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'], True)
-                res['OI_VIS'][k]['|V|'] = 0*res['OI_VIS2'][k]['V2']
-                res['OI_VIS'][k]['E|V|'] = 1 + 0*res['OI_VIS2'][k]['EV2']
-                res['OI_VIS'][k]['PHI'] = 0*res['OI_VIS2'][k]['V2']
-                res['OI_VIS'][k]['EPHI'] = 360 + 0*res['OI_VIS2'][k]['EV2']
-                #print('missing VIS', k, res['OI_VIS'][k].keys())
-            elif not k in res['OI_VIS2']:
-                if debug:
-                    print(k, 'is in OI_VIS but \033[43mmissing from OI_VIS2!\033[0m')
-                res['OI_VIS2'][k] = {}
-                for x in res['OI_VIS'][k].keys():
-                    if not '|V|' in x and not 'PHI' in x:
-                        res['OI_VIS2'][k][x] = res['OI_VIS'][k][x].copy()
-                # -- all data are invalid
-                res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'], True)
-                res['OI_VIS2'][k]['V2'] = 0*res['OI_VIS'][k]['|V|']
-                res['OI_VIS2'][k]['EV2'] = 1+0*res['OI_VIS'][k]['E|V|']
-
-            if sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
-                if debug:
-                    print(k, '\033[43mmismatched coverage VIS/VIS2!\033[0m')
-                    print(' VIS :',  res['OI_VIS'][k]['MJD'])
-                    print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
-                # -- all encountered MJDs:
-                allMJD = sorted(list(res['OI_VIS'][k]['MJD'])+list(res['OI_VIS2'][k]['MJD']))
-                # -- ones from VIS
-                wv = [allMJD.index(mjd) for mjd in res['OI_VIS'][k]['MJD']]
-                # -- ones from VIS2
-                wv2 = [allMJD.index(mjd) for mjd in res['OI_VIS2'][k]['MJD']]
-
-                #print(' ', wv, wv2)
-                # -- update VIS
-                res['OI_VIS'][k]['MJD'] = np.array(allMJD)
-                for x in ['u', 'v']:
-                    tmp = np.zeros(len(allMJD))
-                    tmp[wv] = res['OI_VIS'][k][x]
-                    if x in res['OI_VIS2'][k]:
-                        tmp[wv2] = res['OI_VIS2'][k][x]
-                    res['OI_VIS'][k][x] = tmp
-                for x in ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
-                    if x=='FLAG':
-                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
-                    else:
-                        tmp = np.zeros((len(allMJD), len(res['WL'])))
-                    tmp[wv,:] = res['OI_VIS'][k][x]
-                    if x in res['OI_VIS2'][k] and x!='FLAG':
-                        tmp[wv2,:] = res['OI_VIS2'][k][x]
-                    res['OI_VIS'][k][x] = tmp
-
-                # -- VIS2
-                res['OI_VIS2'][k]['MJD'] = np.array(allMJD)
-                for x in ['u', 'v']:
-                    if x in res['OI_VIS'][k]:
-                        tmp = 1.*res['OI_VIS'][k][x]
-                    else:
-                        tmp = np.zeros(len(allMJD))
-                    tmp[wv2] = res['OI_VIS2'][k][x]
-                    res['OI_VIS2'][k][x] = tmp
-                for x in ['V2', 'EV2', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
-                    if x in res['OI_VIS'][k] and x!='FLAG':
-                        tmp = res['OI_VIS'][k][x].copy()
-                    elif x=='FLAG':
-                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
-                    else:
-                        tmp = np.zeros((len(allMJD), len(res['WL'])))
-                    tmp[wv2,:] = res['OI_VIS2'][k][x]
-                    res['OI_VIS2'][k][x] = tmp
-                # -- make sure it worked
-                #print(' VIS :',  res['OI_VIS'][k]['MJD'])
-                #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+    if debug:
+        for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
+            if k in res:
+                print('DEBUG:', k, sorted(res[k].keys()))
+ 
+    res = match_VIS_VIS2_CF(res, debug=debug)
 
     sta2 = list(set(sta2))
-
-    #if 'OI_VIS' in res and 'E1S2' in res['OI_VIS']:
-    #    print('test OI_VIS E1S2:', res['OI_VIS']['E1S2'].keys())
-
-    # # -- TEST: removing some MJDs
-    # k0 = list(res['OI_VIS2'].keys())[1]
-    # #print(res['OI_VIS2'][k0]['MJD'])
-    # for k in ['u', 'v', 'MJD']:
-    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][2:-2]
-    # for k in ['u/wl', 'v/wl', 'FLAG', 'B/wl', 'V2', 'EV2']:
-    #     res['OI_VIS2'][k0][k] = res['OI_VIS2'][k0][k][2:-2,:]
-    # #print(res['OI_VIS2'][k0]['MJD'])
 
     M = [] # missing baselines in T3
     for ih, hdu in enumerate(h):
@@ -732,13 +646,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
 
     key = 'OI_VIS'
-    if res['OI_VIS']=={}:
+    if res['OI_VIS']=={} and res['OI_T3']=={}:
         res.pop('OI_VIS')
         key = 'OI_VIS2'
     if res['OI_VIS2']=={}:
         res.pop('OI_VIS2')
+        if key == 'OI_VIS2':
+            key = 'OI_CF'  
     if 'OI_CF' in res and res['OI_CF']=={}:
         res.pop('OI_CF')
+
     if res['OI_FLUX']=={}:
         res.pop('OI_FLUX')
     if res['OI_T3']=={}:
@@ -809,7 +726,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     #print(m, 'VIS ', res['OI_VIS'][m].keys())
                     #print(m, 'VIS2', res['OI_VIS2'][m].keys())
                     M.remove(m)
-
 
             for i, mjd in enumerate(res['OI_T3'][k]['MJD']):
                 # check data are within ~10s
@@ -974,6 +890,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             #           'has no formula in', res[key].keys())
             #     res['OI_T3'][k]['formula'] = None
 
+    res = match_VIS_VIS2_CF(res, debug=debug)
+
     if 'OI_FLUX' in res:
         res['telescopes'] = sorted(list(res['OI_FLUX'].keys()))
     else:
@@ -1072,6 +990,183 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     except:
         if verbose:
             print('WARNING: error while reading ESO pipelines parameters')
+    return res
+
+def match_VIS_VIS2_CF(res, debug=False):
+        # -- make sure there is a 1-to-1 correspondance between VIS and CF:
+    # (this is purely due to a limitation of PMOIRED)
+    if 'OI_VIS' in res and 'OI_CF' in res:
+        kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_CF'].keys())))
+        for k in kz:
+            if not k in res['OI_VIS']:
+                if debug:
+                    print(k, 'is in OI_CF but \033[43mmissing from OI_VIS!\033[0m')
+                res['OI_VIS'][k] = {}
+                for x in res['OI_CF'][k].keys():
+                    if not 'CF' in x and not 'PHI' in x:
+                        res['OI_VIS'][k][x] = res['OI_VIS2'][k][x].copy()
+                # -- all data are invalid
+                res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_CF'][k]['FLAG'], True)
+                res['OI_VIS'][k]['|V|'] = 0*res['OI_CF'][k]['CF']
+                res['OI_VIS'][k]['E|V|'] = 1 + 0*res['OI_CF'][k]['ECF']
+                res['OI_VIS'][k]['PHI'] = 0*res['OI_CF'][k]['CF']
+                res['OI_VIS'][k]['EPHI'] = 360 + 0*res['OI_CF'][k]['ECF']
+                #print('missing VIS', k, res['OI_VIS'][k].keys())
+            elif not k in res['OI_CF']:
+                if debug:
+                    print(k, 'is in OI_VIS but \033[43mmissing from OI_CF!\033[0m')
+                res['OI_CF'][k] = {}
+                for x in res['OI_VIS'][k].keys():
+                    if not '|V|' in x and not 'PHI' in x:
+                        res['OI_CF'][k][x] = res['OI_VIS'][k][x].copy()
+                # -- all data are invalid
+                res['OI_CF'][k]['FLAG'] = np.logical_or(res['OI_VIS'][k]['FLAG'], True)
+                res['OI_CF'][k]['CF'] = 0*res['OI_VIS'][k]['|V|']
+                res['OI_CF'][k]['ECF'] = 1+0*res['OI_VIS'][k]['E|V|']
+                res['OI_CF'][k]['PHI'] = 0*res['OI_VIS'][k]['|V|']
+                res['OI_CF'][k]['EPHI'] = 360+0*res['OI_VIS'][k]['E|V|']
+
+            if sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_CF'][k]['MJD']):
+                if debug:
+                    print(k, '\033[43mmismatched coverage VIS/CF!\033[0m')
+                    print(' VIS:',  res['OI_VIS'][k]['MJD'])
+                    print(' CF :',  res['OI_CF'][k]['MJD'])
+                # -- all encountered MJDs:
+                allMJD = sorted(list(res['OI_VIS'][k]['MJD'])+list(res['OI_CF'][k]['MJD']))
+                # -- ones from VIS
+                wv = [allMJD.index(mjd) for mjd in res['OI_VIS'][k]['MJD']]
+                # -- ones from VIS2
+                wv2 = [allMJD.index(mjd) for mjd in res['OI_CF'][k]['MJD']]
+
+                #print(' ', wv, wv2)
+                # -- update VIS
+                res['OI_VIS'][k]['MJD'] = np.array(allMJD)
+                for x in ['u', 'v']:
+                    tmp = np.zeros(len(allMJD))
+                    tmp[wv] = res['OI_VIS'][k][x]
+                    if x in res['OI_CF'][k]:
+                        tmp[wv2] = res['OI_CF'][k][x]
+                    res['OI_VIS'][k][x] = tmp
+                for x in ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
+                    if x=='FLAG':
+                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
+                    else:
+                        tmp = np.zeros((len(allMJD), len(res['WL'])))
+                    tmp[wv,:] = res['OI_VIS'][k][x]
+                    if x in res['OI_CF'][k] and x!='FLAG':
+                        tmp[wv2,:] = res['OI_CF'][k][x]
+                    res['OI_VIS'][k][x] = tmp
+
+                # -- VIS2
+                res['OI_CF'][k]['MJD'] = np.array(allMJD)
+                for x in ['u', 'v']:
+                    if x in res['OI_VIS'][k]:
+                        tmp = 1.*res['OI_VIS'][k][x]
+                    else:
+                        tmp = np.zeros(len(allMJD))
+                    tmp[wv2] = res['OI_CF'][k][x]
+                    res['OI_CF'][k][x] = tmp
+                for x in ['CF', 'ECF', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
+                    if x in res['OI_VIS'][k] and x!='FLAG':
+                        tmp = res['OI_VIS'][k][x].copy()
+                    elif x=='FLAG':
+                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
+                    else:
+                        tmp = np.zeros((len(allMJD), len(res['WL'])))
+                    tmp[wv2,:] = res['OI_CF'][k][x]
+                    res['OI_CF'][k][x] = tmp
+                # -- make sure it worked
+                #print(' VIS :',  res['OI_VIS'][k]['MJD'])
+                #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+
+    # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
+    # (this is purely due to a limitation of PMOIRED)
+    if 'OI_VIS' in res and 'OI_VIS2' in res:
+        kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
+        for k in kz:
+            if not k in res['OI_VIS']:
+                if debug:
+                    print(k, 'is in OI_VIS2 but \033[43mmissing from OI_VIS!\033[0m')
+                res['OI_VIS'][k] = {}
+                for x in res['OI_VIS2'][k].keys():
+                    if not 'V2' in x:
+                        res['OI_VIS'][k][x] = res['OI_VIS2'][k][x].copy()
+                # -- all data are invalid
+                res['OI_VIS'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'], True)
+                res['OI_VIS'][k]['|V|'] = 0*res['OI_VIS2'][k]['V2']
+                res['OI_VIS'][k]['E|V|'] = 1 + 0*res['OI_VIS2'][k]['EV2']
+                res['OI_VIS'][k]['PHI'] = 0*res['OI_VIS2'][k]['V2']
+                res['OI_VIS'][k]['EPHI'] = 360 + 0*res['OI_VIS2'][k]['EV2']
+                #print('missing VIS', k, res['OI_VIS'][k].keys())
+            elif not k in res['OI_VIS2']:
+                if debug:
+                    print(k, 'is in OI_VIS but \033[43mmissing from OI_VIS2!\033[0m')
+                res['OI_VIS2'][k] = {}
+                for x in res['OI_VIS'][k].keys():
+                    if not '|V|' in x and not 'PHI' in x:
+                        res['OI_VIS2'][k][x] = res['OI_VIS'][k][x].copy()
+                # -- all data are invalid
+                res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'], True)
+                res['OI_VIS2'][k]['V2'] = 0*res['OI_VIS'][k]['|V|']
+                res['OI_VIS2'][k]['EV2'] = 1+0*res['OI_VIS'][k]['E|V|']
+
+            if sorted(res['OI_VIS'][k]['MJD']) != sorted(res['OI_VIS2'][k]['MJD']):
+                if debug:
+                    print(k, '\033[43mmismatched coverage VIS/VIS2!\033[0m')
+                    print(' VIS :',  res['OI_VIS'][k]['MJD'])
+                    print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+                # -- all encountered MJDs:
+                allMJD = sorted(list(res['OI_VIS'][k]['MJD'])+list(res['OI_VIS2'][k]['MJD']))
+                # -- ones from VIS
+                wv = [allMJD.index(mjd) for mjd in res['OI_VIS'][k]['MJD']]
+                # -- ones from VIS2
+                wv2 = [allMJD.index(mjd) for mjd in res['OI_VIS2'][k]['MJD']]
+
+                #print(' ', wv, wv2)
+                # -- update VIS
+                res['OI_VIS'][k]['MJD'] = np.array(allMJD)
+                for x in ['u', 'v']:
+                    tmp = np.zeros(len(allMJD))
+                    tmp[wv] = res['OI_VIS'][k][x]
+                    if x in res['OI_VIS2'][k]:
+                        tmp[wv2] = res['OI_VIS2'][k][x]
+                    res['OI_VIS'][k][x] = tmp
+                for x in ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
+                    if x=='FLAG':
+                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
+                    else:
+                        tmp = np.zeros((len(allMJD), len(res['WL'])))
+                    tmp[wv,:] = res['OI_VIS'][k][x]
+                    if x in res['OI_VIS2'][k] and x!='FLAG':
+                        tmp[wv2,:] = res['OI_VIS2'][k][x]
+                    res['OI_VIS'][k][x] = tmp
+
+                # -- VIS2
+                res['OI_VIS2'][k]['MJD'] = np.array(allMJD)
+                for x in ['u', 'v']:
+                    if x in res['OI_VIS'][k]:
+                        tmp = 1.*res['OI_VIS'][k][x]
+                    else:
+                        tmp = np.zeros(len(allMJD))
+                    tmp[wv2] = res['OI_VIS2'][k][x]
+                    res['OI_VIS2'][k][x] = tmp
+                for x in ['V2', 'EV2', 'u/wl', 'v/wl', 'FLAG', 'B/wl', 'PA', 'MJD2']:
+                    if x in res['OI_VIS'][k] and x!='FLAG':
+                        tmp = res['OI_VIS'][k][x].copy()
+                    elif x=='FLAG':
+                        tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
+                    else:
+                        tmp = np.zeros((len(allMJD), len(res['WL'])))
+                    tmp[wv2,:] = res['OI_VIS2'][k][x]
+                    res['OI_VIS2'][k][x] = tmp
+                # -- make sure it worked
+                #print(' VIS :',  res['OI_VIS'][k]['MJD'])
+                #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+
+    if debug:
+        for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
+            if k in res:
+                print('DEBUG:', k, sorted(res[k].keys()))
     return res
 
 def wTarg(hdu, targname, targets):
