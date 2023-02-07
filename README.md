@@ -1,17 +1,8 @@
 ![banner](banner/banner/banner.001.png)
 
-
-## Preamble: using and quoting `PMOIRED`
-
-This code is a __research project in continuous development__ and not yet properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
-
-> ***An article is in preparation describing the algorithms and features of `PMOIRED`. Until then, if you are preparing an article using it, you should agree to add [me](mailto:amerand@eso.org) as a co-author.***.
-
-References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://arxiv.org/abs/2207.11047). There are already several works published using `PMOIRED`: check the [curated bibliography](https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA) I maintain.
-
 ## Overview
 
-`PMOIRED` is a Python3 module which allows to model astronomical spectro-interferometric data stored in the OIFITS format ([Duvert et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A...8D/abstract)). Parametric modeling is used to describe the observed scene as blocks such as disks, rings and Gaussians which can be combined and their parameters linked. It includes plotting, least-square fitting and bootstrapping estimation of uncertainties. For spectroscopic instruments (such as GRAVITY), tools are provided to model spectral lines and correct spectra for telluric lines.
+`PMOIRED` is a Python3 module which allows to model astronomical spectro-interferometric data stored in the OIFITS format ([Duvert et al. 2017](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A...8D/abstract)). Parametric modeling is used to describe the observed scene as blocks such as disks, rings and Gaussians which can be combined and their parameters linked. It includes plotting, least-square fitting and bootstrapping estimation of uncertainties. For spectroscopic instruments (such as GRAVITY), tools are provided to model spectral lines and correct spectra for telluric lines.
 
 The modelling of data is based on several principles:
 - The model is composed of a combination of basic building blocks (see the [model definition](https://github.com/amerand/PMOIRED/blob/master/examples/Model%20definitions%20and%20examples.ipynb) notebook)
@@ -45,17 +36,6 @@ To uninstall (assuming you have recorded the install files at described above):
 xargs rm -rf < files.txt
 ```
 
-## Dependencies
-
-The latest version of `PMOIRED` has been tested on:
-- python 3.10.6
-- numpy 1.23.1
-- scipy 1.9.0
-- astropy 5.1
-- astroquery 0.4.6
-- matplotlib 3.5.3
-- jupyter-notebook 6.4.12
-
 ## Examples
 
 Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
@@ -64,6 +44,16 @@ Check out the examples provided in the package in the directory `examples`, in t
 - [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/chromatic%20multi%20components%20FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting 2-components model with chromatic flux ratio.
 - [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/companion%20search%20AXCir.ipynb) PIONIER data from [Gallenne et al. 2015](https://ui.adsabs.harvard.edu/abs/2015A%26A...579A..68G/abstract), shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
 - [Keplerian disks](https://github.com/amerand/PMOIRED/blob/master/examples/Be%20model%20comparison%20with%20AMHRA.ipynb) shows how to generate VLTI simulated data from a data cube (image x wavelength) and how to fit them with `PMOIRED`. The data cube is a [Be star Model](https://amhra.oca.eu/AMHRA/bedisk/input.htm) from [AMHRA](https://amhra.oca.eu/AMHRA/index.htm). The model has been re-implemented in `PMOIRED`: data can be directly fitted. This notebook shows a comparison between the 2 implementations. Please refer to [Delaa et al. (2011)](https://ui.adsabs.harvard.edu/abs/2011A%26A...529A..87D/abstract) for a description of the Keplerian disk model.
+
+## Using and quoting `PMOIRED`
+
+References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://ui.adsabs.harvard.edu/abs/2022SPIE12183E..1NM/abstract). 
+
+This code is a __research project in continuous development__ and not yet properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
+
+I maintain a list of works published using `PMOIRED` in a [curated bibliography](https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA).
+
+> ***I used to to request co-authorship on publications using PMOIRED, this is no longer the case, unless I contributed directly to the work in question***
 
 ## Limitations and known issues
 
@@ -80,3 +70,15 @@ if __name__=='__main__':
     [code]
 ```
 in iPython, you can now type `%run myscript.py`.
+
+### Dependencies
+
+The latest version of `PMOIRED` has been tested on:
+- python 3.10.6
+- numpy 1.23.1
+- scipy 1.9.0
+- astropy 5.1
+- astroquery 0.4.6
+- matplotlib 3.5.3
+- jupyter-notebook 6.4.12
+
