@@ -15,13 +15,13 @@ oi.doFit({'diam':2.5,
           'profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
           'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389}, 
           doNotFit=['A1', 'A2', 'A3', 'A4'])
-oi.show(logV=True, imFov=3)
+oi.show(logV=True, imFov=3, showUV=False)
 
 # -- Teff=3500, logg=1.0, fit the 4 limb-darkening parameters (it does not converge)
 oi.doFit({'diam':2.5, 
           'profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
           'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389})
-oi.show(logV=True, imFov=3)
+oi.show(logV=True, imFov=3, showUV=False)
 oi.showFit()"""
 
 ldc2000fitprior = """oi.setupFit({'obs':['V2'], 'max relative error':{'V2':0.5}})
@@ -29,20 +29,20 @@ m = {'diam':2.5,
     'profile':'1 - $A1*(1-$MU**1/2) - $A2*(1-$MU**2/2) - $A3*(1-$MU**3/2) - $A4*(1-$MU**4/2)', 
     'A1':1.5899, 'A2':-1.6835, 'A3':1.0073, 'A4':-0.2389}
 oi.doFit(m, prior=[('np.abs(A1)', '<', 2), ('np.abs(A2)', '<', 2), ('np.abs(A3)', '<', 2), ('np.abs(A4)', '<', 2)])
-oi.show(logV=True, imFov=3)
+oi.show(logV=True, imFov=3, showUV=False)
 oi.showFit()"""
 
 
 ldalphafit = """oi.setupFit({'obs':['V2'],'max relative error':{'V2':0.5}})
 prior=[('alpha', '>', 0)]
 oi.doFit({'diam':2.5, 'profile':'$MU**$alpha', 'alpha':0.5}, prior=prior)
-oi.show(logV=True, imFov=3)"""
+oi.show(logV=True, imFov=3, showUV=False)"""
 
 ldalphaoblatefit = """oi.setupFit({'obs':['V2'],'max relative error':{'V2':0.5}})
 prior=[('alpha', '>', 0)]
 oi.doFit({'star,diam':2.5, 'star,profile':'$MU**$alpha', 'alpha':0.5, 'star,projang':45, 'star,incl':20, 'res,f':0.05},
            prior=prior)
-oi.show(logV=True, imFov=3)"""
+oi.show(logV=True, imFov=3, showUV=False)"""
     
 ldspotfit = """# -- we also fit the closure phase
 oi.setupFit({'obs':['T3PHI', 'V2'],'max relative error':{'V2':0.5}, 
@@ -66,7 +66,7 @@ prior = [('alpha', '>', 0),
 
 oi.doFit(m, prior=prior)
 # -- using imMax to be able to see the stellar surface
-oi.show(imFov=3, logV=True, imMax='99')
+oi.show(imFov=3, logV=True, imMax='99', showUV=False)
 oi.showFit()"""
 
 ldspotgrid="""# -- we also fit the closure phase
@@ -105,7 +105,26 @@ oi.gridFit(expl, model=m, prior=prior, constrain=constrain)
 oi.showGrid()
 
 # -- show best fit model
-oi.show(imFov=3, imMax='99', logV=1)"""
+oi.show(imFov=3, imMax='99', logV=1, showUV=False)"""
 
 bootstrap = """oi.bootstrapFit(100)
 oi.showBootstrap()"""
+
+realisticprofile ="""# -- profile to look like Fig 4 in paper
+p = {'star,diam':'(2+10/$k)*$Rstar', 'Rstar':1.5, 'res,f':0.02,
+     'star,profile': '1-$u*(1-np.sqrt(1-(($R<$Rstar)*$R/$Rstar)**2)) + ($R>=$Rstar)*((1-$u)*np.exp(-$k*($R-$Rstar)/$Rstar)-1)',
+     'u':0.2, 'k':10, 'star,projang':-90, 'star,incl':20}
+
+oi.setupFit({'obs':['V2'],'max relative error':{'V2':0.5}})
+# -- cannot fit 'k', but 10 looks OK compared to fig 4
+oi.doFit(p, doNotFit=['k'])
+
+# -- show profile
+plt.close(0); plt.figure(0)
+p2 = pmoired.oimodels.computeLambdaParams(oi.bestfit['best'])
+r = np.linspace(0, p2['star,diam']/2, 100)
+plt.plot(r/(p2['Rstar']), eval(p2['star,profile'].replace('$R', 'r')))
+plt.xlabel('r/R$_\star$')
+
+# -- show data
+oi.show(logV=1, imFov=1.1*p2['star,diam'], showUV=False)"""
