@@ -53,7 +53,7 @@ This code is a __research project in continuous development__ and not yet proper
 
 I maintain a list of works published using `PMOIRED` in a [curated bibliography](https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA).
 
-> ***I used to to request co-authorship on publications using PMOIRED, this is no longer the case, unless I contributed directly to the work in question***
+> ***I used to to request co-authorship on publications using PMOIRED (until Feb 2023): this is no longer the case, unless I contributed directly to the work in question***
 
 ## Limitations and known issues
 
