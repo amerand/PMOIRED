@@ -924,26 +924,52 @@ class OI:
             showIM = False
             imFov = None
 
-        if not model is None and not imFov is None and checkImVis:
-            allInOne = False
-            perSetUp = False
-            # -- prepare computing model's images
-            print('computing model images and corresponding visibilities:')
-            self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
-                                    imX=imX, imY=imY, visibilities=True)
+        # if not model is None and not imFov is None and checkImVis:
+        #     allInOne = False
+        #     perSetUp = False
+        #     # -- prepare computing model's images
+        #     print('computing model images and corresponding visibilities:')
+        #     self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
+        #                             imX=imX, imY=imY, visibilities=True)
 
         if perSetup:
+            def betterinsname(d):
+                n = -np.int(np.log10(np.ptp(d['WL'])/len(d['WL']))-1)
+                f = '%.'+str(n)+'fum'
+                return d['insname']+'_'+f%min(d['WL'])+'_'+f%max(d['WL'])+'_'+str(len(d['WL']))
+
             if perSetup == 'insname':
-                perSetup = list(set([d['insname'] for d in self.data]))
-            elif not type(perSetup)==list:
-                perSetup = list(set([d['insname'].split(' ')[0].split('_')[0] for d in self.data]))
+                insnames = [d['insname'] for d in self.data]
+                perSetup = list(set(insnames))
+            elif perSetup == 'strict':                
+                insnames = [betterinsname(d) for d in self.data]
+                perSetup = list(set(insnames))
+            else:
+                # -- defaut -> use simplified names
+                insnames = [d['insname'].split(' ')[0].split('_')[0] for d in self.data]
+                perSetup = list(set(insnames))
 
             if type(perSetup)==list:
                 data = []
                 for s in perSetup:
                     data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
-                                    if s in self.data[i]['insname']], 
+                                    if s in insnames[i]], 
                                     collapse=False, verbose=False))
+                if spectro:
+                    useStrict = False
+                    for D in data: # for each setup
+                        if len(D)>1:
+                            if all(['OI_VIS' in d for d in D]):
+                                if len(set(['_'.join(sorted(d['OI_VIS'].keys())) for d in D]))>1:
+                                    useStrict = True
+                    if useStrict:
+                        insnames = [betterinsname(d) for d in self.data]
+                        perSetup = list(set(insnames))
+                        data = []
+                        for s in perSetup:
+                            data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
+                                            if s in insnames[i]], 
+                                            collapse=False, verbose=False))
 
             for j,g in enumerate(data):
                 if 'fit' in g and 'obs' in g['fit']:

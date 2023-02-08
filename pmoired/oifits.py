@@ -399,7 +399,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
             for k in hdu.header:
                 if k.startswith('TTYPE') and hdu.header[k].strip()=='VISPHI':
-                    _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
+                    try:
+                        _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
+                    except:
+                        _unit = 'None'
             if 'units' in res:
                 res['units']['PHI'] = _unit
             else:

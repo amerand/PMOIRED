@@ -1301,6 +1301,8 @@ def VuLensBin(mjd, param):
 def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             imFov=None, imPix=None, imX=0, imY=0, imN=None):
     """
+    _fudge=1.5, _p=1.5
+
     complex visibility of keplerian disk:
     u, v: 1D-ndarray spatial frequency (m). u and v must have same length N
     wl: 1D-ndarray wavelength (um). can have a different length from u and v
@@ -1342,7 +1344,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     wl = np.array(wl)
 
     # -- wavelength resolution
-    obs_dwl = np.median(np.diff(wl))
+    obs_dwl = np.median(np.abs(np.diff(wl)))
 
     P = [] # -- points in the disk
 
@@ -1417,6 +1419,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     # -- safety margin: takes more points for _fudge>1
     drin /= _fudge
 
+
     # -- cos and sin values for rotations
     ci, si = np.cos(param['incl']*np.pi/180), np.sin(param['incl']*np.pi/180)
     cp, sp = np.cos(param['projang']*np.pi/180-np.pi/2), np.sin(param['projang']*np.pi/180-np.pi/2)
@@ -1429,7 +1432,8 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
                     max(int(dR[0]/drin*(Rout-Rin)/drin), 3))**_p
     dR = np.gradient(R)
 
-    #print(Rin, Rout)
+    assert len(R)<500, 'too many points on disk ?! %d'%len(R)+' '+str(param)
+
     # -- TODO: this nested loop can be improved for speed!
     for i,r in enumerate(R):
         drt = dR[i] # step along the circle
@@ -4264,7 +4268,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         imY: center of FoV (in mas, default:0.0)
     """
     global ai1ax, ai1mcB, ai1mcT, ai1i
-
 
     if type(oi)==list:
         # -- multiple data sets
