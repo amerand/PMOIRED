@@ -3329,7 +3329,8 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
         print('# -- degrees of freedom:', fit['ndof'])
         print('# -- reduced chi2:', fit['chi2'])
         dpfit.dispBest(fit)
-    if type(verbose)==int and verbose>=2:
+    if type(verbose)==int and verbose>=2 and \
+        len(fit['cord'].keys())>1 and any([fit['uncer'][k]>0 for k in fit['uncer']]):
         dpfit.dispCor(fit)
 
     return fit
@@ -5211,7 +5212,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 ax.legend(fontsize=4, ncol=4)
         i_col += 1
 
-    plt.subplots_adjust(hspace=0, wspace=0.2, left=0.06, right=0.99)
+    plt.subplots_adjust(hspace=0, wspace=0.2, left=0.06, right=0.98)
     if 'filename' in oi.keys() and not allInOne:
         title = [os.path.basename(f) for f in oi['filename'].split(';')]
         title = sorted(title)
@@ -5225,6 +5226,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             title = title[0]
             fontsize = 10
         plt.suptitle(title, fontsize=fontsize)
+
 
     if showIm and not param is None:
         showModel(oi, param, m=m, fig=fig+1, imPow=imPow, cmap=cmap,

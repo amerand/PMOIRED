@@ -452,11 +452,11 @@ class OI:
                                       follow=follow, factor=factor, prior=prior)
         if verbose:
             if len(self.bestfit['not significant']):
-                print('\033[31mWARNING: these parameters do not change chi2!:', end=' ')
+                print('\033[31mWARNING: thiese parameters do not change the chi2!:', end=' ')
                 print(self.bestfit['not significant'], '\033[0m')
                 print('\033[34m-> Try checking the syntax of your model\033[0m')
             if 'not converging' in self.bestfit and len(self.bestfit['not converging']):
-                print('\033[33mCAUTION: this(ese) parameter(s) may not be converging properly:', end=' ')
+                print('\033[33mCAUTION: these parameters may not be converging properly:', end=' ')
                 print(self.bestfit['not converging'], '\033[0m')
                 print('\033[34m-> Try inspecting the convergence by running ".showFit()"')
                 # -- this is not robust!
@@ -640,6 +640,10 @@ class OI:
 
         constrain: set of conditions on the grid search. same as prior's syntax,
         but will exclude some initial guesses.
+            e.g. constrain = [('np.sqrt(p1**2+p2**2)', '<', 1)]
+            will restrict the search for (p1,p2) satisfying the condition
+            however, best fit can be found outside the grid (unless 'prior' is 
+            specified)
 
         See Also: showGrid, detectionLimit
         """

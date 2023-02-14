@@ -1018,7 +1018,11 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
             #print(formatS%k, fmt%(pfix[k], uncer[k]))
         elif uncer[k]==0:
             if color:
-                col = ('\033[97m', '\033[0m')
+                if k in fit['fitOnly']:
+                    # fit did not converge...
+                    col = ('\033[91m', '\033[0m') 
+                else:
+                    col = ('\033[97m', '\033[0m')
             else:
                 col = ('', '')
             if isinstance(pfix[k], str):

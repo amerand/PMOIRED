@@ -1664,7 +1664,11 @@ def _allInOneOI(oi, verbose=False, debug=False):
                         if oi[e][k][d].ndim==1:
                             tmp[d] = np.append(tmp[d], oi[e][k][d])
                         elif oi[e][k][d].ndim==2:
-                            tmp[d] = np.append(tmp[d], oi[e][k][d], axis=0)
+                            try:
+                                tmp[d] = np.append(tmp[d], oi[e][k][d], axis=0)
+                            except:
+                                #print('DEBUG:', e, k, d, tmp[d].shape, oi[e][k][d].shape)
+                                pass
                     else:
                         print('allInOneOI warning: unknow data', e, d)
         tmp['NAME'] = np.array(tmp['NAME'])
