@@ -62,7 +62,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         return res
 
     res = {}
-    h = fits.open(filename)
+    # -- memmap=False assumes files are small so all is leaded at once
+    # -- memmap=True (default) is bad if one reopen the file multiple times!
+    # see https://docs.astropy.org/en/stable/io/fits/index.html#working-with-large-files
+    h = fits.open(filename, memmap=False)
 
     # -- how many instruments?
     instruments = []
