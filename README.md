@@ -74,11 +74,10 @@ in iPython, you can now type `%run myscript.py`.
 ### Dependencies
 
 The latest version of `PMOIRED` has been tested on:
-- python 3.10.6
-- numpy 1.23.1
-- scipy 1.9.0
-- astropy 5.1
+- python 3.11.2
+- numpy 1.24.2
+- scipy 1.10.1
+- astropy 5.2.1
 - astroquery 0.4.6
-- matplotlib 3.5.3
-- jupyter-notebook 6.4.12
-
+- matplotlib 3.7.0
+- jupyterlab 3.5.0
