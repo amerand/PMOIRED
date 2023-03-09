@@ -126,10 +126,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     res['targname'] = targname
 
     # -- for now, only catching ESO pipelines, in the future we can add more
-    if 'ESO PRO REC1 PIPE ID' in h[0].header:
+    if 'PROCSOFT' in h[0].header:
+        res['pipeline'] = h[0].header['PROCSOFT']
+    elif 'ESO PRO REC1 PIPE ID' in h[0].header:
         res['pipeline'] = h[0].header['ESO PRO REC1 PIPE ID']
     else:
         res['pipeline'] = ''
+
 
     if 'LST' in h[0].header:
         res['LST'] = h[0].header['LST']/3600.
