@@ -5524,7 +5524,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                          color=symbols[k.split(',')[0].strip()]['c'])
     if bckgGrid:
         plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
-    plt.legend(fontsize=5)
+    ax.legend(fontsize=5)
     plt.xlabel('wavelength ($\mu$m)')
     ax.tick_params(axis='x', labelsize=6)
     ax.tick_params(axis='y', labelsize=6)
@@ -5715,7 +5715,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
         plt.title('de-rotated model')
         t = np.linspace(0, 2*np.pi, 100)[:-1]
         plt.plot(rh*np.cos(t), rh*np.sin(t), ':y', alpha=0.5, label='half light radius')
-        plt.legend()
+        ax.legend()
 
         ax = plt.subplot(222)
         # -- radial flux,
@@ -6121,7 +6121,6 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
     see Also: https://en.wikipedia.org/wiki/Hankel_transform#Relation_to_the_Fourier_transform_(general_2D_case)
     """
 
-    #c = np.pi/180./3600./1000.*1e6
     if not isinstance(n, list):
         # -- scalar case
         n = [n]
@@ -6231,16 +6230,22 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
         Bm = None
 
     # -- define Hankel transform of order n
+    _N = np.trapz(I*r, r)
+    if _N==0 or not np.isfinite(_N):
+        _N = 1
     def Hankel(n):
         if not Bm is None:
             H = np.trapz(I[:,None]*r[:,None]*\
                          scipy.special.jv(n, 2*_c*Bm[None,:]*r[:,None]),
-                         r, axis=0)/np.trapz(I*r, r)
+                         r, axis=0)/_N
+            H[~np.isfinite(H)] = 0
+            # if any(~np.isfinite(H)):
+            #     print('H(%d), _N:'%n, H, _N)
             return np.interp(_B, Bm, H)
         else:
             H = np.trapz(I[:,None]*r[:,None]*\
                          scipy.special.jv(n, 2*_c*_B.flatten()[None,:]*r[:,None]),
-                         r, axis=0)/np.trapz(I*r, r)
+                         r, axis=0)/_N
             return np.reshape(H, _B.shape)
 
     # -- visibility without PA variations -> Hankel0

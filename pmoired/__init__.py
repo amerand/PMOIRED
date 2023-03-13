@@ -13,7 +13,8 @@ except:
 
 import numpy as np
 import warnings
-warnings.filterwarnings('ignore')
+#warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 import matplotlib.pyplot as plt
 import scipy
@@ -32,7 +33,7 @@ FIG_MAX_HEIGHT = 6
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
 
-__version__= '20230116'
+__version__= '20230313'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -336,6 +337,9 @@ class OI:
 
         'max relative error': similar to 'min relative error' but will ignore
             (flag) data above
+
+        'mult error': syntax similar to 'min error': multiply all errors by a 
+            value
 
         'Nr':int, number of points to compute radial profiles (default=100)
 
@@ -865,6 +869,8 @@ class OI:
             surface brightness features
         - imX, imY: center of image (in mas)
         - imWl0: list of wavelength (um) to show the image default (min, max)
+        - imPlx: parallax in mas, to show secondary scales in AU
+        - imTight: force image to be limited to FoV
         - cmap: color map (default 'inferno')
         - checkImVis: compute visibility from image to check (can be wrong if
             fov is too small)
@@ -1268,7 +1274,7 @@ class OI:
                                 markersize=symbols[c]['s'])
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
-                if i==0:
+                if i==0 and len(comps)>0:
                     maxc = 0
                     if len(comps)>0:
                         maxc = max([len(c) for c in comps])
