@@ -29,6 +29,8 @@ from astropy import constants
 
 _c = np.pi**2/180/3600/1000*1e6
 
+MAX_THREADS = multiprocessing.cpu_count()
+
 def Ssingle(oi, param, noLambda=False):
     """
     build spectrum for Vsingle
@@ -3569,7 +3571,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
     constrain: list of conditions, with same syntax as priors (see computePriorL).
     """
-    global _prog_N, _prog_Nmax, _prog_t0
+    global _prog_N, _prog_Nmax, _prog_t0, MAX_THREADS
 
     assert type(expl)==dict, "expl must be a dict"
     assert 'grid' in expl or 'rand' in expl or 'randn' in expl
@@ -3641,7 +3643,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
     if multi:
         if type(multi)!=int:
-            Np = min(multiprocessing.cpu_count(), N)
+            #Np = min(multiprocessing.cpu_count(), N)
+            Np = min(MAX_THREADS, N)
         else:
             Np = min(multi, N)
         if verbose:
@@ -3928,7 +3931,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
 
     see also: doFit 
     """
-    global _prog_N, _prog_Nmax, _prog_t0
+    global _prog_N, _prog_Nmax, _prog_t0, MAX_THREADS
 
     if N is None:
         # count number of spectral vector data
@@ -3984,7 +3987,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     t = time.time()
     if multi:
         if type(multi)!=int:
-            Np = min(multiprocessing.cpu_count(), N)
+            Np = min(MAX_THREADS, N)
         else:
             Np = min(multi, N)
         if verbose:
@@ -4237,7 +4240,6 @@ ai1i = [] # initialise global list of axes position
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
-
 
 def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None,
            imPow=1., imWl0=None, cmap='bone', imX=0.0, imY=0.0, debug=False,

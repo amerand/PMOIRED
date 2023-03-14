@@ -29,6 +29,7 @@ import requests
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
+MAX_THREADS = multiprocessing.cpu_count()
 
 print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 print('https://github.com/amerand/PMOIRED')
@@ -530,6 +531,7 @@ class OI:
         assert not model is None, 'first guess should be provided: model={...}'
         assert param in model, '"param" should be one of the key in dict "model"'
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        oimodels.MAX_THREADS = MAX_THREADS
         self.limgrid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        multi=multi, dLimParam=param,
                                        dLimSigma=nsigma, prior=prior,
@@ -776,7 +778,7 @@ class OI:
 
         assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
         model = self.bestfit
-
+        oimodels.MAX_THREADS = MAX_THREADS
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
                                             multi=multi, keepFlux=keepFlux,
                                             verbose=verbose, strongMJD=strongMJD)
