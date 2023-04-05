@@ -5955,8 +5955,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                                     boot['cov'][_i1,_i2])
             _X,_Y = sMa*np.cos(t), sma*np.sin(t)
             _X,_Y = _X*np.cos(a)+_Y*np.sin(a),-_X*np.sin(a)+_Y*np.cos(a)
-            if (k1.endswith(',x') and k2.endswith(',y')) or \
-                (k1.endswith(',y') and k2.endswith(',x')):
+            if ((k1.endswith(',x') and k2.endswith(',y')) or 
+                (k1.endswith(',y') and k2.endswith(',x'))) and \
+               k1.split(',')[0]== k2.split(',')[0]:
                 print('ellipse (emin, emax, PA) for %s/%s: %.4f %.4f %.1f'%(
                             k1, k2, sMa, sma, a*180/np.pi))
 
