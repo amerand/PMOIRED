@@ -946,7 +946,7 @@ class OI:
 
         if perSetup:
             def betterinsname(d):
-                n = -np.int(np.log10(np.ptp(d['WL'])/len(d['WL']))-1)
+                n = -int(np.log10(np.ptp(d['WL'])/len(d['WL']))-1)
                 f = '%.'+str(n)+'fum'
                 return d['insname']+'_'+f%min(d['WL'])+'_'+f%max(d['WL'])+'_'+str(len(d['WL']))
 

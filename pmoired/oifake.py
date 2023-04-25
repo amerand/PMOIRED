@@ -823,12 +823,12 @@ def visCube(cube, u, v, wl):
         wl: wavelength (vector, in um)
     """
     global _X, _Y
-    res = np.zeros((len(u), len(wl)), np.complex)
+    res = np.zeros((len(u), len(wl)), np.complex64)
     _X, _Y = cube['X'], cube['Y']
     if False:
         # == Interpolate in visibility space =============================
         # -- compute V(u,v) for each wl of the cube:
-        tmp = np.zeros((len(u), len(cube['WL'])), np.complex)
+        tmp = np.zeros((len(u), len(cube['WL'])), np.complex64)
         for i,x in enumerate(cube['WL']):
             tmp[:,i] = visImage(cube['image'][i,:,:], cube['scale'],
                                 u, v, cube['WL'][i])
