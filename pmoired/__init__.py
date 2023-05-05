@@ -306,10 +306,15 @@ class OI:
 
         return
 
-    def setupFit(self, fit, update=False, debug=False):
+    def setupFit(self, fit, update=False, debug=False, insname=None):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
+
+        insname: only apply to this insname (default: apply to all). 
+            Can be a string (single insname) or list of insnames
+
+        "Fit" can contain the following keys:
 
         'obs': list of observables in
             'FLUX': Flux
@@ -362,26 +367,38 @@ class OI:
                                         all([type(f)==dict for f in fit]))
         assert correctType, "parameter 'fit' must be a dictionnary or a list of dict"
 
+        if insname is None:
+            insname = list(set([d['insname'] for d in self.data]))
+        if type(insname) == str:
+            insname = [insname]
+        test = list(filter(lambda i: i not in [d['insname'] for d in self.data], insname))
+        assert len(test)==0, str(test)+' not an actual insname in data: '+\
+                str(set([d['insname'] for d in self.data]))
+
         if type(fit)==dict:
             for d in self.data:
                 assert _checkSetupFit(fit), 'setup dictionnary is incorrect'
-                if 'fit' in d and update:
-                    d['fit'].update(fit)
-                else:
-                    d['fit'] = fit.copy()
-
+                if d['insname'] in insname:
+                    _n += 1
+                    if 'fit' in d and update:
+                        d['fit'].update(fit)
+                    else:
+                        d['fit'] = fit.copy()
         if type(fit)==list:
+            assert len(fit)==len(self.data), 'len(fit)!=len(data) [=%d]'%len(self.data)
+
             for i,d in enumerate(self.data):
                 assert _checkSetupFit(fit[i]), 'setup dictionnary is incorrect'
-                if 'fit' in d and update:
-                    d['fit'].update(fit[i])
-                else:
-                    d['fit'] = fit[i].copy()
+                if d['insname'] in insname:
+                    if 'fit' in d and update:
+                        d['fit'].update(fit[i])
+                    else:
+                        d['fit'] = fit[i].copy()
         if debug:
             print([d['fit']['obs'] for d in self.data])
 
         for d in self.data:
-            if 'obs' in d['fit']:
+            if 'fit' in d and 'obs' in d['fit']:
                 if debug:
                     print(d['filename'],
                         list(filter(lambda x: x.startswith('OI_'), d.keys())))
@@ -614,30 +631,33 @@ class OI:
         if xy:
             ax1.invert_xaxis()
         if mag:
-            c =[-2.5*np.log10(r[self._limexpl['param']]) for r in self.limgrid]
+            c = np.array([-2.5*np.log10(r[self._limexpl['param']]) for r in self.limgrid])
         else:
-            c =[r[self._limexpl['param']] for r in self.limgrid]
+            c = np.array([r[self._limexpl['param']] for r in self.limgrid])
+        cx = np.array([r[px] for r in self.limgrid])
+        cy = np.array([r[py] for r in self.limgrid])
+        
+        cx, cy, c = cx[np.isfinite(c)], cy[np.isfinite(c)], c[np.isfinite(c)]
+
         print('distribution of %.1fsigma detections:'%self._limexpl['nsigma'])
         print(' median', self._limexpl['param'], ':', round(np.median(c),4), ' (mag)' if mag else '')
         if len(self.limgrid)>13:
             print(' 1sigma (68%%) %.4f -> %.4f'%(np.percentile(c, 16),
-                                               np.percentile(c, 100-16)))
+                                                 np.percentile(c, 100-16)))
         if len(self.limgrid)>40:
             print('        (90%%) %.4f -> %.4f'%(np.percentile(c, 5),
-                                               np.percentile(c, 100-5)))
+                                                 np.percentile(c, 100-5)))
         if len(self.limgrid)>80:
             print(' 2sigma (95%%) %.4f -> %.4f'%(np.percentile(c, 2.5),
-                                               np.percentile(c, 100-2.5)))
+                                                 np.percentile(c, 100-2.5)))
         if len(self.limgrid)>200:
             print('        (99%%) %.4f -> %.4f'%(np.percentile(c, 0.5),
-                                               np.percentile(c, 100-0.5)))
+                                                 np.percentile(c, 100-0.5)))
         if len(self.limgrid)>1600:
             print(' 3sigma (99.7%%) %.4f -> %.4f'%(np.percentile(c, .15),
-                                               np.percentile(c, 100-.15)))
+                                                   np.percentile(c, 100-.15)))
 
-        plt.scatter([r[px] for r in self.limgrid],
-                    [r[py] for r in self.limgrid],
-                    c=c, cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.scatter(cx, cy, c=c, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.title('%.1f$\sigma$ detection'%self._limexpl['nsigma'])
         plt.colorbar(label=self._limexpl['param']+(' (mag)' if mag else ''))
         plt.xlabel(px)
