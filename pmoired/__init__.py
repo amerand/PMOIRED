@@ -311,10 +311,10 @@ class OI:
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
 
-        insname: only apply to this insname (default: apply to all). 
-            Can be a string (single insname) or list of insnames
+        insname: only apply to this insname (default: None -> apply to all). 
+            Can be a string (single insname) or list of insnames.
 
-        "Fit" can contain the following keys:
+        "fit" contains the following keys (only "obs" is mandatory):
 
         'obs': list of observables in
             'FLUX': Flux
@@ -365,7 +365,8 @@ class OI:
         correctType = correctType or (type(fit)==list and
                                        len(fit)==len(self.data) and
                                         all([type(f)==dict for f in fit]))
-        assert correctType, "parameter 'fit' must be a dictionnary or a list of dict"
+        assert correctType, "parameter 'fit' must be a dictionnary or a list of dict "+\
+            "with same length as data (%d)"%len(self.data)
 
         if insname is None:
             insname = list(set([d['insname'] for d in self.data]))
@@ -379,14 +380,11 @@ class OI:
             for d in self.data:
                 assert _checkSetupFit(fit), 'setup dictionnary is incorrect'
                 if d['insname'] in insname:
-                    _n += 1
                     if 'fit' in d and update:
                         d['fit'].update(fit)
                     else:
                         d['fit'] = fit.copy()
         if type(fit)==list:
-            assert len(fit)==len(self.data), 'len(fit)!=len(data) [=%d]'%len(self.data)
-
             for i,d in enumerate(self.data):
                 assert _checkSetupFit(fit[i]), 'setup dictionnary is incorrect'
                 if d['insname'] in insname:
