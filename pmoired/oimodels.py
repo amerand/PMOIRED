@@ -174,14 +174,66 @@ def _Kepler3rdLaw(a=None, P=None, M1M2=None):
     else:
         return abs(a**3/(P**2*M1M2) - C)<=eC
 
-def _orbit(t, param, Vrad=False, verbose=False):
+def _orbit(t, P, Vrad=False, verbose=False):
+    """
+    position or Vrad for binary:  𝑉𝑟(𝑡)=𝐾[cos(𝜔+𝜈(𝑡))+𝑒cos𝜔]+𝛾
+    # K1 ≡ radial velocity semi ‐ amplitude of host star = 2pi a_1*sin(i)/(P*sqrt(1−e**2))
+    # a1 = a*m2/(m1+m2)
+    # mass function = m2**3 sin(i)**3 / (m1+m2)**2
+
+    t = array of MJDs
+    type can be 
+    - 'x' or 'y': separation vector B-A, in mas
+    - 'Va' or 'Vb' or 'Vb-Va': velocities in km/s
+    
+    """
+    M = 2*np.pi*(t-P['MJD0'])/P['P']
+    E = 0
+    for i in range(20):
+        E = M + P['e']*np.sin(E)
+    cos_nu = (np.cos(E)-P['e'])/(1-P['e']*np.cos(E))
+    nu = np.arccos(cos_nu)
+    nu[np.sin(M)<0] = 2*np.pi-nu[np.sin(M)<0]
+    
+    if 'Ma' in P and 'Mb' in P and 'plx' in P:
+        P['a'] = ((P['Ma']+P['Mb'])*(P['P']/326.25)**2)**(1/3.) # in AU
+        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['i']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
+        P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
+        P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
+        P['a'] *= P['plx'] # in mas
+
+    # separation
+    if 'a' in P:
+        r = P['a']*(1-P['e']**2)/(1+P['e']*np.cos(nu))
+        x, y, z = r*np.cos(nu), r*np.sin(nu), 0
+        # -- omega
+        x, y, z = x*np.cos((180-P['omega'])*np.pi/180) + y*np.sin((180-P['omega'])*np.pi/180), \
+                 -x*np.sin((180-P['omega'])*np.pi/180) + y*np.cos((180-P['omega'])*np.pi/180), \
+                  z
+        # -- inclination
+        x, y, z = x,\
+                  y*np.cos(P['i']*np.pi/180) + z*np.sin(P['i']*np.pi/180), \
+                 -y*np.sin(P['i']*np.pi/180) + z*np.cos(P['i']*np.pi/180)
+        # -- OMEGA
+        x, y, z = x*np.cos(P['OMEGA']*np.pi/180) + y*np.sin(P['OMEGA']*np.pi/180), \
+                 -x*np.sin(P['OMEGA']*np.pi/180) + y*np.cos(P['OMEGA']*np.pi/180), \
+                  z
+    if 'Ka' in P and 'Kb' in P:
+        VA = P['Ka']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
+    if 'K' in P:
+        # -- "Va-Vb" 
+        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
+    return (x,y)
+
+def _orbitOLD(t, param, Vrad=False, verbose=False):
     """
     INPUT PARAMETERS:
 
     t: list of times (MJD)
     param :  dictionnary containing the parameters:
     param = {'a': 99.1, 'i': 32.9, 'OMEGA': 172.8, 'e':0.938,
-             'omega':2.1, 'T0': 2451798.0280-2400000.5, 'P':10.817}
+             'omega':2.1, 'MJD0': 2451798.0280-2400000.5, 'P':10.817}
 
     Vrad=True: returns also the radial velocity
 
@@ -200,7 +252,7 @@ def _orbit(t, param, Vrad=False, verbose=False):
     - if 'a' is missing it is estimated using the Kepler law and 'P'
       (assumed to be in years). Results then given in AU
 
-    all angles in degress. T0 and P should have same unit (here days).
+    all angles in degress. MJD0 and P should have same unit (here days).
 
     result is xyz where x is RA offset and y is dec offset, in units
     of 'a'.
@@ -246,7 +298,7 @@ def _orbit(t, param, Vrad=False, verbose=False):
     # The mean anomaly is the time since the last periapsis multiplied by the
     # mean motion, and the mean motion is 2\pi divided by the duration of a full
     # orbit.
-    mean_anomaly = ((np.array(t)-param['T0'])%param['P'])/param['P']*2*np.pi
+    mean_anomaly = ((np.array(t)-param['MJD0'])%param['P'])/param['P']*2*np.pi
 
     #The eccentric anomaly E is related to the mean anomaly M by the formula:
     # M = E - e sin E
@@ -277,17 +329,17 @@ def _orbit(t, param, Vrad=False, verbose=False):
     #          * P2 is the sky plan
     #          * Upsilon (vernal point) is axis 'X' on the sky
     if 'omega0' in param and 'domega' in param:
-        omega = param['omega0']+(t-param['T0'])*param['domega']
-        xyz = (xyz[0]*np.cos((omega-180)*np.pi/180) -
-               xyz[1]*np.sin((omega-180)*np.pi/180),
-               xyz[0]*np.sin((omega-180)*np.pi/180) +
-               xyz[1]*np.cos((omega-180)*np.pi/180),
+        omega = param['omega0']+(t-param['MJD0'])*param['domega']
+        xyz = (xyz[0]*np.cos((180-omega)*np.pi/180) +
+               xyz[1]*np.sin((180-omega)*np.pi/180),
+               -xyz[0]*np.sin((180-omega)*np.pi/180) +
+               xyz[1]*np.cos((180-omega)*np.pi/180),
                xyz[2])
     else:
-        xyz = (xyz[0]*np.cos((param['omega']-180)*np.pi/180) -
-               xyz[1]*np.sin((param['omega']-180)*np.pi/180),
-               xyz[0]*np.sin((param['omega']-180)*np.pi/180) +
-               xyz[1]*np.cos((param['omega']-180)*np.pi/180),
+        xyz = (xyz[0]*np.cos((180-param['omega'])*np.pi/180) +
+               xyz[1]*np.sin((180-param['omega'])*np.pi/180),
+               -xyz[0]*np.sin((180-param['omega'])*np.pi/180) +
+               xyz[1]*np.cos((180-param['omega'])*np.pi/180),
                xyz[2])
 
     if 'i' in param:
@@ -485,15 +537,17 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         elif type(_xs)==str and _xs=='orbit':
             # -- collect orbital parameters
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
+            #print('orbital params (X):', oP)
             x = lambda o: _orbit(o['MJD2'], oP)[0]
         else:
             x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
 
         if type(_ys)==str and '$MJD' in _ys:
             y = lambda o: eval(_ys.replace('$MJD', "o['MJD2']"))
-        elif type(_xs)==str and _xs=='orbit':
+        elif type(_ys)==str and _ys=='orbit':
             # -- collect orbital parameters
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
+            #print('orbital params (Y):', oP)
             y = lambda o: _orbit(o['MJD2'], oP)[1]
         else:
             y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
@@ -581,8 +635,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
     # -- phase offset
     #phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
-    #print('debug: _xs=', _xs)
-    #print('debug: _xs=', _ys)
     PHI = lambda o: np.exp(-2j*_c*(o['u/wl'][:,wwl]/cwl*x(o)[:,wwl] +
                                    o['v/wl'][:,wwl]/cwl*y(o)[:,wwl]))
 
@@ -977,6 +1029,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                        np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
             V[:,wwl] *= PHI(oi[key][k])
         else:
+            #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']), 
+            #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
             V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
 
         tmp['|V|'] = np.abs(V)
@@ -2238,8 +2292,11 @@ def computeLambdaParams(params):
                         # -- set function to another loop
                         loop = True
                         paramsI[k] = tmp
-                if compute and not loop:
-                    paramsR[k] = eval(tmp)
+                if compute and not loop and tmp!='orbit':
+                    try:
+                        paramsR[k] = eval(tmp)
+                    except:
+                        print('!', k, tmp)
                 else:
                     paramsR[k] = tmp
             else:

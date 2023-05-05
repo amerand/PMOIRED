@@ -97,8 +97,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     # -- keep only targets for the instrument, if specified
     if not insname is None and insname in ins2targ:
-        targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
-        #print(insname, '->', targets)
+        try:
+            targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
+        except:
+            print(targets, ins2targ)
+
 
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]

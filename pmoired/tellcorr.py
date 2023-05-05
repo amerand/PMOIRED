@@ -118,6 +118,17 @@ def Ftran(l, param, retWL=False):
         tmpT *= scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], kind='cubic', fill_value='extrapolate')(tmpL)
     return np.interp(l, tmpL, tmpT)
 
+def removeTellurics(filename):
+    f = fits.open(filename)
+    if 'TELLURICS' in f:
+        f.pop('TELLURICS')
+        print('tellurics extension removed')
+        f.writeto(filename, overwrite=True)
+    else:
+        print('tellurics not found, nothing to do')
+    f.close()
+    return
+
 def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             fig=None, force=False):
     """
@@ -136,7 +147,9 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('use "force=True" to recompute')
         f.close()
         return
-
+    else:
+        print('fitting telluric, continuum and spectral dispersion model')
+        
     if 'MED' in f[0].header['ESO INS SPEC RES']:
         MR = True
     elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
@@ -221,7 +234,6 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
              'pwv':2.0, 'pow':1,
              #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0, 
              }
-
 
     # -- spectrum model using spline nodes
     Nn =  12 if MR else 35
@@ -354,10 +366,14 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     return
 
 def showTellurics(filename, fig=0):
+    h = fits.open(filename)
+    if not 'TELLURICS' in h:
+        print('no tellurics model found')
+        return 
     if not fig is None:
         plt.close(fig)
         plt.figure(fig, figsize=(9,3))
-    h = fits.open(filename)
+
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC'],
              '-y', alpha=0.5, label='raw spectrum', lw=1)
@@ -366,7 +382,8 @@ def showTellurics(filename, fig=0):
              '-k', label='corrected spectrum', lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['TELL_TRANS']*np.mean(h['TELLURICS'].data['RAW_SPEC']),
-             '-b', label='telluric model', alpha=0.5, lw=1)
+             '-b', label='telluric model (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
+             alpha=0.5, lw=1)
     plt.legend()
     plt.title(os.path.basename(filename), fontsize=8)
     plt.xlabel('wavelength ($\mu$m)')

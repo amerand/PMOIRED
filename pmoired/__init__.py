@@ -485,6 +485,35 @@ class OI:
         self.computeModelSpectra(uncer=False)
         return
 
+    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True):
+        if not prior is None:
+            print(prior)
+            assert _checkPrior(prior), 'ill formed "prior"'
+
+        if model is None:
+            try:
+                model = self.bestfit['best']
+                if doNotFit=='auto':
+                    doNotFit = self.bestfit['doNotFit']
+                    fitOnly = self.bestfit['fitOnly']
+            except:
+                assert True, ' first guess as "model={...}" should be provided'
+
+        # -- merge data to accelerate computations
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        prior = self._setPrior(model, prior, autoPrior)
+        for m in self._merged:
+            if 'fit' in m:
+                m['fit']['prior'] = prior
+            else:
+                m['fit'] = {'prior':prior}
+        tmp = oimodels.residualsOI(self._merged, model)
+        #return np.sum(tmp**2)/(len(tmp)-len(model)+1)
+        if reduced:
+            return np.mean(tmp**2)
+        else:
+            return np.sum(tmp**2)
+
     def showFit(self):
         """
         show how chi2 / fitted parameters changed with each iteration of the fit.
