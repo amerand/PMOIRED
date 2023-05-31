@@ -947,10 +947,14 @@ def errorEllipse(fit, p1, p2, n=100):
     returns ellipse of errors (x1, x2), computed from the covariance. The n values are centered
     around fit['best']['p1'] and fit['best']['p2']
     """
-    i1 = fit['fitOnly'].index(p1)
-    i2 = fit['fitOnly'].index(p2)
-    t = np.linspace(0,2*np.pi,n)
-    sMa, sma, a = _ellParam(fit['cov'][i1,i1], fit['cov'][i2,i2], fit['cov'][i1,i2])
+    t = np.linspace(0,2*np.pi,n)  
+    if 'covd' in fit:
+      sMa, sma, a = _ellParam(fit['covd'][p1][p1], fit['covd'][p2][p2], fit['covd'][p1][p2])    
+    else:
+      i1 = fit['fitOnly'].index(p1)
+      i2 = fit['fitOnly'].index(p2)
+      sMa, sma, a = _ellParam(fit['cov'][i1,i1], fit['cov'][i2,i2], fit['cov'][i1,i2])
+
     X,Y = sMa*np.cos(t), sma*np.sin(t)
     X,Y = X*np.cos(a)+Y*np.sin(a),-X*np.sin(a)+Y*np.cos(a)
     return fit['best'][p1]+X, fit['best'][p2]+Y
