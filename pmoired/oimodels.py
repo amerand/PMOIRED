@@ -8,6 +8,9 @@ import itertools
 import sys
 import pickle
 
+import warnings
+warnings.filterwarnings(action='ignore', category=RuntimeWarning) 
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -29,7 +32,10 @@ from astropy import constants
 
 _c = np.pi**2/180/3600/1000*1e6
 
+# -- default max number of processes
 MAX_THREADS = multiprocessing.cpu_count()
+
+
 
 def Ssingle(oi, param, noLambda=False):
     """
@@ -901,7 +907,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 oi['fit']['ignore negative flux']:
                 negativity = 0.0
 
-        negativity += 100*_negativityAzvar(_n, _phi, _amp)
+        negativity += np.sum(flux)*_negativityAzvar(_n, _phi, _amp)
         Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl,
                                Ir, _r, _n, _phi, _amp, stretch=stretch)
 
@@ -3591,17 +3597,16 @@ _prog_t0 = time.time()
 def progress(results=None):
     global _prog_N, _prog_Nmax, _prog_t0
     _nb = 60 # length of the progress bar
-    tleft = (time.time()-_prog_t0)/_prog_N*(_prog_Nmax-_prog_N)
+    tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
     if tleft>100:
-        tleft = '%2.0fmin'%(tleft/60)
+        tleft = '%3.0fmin'%(tleft/60)
     else:
-        tleft = '%2.0fs  '%(tleft)
+        tleft = '%3.0fs  '%(tleft)
     fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
     fmt = '%s/%s'%(fmt, fmt)+' %s left'
-    #print('['+bytes((219,)).decode('cp437')*_prog_N+'.'*(_prog_Nmax-_prog_N)+'] %3d/%3d %s %5.0fs remaining'%(_prog_N, _prog_Nmax, time.asctime(), (time.time()-_prog_t0)/_prog_N*(_prog_Nmax-_prog_N)), end='\r')
     print(time.asctime()+':', 
-        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/_prog_Nmax)+
-        '.'*(_nb-int(_nb*_prog_N/_prog_Nmax)) + ']'+
+        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/max(_prog_Nmax, 1))+
+        '.'*(_nb-int(_nb*_prog_N/max(_prog_Nmax, 1))) + ']'+
         fmt%(_prog_N, _prog_Nmax, tleft), end='\r')
     _prog_N+=1
 
@@ -3991,7 +3996,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     global _prog_N, _prog_Nmax, _prog_t0, MAX_THREADS
 
     if N is None:
-        # count number of spectral vector data
+        # -- count number of spectral vector data
         N = 0
         ext = {'|V|':'OI_VIS',
                 'PHI':'OI_VIS',
@@ -4017,14 +4022,12 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         for o in oi: # for each datasets
             MJD.extend(o['MJD'])
         MJD = set(MJD)
-
         if len(MJD)<5: # to get at least 100 combination
             print('WARNING: cannot randomise only on MJD for', len(MJD), 'dates,',
-                 'randomising on MJD+baselines/triangles instead')
+                  'randomising on MJD+baselines/triangles instead')
             strongMJD = False
         elif verbose:
             print('randomising on', len(MJD), 'different dates')
-
 
     fitOnly = fit['fitOnly']
     doNotFit = fit['doNotFit']
@@ -4049,8 +4052,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             Np = min(multi, N)
         if verbose:
             print(time.asctime()+': running', N, 'fits on', Np, 'processes')
-
-
+          
         # -- run the remaining
         pool = multiprocessing.Pool(Np)
         _prog_N = 1
@@ -4064,6 +4066,9 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
+        for r in res:
+            r['y'] = None
+            r['y'] = None
     else:
         Np = 1
         t = time.time()
@@ -5800,8 +5805,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     """
     global _AX, _AY
+    #t0 = time.time()
     boot = copy.deepcopy(b)
-
+    #print('deep copy', time.time()-t0, 's')
     # -- THIS IS NOT WORKING :(
     #if showChi2:
     #    if not type(combParam) == dict:
@@ -5856,7 +5862,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     offs = {}
     amps = {}
-
+    t0 = time.time()
     for i1, k1 in enumerate(showP):
         # -- create histogram plot
         _AX[i1] = plt.subplot(len(showP),
@@ -5941,7 +5947,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                                     fontsize=fontsize)
             _AX[i1].callbacks.connect('ylim_changed', _callbackAxes)
         # -- end histogram
-
+    #print('hist in', time.time()-t0, 's')
     _AY = {}
 
     # -- show density plots

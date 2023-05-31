@@ -13,7 +13,6 @@ except:
 
 import numpy as np
 import warnings
-#warnings.filterwarnings('ignore')
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 import matplotlib.pyplot as plt
@@ -143,7 +142,8 @@ class OI:
         else:
             self.data = []
         self._merged = []
-
+    def __del__(self):
+        self.data = None
     def save(self, name=None, overwrite=False):
         """
         save session as binary file (not OIFITS :()
@@ -829,7 +829,6 @@ class OI:
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
                                             multi=multi, keepFlux=keepFlux,
                                             verbose=verbose, strongMJD=strongMJD)
-
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):

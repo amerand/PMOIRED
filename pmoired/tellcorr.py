@@ -5,6 +5,7 @@ from astropy.io import fits
 import scipy.interpolate
 import sys, os
 import time
+import pickle
 
 try:
     import pmoired.dpfit as dpfit
@@ -13,46 +14,57 @@ except:
 
 this_dir, this_filename = os.path.split(__file__)
 
-wv1 = '020' # 2mm Water Vapor
-f = fits.open(os.path.join(this_dir, 'transnir'+wv1+'.fits'))
-lbda = f[1].data['WAVELENGTH'][0].copy()
-tran = f[1].data['TRANSMISSION'][0].copy()
-f.close()
-tran = tran[(lbda<2.5)*(lbda>1.95)]
-lbda = lbda[(lbda<2.5)*(lbda>1.95)]
-tran20, lbda = 1.0*tran[::50], lbda[::50]
-f = fits.open(os.path.join(this_dir, 'emisnir'+wv1+'.fits'))
-lbda0 = f[1].data['WAVELENGTH'][0].copy()
-tran0 = f[1].data['EMISSION'][0].copy()
-tran20 += np.interp(lbda, lbda0[::50], tran0[::50])
-f.close()
+bin_file = 'transir_gravity.pckl'
 
-wv2 = '080' # 8mm Water Vapor
-f = fits.open(os.path.join(this_dir, 'transnir'+wv2+'.fits'))
-lbda = f[1].data['WAVELENGTH'][0].copy()
-tran = f[1].data['TRANSMISSION'][0].copy()
-f.close()
-tran = tran[(lbda<2.5)*(lbda>1.95)]
-lbda = lbda[(lbda<2.5)*(lbda>1.95)]
-tran80, lbda = 1.0*tran[::50], lbda[::50]
-f = fits.open(os.path.join(this_dir, 'emisnir'+wv2+'.fits'))
-lbda0 = f[1].data['WAVELENGTH'][0].copy()
-tran0 = f[1].data['EMISSION'][0].copy()
-tran80 += np.interp(lbda, lbda0[::50], tran0[::50])
-f.close()
+try:
+    # -- loading transnir
+    with open(os.path.join(this_dir, bin_file), 'rb') as f:
+        tran20, tran80, lbda = pickle.load(f)
+except:
+    print('creating transmission binary file')
+    wv1 = '020' # 2mm Water Vapor
+    f = fits.open(os.path.join(this_dir, 'transnir'+wv1+'.fits'))
+    lbda = f[1].data['WAVELENGTH'][0].copy()
+    tran = f[1].data['TRANSMISSION'][0].copy()
+    f.close()
+    tran = tran[(lbda<2.5)*(lbda>1.95)]
+    lbda = lbda[(lbda<2.5)*(lbda>1.95)]
+    tran20, lbda = 1.0*tran[::50], lbda[::50]
+    f = fits.open(os.path.join(this_dir, 'emisnir'+wv1+'.fits'))
+    lbda0 = f[1].data['WAVELENGTH'][0].copy()
+    tran0 = f[1].data['EMISSION'][0].copy()
+    tran20 += np.interp(lbda, lbda0[::50], tran0[::50])
+    f.close()
 
-def Ftran(l, param, retWL=False):
+    wv2 = '080' # 8mm Water Vapor
+    f = fits.open(os.path.join(this_dir, 'transnir'+wv2+'.fits'))
+    lbda = f[1].data['WAVELENGTH'][0].copy()
+    tran = f[1].data['TRANSMISSION'][0].copy()
+    f.close()
+    tran = tran[(lbda<2.5)*(lbda>1.95)]
+    lbda = lbda[(lbda<2.5)*(lbda>1.95)]
+    tran80, lbda = 1.0*tran[::50], lbda[::50]
+    f = fits.open(os.path.join(this_dir, 'emisnir'+wv2+'.fits'))
+    lbda0 = f[1].data['WAVELENGTH'][0].copy()
+    tran0 = f[1].data['EMISSION'][0].copy()
+    tran80 += np.interp(lbda, lbda0[::50], tran0[::50])
+    f.close()
+    with open(os.path.join(this_dir, bin_file), 'wb') as f:
+        pickle.dump((tran20, tran80, lbda), f)
+
+
+def Ftran(l, param, retWL=False, retS=False):
     """
     'dl0', 'wl0', 'dl1',
 
     wl -> (wl-dl0)
     wl -> dli*(wl-wl0)**i + wl0
     """
-    global tran20, tran80, lbda, t80_20
+    global tran20, tran80, lbda
 
     tmpL = 1.0*lbda
 
-    # -- wavelengt correction
+    # -- wavelength correction
     if 'dl0' in param.keys():
         tmpL -= param['dl0']
     if 'dl1' in param.keys() and 'wl0' in param.keys():
@@ -72,7 +84,6 @@ def Ftran(l, param, retWL=False):
 
     if 'pow' in param.keys():
         tmpT = 1-np.abs(1-tmpT)**param['pow']
-
 
     # -- local corrections
     pc = filter(lambda x: x.startswith('p_'), param.keys())
@@ -115,7 +126,11 @@ def Ftran(l, param, retWL=False):
     X = sorted(filter(lambda x: x.startswith('xS'), param.keys()))
     Y = sorted(filter(lambda x: x.startswith('yS'), param.keys()))
     if len(X)==len(Y) and len(X):
-        tmpT *= scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], kind='cubic', fill_value='extrapolate')(tmpL)
+        tmpS = scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], 
+                                        kind='cubic', fill_value='extrapolate')(tmpL)
+        tmpT *= tmpS
+        if retS:
+            return np.interp(l, tmpL, tmpS)
     return np.interp(l, tmpL, tmpT)
 
 def removeTellurics(filename):
@@ -125,7 +140,7 @@ def removeTellurics(filename):
         print('tellurics extension removed')
         f.writeto(filename, overwrite=True)
     else:
-        print('tellurics not found, nothing to do')
+        print('tellurics not found, nothing to remove')
     f.close()
     return
 
@@ -147,9 +162,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('use "force=True" to recompute')
         f.close()
         return
-    else:
-        print('fitting telluric, continuum and spectral dispersion model')
-        
+    
     if 'MED' in f[0].header['ESO INS SPEC RES']:
         MR = True
     elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
@@ -204,7 +217,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     f.close()
 
     # -- avoid some known lines
-    w = (wl>wlmin)*(wl<wlmax)*~fl*~np.isnan(sp)
+    w = (wl>wlmin)*(wl<wlmax)*~fl*~np.isnan(sp)*(sp!=0)
 
     if avoid is None:
         c = 3 if MR else 1
@@ -217,7 +230,6 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     if not quiet:
         print('WL (fit):', wl[w].shape)
-
 
     # -- FIT TELLURIC MODEL -------------------------------------------
     if MR:
@@ -236,7 +248,6 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
              }
 
     # -- spectrum model using spline nodes
-    Nn =  12 if MR else 35
     Nn =  12 if MR else 35
     
     for i,x in enumerate(np.linspace(wl[w].min(), wl[w].max(), Nn)):
@@ -314,8 +325,9 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         c4 = fits.Column(name='CORR_SPEC', array=sp/Ftran(wl, fit['best']), format='D')
         c5 = fits.Column(name='CORR_WAVE', array=Ftran(wl, fit['best'], retWL=True)*1e-6,
                         format='D', unit='m')
+        c6 = fits.Column(name='CORR_CONT', array=Ftran(wl, fit['best'], retS=True), format='D')
 
-        hdu = fits.BinTableHDU.from_columns([c1, c2, c3, c4, c5])
+        hdu = fits.BinTableHDU.from_columns([c1, c2, c3, c4, c5, c6])
         hdu.header['EXTNAME'] = 'TELLURICS'
         hdu.header['ORIGIN'] = 'https://github.com/amerand/PMOIRED'
         hdu.header['AUTHOR'] = 'amerand@eso.org'
@@ -326,6 +338,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     if quiet:
         return
+
     print('isnan:', any(np.isnan(fit['model'])))
     # -- PLOT RESULTS --------------------------------------------------
     plt.plot(wl[w], sp[w], '-c', alpha=0.5, label='raw data')
@@ -372,22 +385,43 @@ def showTellurics(filename, fig=0):
         return 
     if not fig is None:
         plt.close(fig)
-        plt.figure(fig, figsize=(9,3))
+        plt.figure(fig, figsize=(9,6))
 
+    ax1 = plt.subplot(211)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC'],
              '-y', alpha=0.5, label='raw spectrum', lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['CORR_CONT'],
+             '-g', alpha=0.5, label='estimated continuum', lw=1)
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
              '-k', label='corrected spectrum', lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
-             h['TELLURICS'].data['TELL_TRANS']*np.mean(h['TELLURICS'].data['RAW_SPEC']),
+             h['TELLURICS'].data['TELL_TRANS']*h['TELLURICS'].data['CORR_CONT'], 
+             '-b', label='telluric*continuum (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
+             alpha=0.5, lw=1)
+
+    plt.legend()
+    plt.ylabel("flux (arb. unit)")
+
+    ax2 = plt.subplot(212, sharex=ax1)
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+         h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['CORR_CONT'],
+         '-y', alpha=0.5, label='raw normalised spectrum', lw=1)
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['TELL_TRANS'],
              '-b', label='telluric model (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
              alpha=0.5, lw=1)
+    plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
+             h['TELLURICS'].data['RAW_SPEC']/
+             h['TELLURICS'].data['TELL_TRANS']/h['TELLURICS'].data['CORR_CONT'],
+             '-k', label='corrected spectrum', lw=1)
     plt.legend()
-    plt.title(os.path.basename(filename), fontsize=8)
+    plt.ylabel("normalised flux")
     plt.xlabel('wavelength ($\mu$m)')
-    plt.ylabel("flux (arb. unit)")
+    plt.suptitle(os.path.basename(filename), fontsize=8)
+
     plt.tight_layout()
     h.close()
     return
