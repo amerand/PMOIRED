@@ -390,7 +390,7 @@ def showTellurics(filename, fig=0):
     ax1 = plt.subplot(211)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC'],
-             '-y', alpha=0.5, label='raw spectrum', lw=1)
+             '-', alpha=0.5, label='raw spectrum', color='orange', lw=2)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['CORR_CONT'],
              '-g', alpha=0.5, label='estimated continuum', lw=1)
@@ -408,7 +408,7 @@ def showTellurics(filename, fig=0):
     ax2 = plt.subplot(212, sharex=ax1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
          h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['CORR_CONT'],
-         '-y', alpha=0.5, label='raw normalised spectrum', lw=1)
+          '-', alpha=0.5, label='raw normalised spectrum', color='orange', lw=2)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['TELL_TRANS'],
              '-b', label='telluric model (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
