@@ -393,7 +393,7 @@ def showTellurics(filename, fig=0):
              '-', alpha=0.5, label='raw spectrum', color='orange', lw=2)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['CORR_CONT'],
-             '-g', alpha=0.5, label='estimated continuum', lw=1)
+             ':g', alpha=0.5, label='estimated continuum', lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
              '-k', label='corrected spectrum', lw=1)
