@@ -203,7 +203,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     #oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
     #               np.char.strip(h['OI_ARRAY'].data['STA_NAME'])))
 
-
     # -- V2 baselines == telescopes pairs
     res['OI_VIS2'] = {}
     res['OI_VIS'] = {}
@@ -289,8 +288,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            res['OI_FLUX'][k]['FLAG'],
                                                            medFilt=medFilt, retFlag=True)
                         # -- KLUDGE!
-                        res['OI_FLUX'][k]['EFLUX'] = binOI(res['WL'], _WL,
-                                                           res['OI_FLUX'][k]['EFLUX'],
+                        # res['OI_FLUX'][k]['EFLUX'] = binOI(res['WL'], _WL,
+                        #                                    res['OI_FLUX'][k]['EFLUX'],
+                        #                                    res['OI_FLUX'][k]['FLAG'],
+                        #                                    medFilt=medFilt)
+                        res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
+                                                           1/res['OI_FLUX'][k]['EFLUX'],
                                                            res['OI_FLUX'][k]['FLAG'],
                                                            medFilt=medFilt)
                         res['OI_FLUX'][k]['FLAG'] = flag
@@ -367,11 +370,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          retFlag=True)
 
                         # -- KLUDGE!
-                        res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
-                                                         res['OI_VIS2'][k]['EV2'],
+                        # res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
+                        #                                  res['OI_VIS2'][k]['EV2'],
+                        #                                  res['OI_VIS2'][k]['FLAG'],
+                        #                                  res['OI_VIS2'][k]['EV2'],
+                        #                                  medFilt=medFilt)
+                        res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
+                                                         1/res['OI_VIS2'][k]['EV2'],
                                                          res['OI_VIS2'][k]['FLAG'],
                                                          res['OI_VIS2'][k]['EV2'],
                                                          medFilt=medFilt)
+                        
                         res['OI_VIS2'][k]['FLAG'] = flag
 
         # -- V baselines == telescopes pairs
@@ -469,8 +478,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                     if not binning is None:
                         _w = ~res[ext][k]['FLAG']
-                        res[ext][k][vis],  flag =\
-                                                   binOI(res['WL'], _WL,
+                        res[ext][k][vis],  flag = binOI(res['WL'], _WL,
                                                          res[ext][k][vis],
                                                          res[ext][k]['FLAG'],
                                                          res[ext][k]['E'+vis],
@@ -483,16 +491,27 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          medFilt=medFilt)
 
                         # -- KLUDGE!
-                        res[ext][k]['E'+vis] = binOI(res['WL'], _WL,
-                                                         res[ext][k]['E'+vis],
+                        # res[ext][k]['E'+vis] = binOI(res['WL'], _WL,
+                        #                                  res[ext][k]['E'+vis],
+                        #                                  res[ext][k]['FLAG'],
+                        #                                  res[ext][k]['E|V|'],
+                        #                                  medFilt=medFilt)
+                        # res[ext][k]['EPHI'] = binOI(res['WL'], _WL,
+                        #                                  res[ext][k]['EPHI'],
+                        #                                  res[ext][k]['FLAG'],
+                        #                                  res[ext][k]['EPHI'],
+                        #                                  medFilt=medFilt)
+                        res[ext][k]['E'+vis] = 1/binOI(res['WL'], _WL,
+                                                         1/res[ext][k]['E'+vis],
                                                          res[ext][k]['FLAG'],
                                                          res[ext][k]['E|V|'],
                                                          medFilt=medFilt)
-                        res[ext][k]['EPHI'] = binOI(res['WL'], _WL,
-                                                         res[ext][k]['EPHI'],
+                        res[ext][k]['EPHI'] = 1/binOI(res['WL'], _WL,
+                                                         1/res[ext][k]['EPHI'],
                                                          res[ext][k]['FLAG'],
                                                          res[ext][k]['EPHI'],
                                                          medFilt=medFilt)
+                        
                         res[ext][k]['FLAG'] = flag
 
         #elif debug and 'EXTNAME' in hdu.header:
@@ -644,16 +663,27 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                           medFilt=medFilt)
 
                         # -- KLUDGE!
-                        res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
-                                                           res['OI_T3'][k]['ET3AMP'],
+                        # res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
+                        #                                    res['OI_T3'][k]['ET3AMP'],
+                        #                                    res['OI_T3'][k]['FLAG'],
+                        #                                    res['OI_T3'][k]['ET3AMP'],
+                        #                                    medFilt=medFilt)
+                        # res['OI_T3'][k]['ET3PHI'] = binOI(res['WL'], _WL,
+                        #                                    res['OI_T3'][k]['ET3PHI'],
+                        #                                    res['OI_T3'][k]['FLAG'],
+                        #                                    res['OI_T3'][k]['ET3PHI'],
+                        #                                    medFilt=medFilt)
+                        res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
+                                                           1/res['OI_T3'][k]['ET3AMP'],
                                                            res['OI_T3'][k]['FLAG'],
                                                            res['OI_T3'][k]['ET3AMP'],
                                                            medFilt=medFilt)
-                        res['OI_T3'][k]['ET3PHI'] = binOI(res['WL'], _WL,
-                                                           res['OI_T3'][k]['ET3PHI'],
+                        res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
+                                                           1/res['OI_T3'][k]['ET3PHI'],
                                                            res['OI_T3'][k]['FLAG'],
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
+                        
                         res['OI_T3'][k]['FLAG'] = flag
                 res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
 
@@ -1199,7 +1229,14 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False):
     flag = np.zeros((T.shape[0], len(_wl)), dtype=bool)
     for i in range(T.shape[0]):
         w = ~F[i,:]
-        flag[i,:] = _binVec(_wl, WL, np.float_(F[i,:]))>0.5
+        # -- half of the points in the bin are valid
+        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>0.5)
+
+        # -- 2/3 of the points in the bin are valid
+        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>2/3)
+        
+        # -- at least one point in the bin is valid
+        flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float_(~F[i,:]))>0)
         if E is None:
             res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
         else:
@@ -1215,17 +1252,19 @@ def _binVec(x, X, Y, E=None, medFilt=None):
     """
     bin Y(X) with new x. E is optional error bars (wor weighting)
     """
-    dx = np.median(np.diff(x))
     if E is None:
         E = np.ones(len(Y))
-
-    # -- X can be irregular, so traditionnal convultion may not work
+    # -- X can be irregular, so traditionnal convolution may not work
     y = np.zeros(len(x))
+    Gx = np.gradient(x)
+    #dx = np.median(np.diff(x))
     for i,x0 in enumerate(x):
-        k = np.exp(-(X-x0)**2/(0.6*dx)**2)
+        # -- kernel
+        #k = np.exp(-(X-x0)**2/(0.6*dx)**2)
+        k = np.exp(-(X-x0)**2/(0.6*Gx[i])**2)
         no = np.sum(k/E) # normalisation
         if no!=0 and np.isfinite(no):
-            y[i] = np.sum(k*Y/E)/no
+            y[i] = np.sum(k/E*Y)/no
         else:
             y[i] = np.sum(k*Y)/np.sum(k)
     return y
