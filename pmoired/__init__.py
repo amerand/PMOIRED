@@ -30,8 +30,8 @@ FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
 MAX_THREADS = multiprocessing.cpu_count()
 
-print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
-print('https://github.com/amerand/PMOIRED')
+#print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
+#print('https://github.com/amerand/PMOIRED')
 
 __version__= '20230313'
 
