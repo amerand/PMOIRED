@@ -3604,10 +3604,12 @@ def progress(results=None):
         tleft = '%3.0fs  '%(tleft)
     fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
     fmt = '%s/%s'%(fmt, fmt)+' %s left'
-    print(time.asctime()+':', 
-        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/max(_prog_Nmax, 1))+
-        '.'*(_nb-int(_nb*_prog_N/max(_prog_Nmax, 1))) + ']'+
-        fmt%(_prog_N, _prog_Nmax, tleft), end='\r')
+    res = time.asctime()+': '+\
+        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/max(_prog_Nmax, 1))+\
+        '.'*(_nb-int(_nb*_prog_N/max(_prog_Nmax, 1))) + ']'+\
+        fmt%(_prog_N, _prog_Nmax, tleft)+'\r'
+    #print(res)
+    sys.stdout.write(res)
     _prog_N+=1
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
