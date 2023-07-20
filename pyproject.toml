@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+pmoired = ["newVltiHzn_obsDoors.txt", 
+           "transir_gravity.pckl"]
+
+[project]
+name = "pmoired"
+version = "1.0"
+requires-python = ">=3.8"
+readme = "README.md"
+authors = [
+    {name = "Antoine Mérand", email = "amerand@eso.org"},
+]
+dependencies = [
+    "scipy", "numpy", "matplotlib", "astropy","astroquery"
+]
+
+
+
