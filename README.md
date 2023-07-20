@@ -21,19 +21,16 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
-_`PMOIRED` can be used without installing it to your Python tree. Look at the examples to see how to call it_.
+_`PMOIRED` can be used without installing it. Look at the examples to see how to call it_.
 
 Run the following command in the the root directory of the sources:
 ```
-python setup.py install --record files.txt
+python3 -m pip install .
 ```
-if you do not have the root rights to your system, you can alternatively run:
-```
-python setup.py install --user --record files.txt
-```
+
 To uninstall (assuming you have recorded the install files at described above):
 ```
-xargs rm -rf < files.txt
+python3 -m pip uninstall pmoired
 ```
 
 ## Examples
