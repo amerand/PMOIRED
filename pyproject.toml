@@ -12,7 +12,7 @@ pmoired = ["newVltiHzn_obsDoors.txt",
 
 [project]
 name = "pmoired"
-version = "1.0"
+version = "1.0.1"
 requires-python = ">=3.8"
 readme = "README.md"
 
