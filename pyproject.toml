@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 include = ["pmoired"]
 exclude = ["tutorials", "examples", "banner"]
 
-
 [tool.setuptools.package-data]
 pmoired = ["newVltiHzn_obsDoors.txt", 
            "transir_gravity.pckl"]
@@ -16,9 +15,16 @@ name = "pmoired"
 version = "1.0"
 requires-python = ">=3.8"
 readme = "README.md"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
 authors = [
     {name = "Antoine Mérand", email = "amerand@eso.org"},
 ]
+
 dependencies = [
     "scipy", "numpy", "matplotlib", "astropy","astroquery"
 ]
