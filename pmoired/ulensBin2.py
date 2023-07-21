@@ -91,7 +91,9 @@ def computeImages(MJD, param, parallel=False, debug=False):
     t0 = time.time()
     cols = ['t0', 'u0', 'tE', 'b', 'q', 'theta', 'rhos']
     if not 't0' in param and 'mjd0' in param:
-        param['t0'] = param['mjd0']-50000.5
+        #param['t0'] = param['mjd0']-50000.5
+        param['t0'] = param['mjd0']- 49999.5 # argh!
+
 
     _p = [param[c] for c in cols]
     if _p!=_lastParam:
