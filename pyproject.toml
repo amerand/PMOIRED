@@ -15,6 +15,7 @@ version = {attr='pmoired.__version__'}
 
 [project]
 name = "pmoired"
+dynamic = ["version"]
 requires-python = ">=3.8"
 readme = {file="README.md", content-type="text/markdown"}
 license = {file="LICENCE.txt"}
