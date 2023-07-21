@@ -16,7 +16,7 @@ version = {attr='pmoired.__version__'}
 [project]
 name = "pmoired"
 requires-python = ">=3.8"
-readme = {name="README.md", content-type="text/markdown"}
+readme = {file="README.md", content-type="text/markdown"}
 license = {file="LICENCE.txt"}
 classifiers = [
     "Programming Language :: Python :: 3",
