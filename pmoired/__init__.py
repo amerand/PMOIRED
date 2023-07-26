@@ -11,20 +11,21 @@ try:
 except:
     pass
 
-import numpy as np
-import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
-
-import matplotlib.pyplot as plt
-import scipy
-import astropy
-import astroquery
-import matplotlib
 import sys
 import os
 import pickle
 import time
 import requests
+import glob
+
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning) 
+import matplotlib.pyplot as plt
+import scipy
+import astropy
+import astroquery
+import matplotlib
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -80,6 +81,31 @@ except:
     # -- cannot get versions of jupyter tools
     pass
 
+def _isiterable(x):
+    res = True 
+    try:
+        iter(x)
+    except:
+        res = False
+    return res
+
+def _globlist(filenames, strict=False):
+    if type(filenames)!=str and _isiterable(filenames):
+        res = []
+        for f in filenames:
+            res.extend(_globlist(f, strict=strict))
+        return res
+    assert type(filenames)==str, 'cannot find file(s) for '+str(filenames) 
+
+    if os.path.exists(filenames):
+        return [filenames]
+    else:
+        g = glob.glob(filenames)
+        if not strict and len(g)==0:
+            print('\033[31mWARNING\033[0m no file(s) found for '+str(filenames))
+        else:
+            assert len(g)>0, 'no file(s) found for '+str(filenames)
+        return g
 
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
@@ -135,6 +161,7 @@ class OI:
             print('loading session saved in', filenames)
             self.load(filenames)
         elif not filenames is None:
+            filenames = _globlist(filenames)
             self.addData(filenames, insname=insname, targname=targname,
                             verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                             tellurics=tellurics, binning=binning,
