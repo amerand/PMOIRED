@@ -504,7 +504,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res[ext][k]['E'+vis] = 1/binOI(res['WL'], _WL,
                                                          1/res[ext][k]['E'+vis],
                                                          res[ext][k]['FLAG'],
-                                                         res[ext][k]['E|V|'],
+                                                         res[ext][k]['E'+vis],
                                                          medFilt=medFilt)
                         res[ext][k]['EPHI'] = 1/binOI(res['WL'], _WL,
                                                          1/res[ext][k]['EPHI'],
