@@ -88,7 +88,6 @@ def Ssingle(oi, param, noLambda=False):
                 pow = 1.0
             f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**pow/(dwl/1000)**pow)*(oi['WL']>=wl0)
             f += _param[l]*np.exp(-np.abs(oi['WL']-wl0)**(2*pow)/(dwl/1000/10)**(2*pow))*(oi['WL']<wl0)
-
         if 'line_'+i+'_gaussian' in _param.keys():
             dwl = _param['line_'+i+'_gaussian'] # in nm
             if 'line_'+i+'_power' in _param.keys():
@@ -3292,7 +3291,7 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
-          onlyMJD=None):
+          onlyMJD=None, lowmemory=False):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -3397,7 +3396,10 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     if type(verbose)==int and verbose>=2 and \
         len(fit['cord'].keys())>1 and any([fit['uncer'][k]>0 for k in fit['uncer']]):
         dpfit.dispCor(fit)
-
+    if lowmemory:
+        for k in ['x']:
+            if k in fit:
+                fit.pop(k)
     return fit
 
 def _updateAzAmpsProjangs(params):
@@ -3700,6 +3702,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'iter':-1, 'prior':prior}
+    if dLimParam is None:
+        kwargs['lowmemory'] = True
     res = []
     _prog_N = 1
     _prog_Nmax = N

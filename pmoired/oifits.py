@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
-           binning=None, useTelluricsWL=True, barycentric=False):
+           binning=None, useTelluricsWL=True, barycentric=False, ignoreCF=False):
     """
     load OIFITS "filename" and return a dict:
 
@@ -101,7 +101,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
         except:
             print(targets, ins2targ)
-
 
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
@@ -298,7 +297,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            medFilt=medFilt)
                         res['OI_FLUX'][k]['FLAG'] = flag
 
-
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
             #w = hdu.data['TARGET_ID']==targets[targname]
@@ -317,8 +315,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG: loading OI_VIS2', set(sta2))
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
-                #if debug:
-                #    print(' | ', k, w)
+                if debug:
+                   print(' | ', k, w)
                 if k in res['OI_VIS2'] and any(w):
                     for k1, k2 in [('V2', 'VIS2DATA'), ('EV2', 'VIS2ERR'), ('FLAG', 'FLAG')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
@@ -526,8 +524,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
             if k in res:
                 print('DEBUG:', k, sorted(res[k].keys()))
- 
-    res = match_VIS_VIS2_CF(res, debug=debug)
+
+    if debug:
+        print('-'*60) 
+    res = match_VIS_VIS2_CF(res, debug=debug, ignoreCF=ignoreCF)
+    if debug:
+        print('-'*60)
 
     sta2 = list(set(sta2))
 
@@ -695,11 +697,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         res.pop('OI_VIS2')
         if key == 'OI_VIS2':
             key = 'OI_CF'  
-    if 'OI_CF' in res and res['OI_CF']=={}:
+    if 'OI_CF' in res and (res['OI_CF']=={} or ignoreCF):
         res.pop('OI_CF')
-
+    if debug:
+        print('DEBUG: OI_CF?', 'OI_CF' in res)
     if res['OI_FLUX']=={}:
         res.pop('OI_FLUX')
+
     if res['OI_T3']=={}:
         res.pop('OI_T3')
     else:
@@ -932,7 +936,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             #           'has no formula in', res[key].keys())
             #     res['OI_T3'][k]['formula'] = None
 
-    res = match_VIS_VIS2_CF(res, debug=debug)
+    # -- not sure why had to be ran twice?
+    #res = match_VIS_VIS2_CF(res, debug=debug)
 
     if 'OI_FLUX' in res:
         res['telescopes'] = sorted(list(res['OI_FLUX'].keys()))
@@ -1034,10 +1039,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             print('WARNING: error while reading ESO pipelines parameters')
     return res
 
-def match_VIS_VIS2_CF(res, debug=False):
-        # -- make sure there is a 1-to-1 correspondance between VIS and CF:
+def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
+    # -- make sure there is a 1-to-1 correspondance between VIS and CF:
     # (this is purely due to a limitation of PMOIRED)
-    if 'OI_VIS' in res and 'OI_CF' in res:
+    if (not ignoreCF) and 'OI_VIS' in res and 'OI_CF' in res:
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_CF'].keys())))
         for k in kz:
             if not k in res['OI_VIS']:
@@ -1128,7 +1133,7 @@ def match_VIS_VIS2_CF(res, debug=False):
         for k in kz:
             if not k in res['OI_VIS']:
                 if debug:
-                    print(k, 'is in OI_VIS2 but \033[43mmissing from OI_VIS!\033[0m')
+                    print('baseline', k, 'is in OI_VIS2 but \033[43mmissing from OI_VIS!\033[0m')
                 res['OI_VIS'][k] = {}
                 for x in res['OI_VIS2'][k].keys():
                     if not 'V2' in x:
@@ -1163,7 +1168,8 @@ def match_VIS_VIS2_CF(res, debug=False):
                 wv = [allMJD.index(mjd) for mjd in res['OI_VIS'][k]['MJD']]
                 # -- ones from VIS2
                 wv2 = [allMJD.index(mjd) for mjd in res['OI_VIS2'][k]['MJD']]
-
+                if debug:
+                    print('DEBUD: wv2=', wv2)
                 #print(' ', wv, wv2)
                 # -- update VIS
                 res['OI_VIS'][k]['MJD'] = np.array(allMJD)
@@ -1183,7 +1189,7 @@ def match_VIS_VIS2_CF(res, debug=False):
                         tmp[wv2,:] = res['OI_VIS2'][k][x]
                     res['OI_VIS'][k][x] = tmp
 
-                # -- VIS2
+                # -- VIS2 
                 res['OI_VIS2'][k]['MJD'] = np.array(allMJD)
                 for x in ['u', 'v']:
                     if x in res['OI_VIS'][k]:
@@ -1199,7 +1205,7 @@ def match_VIS_VIS2_CF(res, debug=False):
                         tmp = np.ones((len(allMJD), len(res['WL'])), dtype='bool')
                     else:
                         tmp = np.zeros((len(allMJD), len(res['WL'])))
-                    tmp[wv2,:] = res['OI_VIS2'][k][x]
+                    tmp[wv2,:] = res['OI_VIS2'][k][x].copy()
                     res['OI_VIS2'][k][x] = tmp
                 # -- make sure it worked
                 #print(' VIS :',  res['OI_VIS'][k]['MJD'])
