@@ -110,8 +110,8 @@ def _globlist(filenames, strict=False):
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
-                 tellurics=None, debug=False, verbose=True,
-                 useTelluricsWL=False):
+                 tellurics=None, useTelluricsWL=False, wlOffset=0.0,
+                 debug=False, verbose=True,):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str). Can also be the name of a ".pmrd" binary file from another
@@ -133,6 +133,8 @@ class OI:
             file (from 'pmoired.tellcorr')
 
         useTelluricsWL: use telluric calibrated wavelength (False)
+    
+        wlOffset: add an offset (in um) to WL table
 
         verbose: default is True
 
@@ -165,7 +167,7 @@ class OI:
             self.addData(filenames, insname=insname, targname=targname,
                             verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                             tellurics=tellurics, binning=binning,
-                            useTelluricsWL=useTelluricsWL)
+                            useTelluricsWL=useTelluricsWL, wlOffset=wlOffset)
         else:
             self.data = []
         self._merged = []
@@ -253,7 +255,7 @@ class OI:
 
     def addData(self, filenames, insname=None, targname=None, withHeader=True,
                 medFilt=None, tellurics=None, binning=None, verbose=True,
-                useTelluricsWL=False):
+                useTelluricsWL=False, wlOffset=0.0):
         """
         add data to the existing ones:
 
@@ -285,7 +287,7 @@ class OI:
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, debug=self.debug, binning=binning,
-                        useTelluricsWL=useTelluricsWL))
+                        useTelluricsWL=useTelluricsWL, wlOffset=wlOffset))
         return
 
     def getESOPipelineParams(self, verbose=True):
@@ -304,9 +306,19 @@ class OI:
         each telescope.
         """
         for i,d in enumerate(self.data):
+            tmp = []
+            for j in range(len(d['WL'])):
+                w = np.abs(wl-d['WL'][j])<2*d['dWL'][j]
+                if np.sum(w):
+                    # -- kernel 
+                    k = np.exp(-(wl[w]-d['WL'][j])**2/(2*(d['dWL'][j]/2.35482)**2))
+                    tmp.append(np.mean(sed[w]*k)/np.mean(k))
+                else:
+                    tmp.append(np.interp(d['WL'][j], wl, sed))
+            tmp = np.array(tmp)
+
             if 'OI_FLUX' in d:
                 # -- replace flux
-                tmp = np.interp(d['WL'], wl, sed)
                 for k in d['OI_FLUX'].keys():
                     s = tmp[None,:] + 0*d['OI_FLUX'][k]['MJD'][:,None]
                     d['OI_FLUX'][k]['FLUX'] = s
@@ -320,7 +332,7 @@ class OI:
                     d['configurations per MJD'][mjd].extend(d['telescopes'])
 
                 mjd = np.array(sorted(list(d['configurations per MJD'])))
-                s = np.interp(d['WL'], wl, sed)[None,:] + 0*mjd[:,None]
+                s = tmp[None,:] + 0*mjd[:,None]
                 for t in d['telescopes']:
                     flux[t] = {'FLUX':s, 'RFLUX':s, 'EFLUX':err*s, 'FLAG':s==0, 'MJD':mjd}
                 self.data[i]['OI_FLUX'] = flux
@@ -329,8 +341,6 @@ class OI:
                     self.data[i]['units']['FLUX'] = unit
                 else:
                     self.data[i]['units'] = {'FLUX': unit}
-
-
         return
 
     def setupFit(self, fit, update=False, debug=False, insname=None):

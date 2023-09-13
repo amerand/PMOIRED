@@ -3701,9 +3701,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     # -- run all fits
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
-              'iter':-1, 'prior':prior}
-    if dLimParam is None:
-        kwargs['lowmemory'] = True
+              'iter':-1, 'prior':prior, 'lowmemory':True}
     res = []
     _prog_N = 1
     _prog_Nmax = N
@@ -4047,8 +4045,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1,
-              'keepFlux':keepFlux, 'onlyMJD':strongMJD}
-
+              'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True}
     res = []
     t = time.time()
     if multi:

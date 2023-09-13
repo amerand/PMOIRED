@@ -12,7 +12,8 @@ from collections import OrderedDict
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
-           binning=None, useTelluricsWL=True, barycentric=False, ignoreCF=False):
+           binning=None, useTelluricsWL=True, barycentric=False, ignoreCF=False,
+           wlOffset=0.0):
     """
     load OIFITS "filename" and return a dict:
 
@@ -54,7 +55,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
                          medFilt=medFilt, tellurics=tellurics, targname=targname,
                          verbose=verbose, debug=debug, binning=binning,
-                         useTelluricsWL=useTelluricsWL, barycentric=barycentric)
+                         useTelluricsWL=useTelluricsWL, barycentric=barycentric,
+                         wlOffset=wlOffset)
             if type(tmp)==list:
                 res.extend(tmp)
             elif type(tmp)==dict:
@@ -171,7 +173,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
             # -- OIFITS in m, here we want um
-            res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6
+            res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6 + wlOffset
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
             if not binning is None:
                 # -- keep track of true wavelength
