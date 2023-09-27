@@ -100,7 +100,7 @@ def _globlist(filenames, strict=False):
     if os.path.exists(filenames):
         return [filenames]
     else:
-        g = glob.glob(filenames)
+        g = sorted(glob.glob(filenames))
         if not strict and len(g)==0:
             print('\033[31mWARNING\033[0m no file(s) found for '+str(filenames))
         else:
@@ -308,7 +308,7 @@ class OI:
         for i,d in enumerate(self.data):
             tmp = []
             for j in range(len(d['WL'])):
-                w = np.abs(wl-d['WL'][j])<2*d['dWL'][j]
+                w = np.abs(wl-d['WL'][j])<3*d['dWL'][j]
                 if np.sum(w):
                     # -- kernel 
                     k = np.exp(-(wl[w]-d['WL'][j])**2/(2*(d['dWL'][j]/2.35482)**2))
@@ -846,7 +846,8 @@ class OI:
                 plt.legend(fontsize=7)
         return
 
-    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2, strongMJD=False):
+    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2, 
+                     strongMJD=False, randomiseParam=True):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
         by a previously ran fit. By default Nfits is set to the number of
@@ -863,9 +864,10 @@ class OI:
         assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
         model = self.bestfit
         oimodels.MAX_THREADS = MAX_THREADS
-        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits,
-                                            multi=multi, keepFlux=keepFlux,
-                                            verbose=verbose, strongMJD=strongMJD)
+        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi, 
+                                            keepFlux=keepFlux, verbose=verbose, 
+                                            strongMJD=strongMJD, 
+                                            randomiseParam=randomiseParam)
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
@@ -1312,10 +1314,13 @@ class OI:
             ax.invert_xaxis()
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
-            ax.set_xlabel(r'E $\leftarrow$ x (mas)')
-
+            # ax.set_xlabel(r'E $\leftarrow$ x (mas)')
+            # if i==0:
+            #     ax.set_ylabel(r'y $\rightarrow$ N (mas)')
+            ax.set_xlabel(r'$\delta$RA $\leftarrow$ E (mas)')
             if i==0:
-                ax.set_ylabel(r'y $\rightarrow$ N (mas)')
+               ax.set_ylabel(r'$\delta$Dec N $\rightarrow$ (mas)')
+
             title = ''
             if not imPow == 1:
                 if imPow==0.5:

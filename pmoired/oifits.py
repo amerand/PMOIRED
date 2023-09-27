@@ -89,14 +89,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         targets[k] = [targets[k], hdu.data['TARGET_ID'][i]]
                     else:
                         targets[k].append(hdu.data['TARGET_ID'][i])
-        if 'INSNAME' in hdu.header:
+        if 'INSNAME' in hdu.header and 'XTENSION' in hdu.header and\
+            hdu.header['XTENSION'].strip()=='BINTABLE':
             if 'TARGET_ID' in hdu.data.columns.names:
                 if not hdu.header['INSNAME'] in ins2targ:
                     ins2targ[hdu.header['INSNAME']] = set(hdu.data['TARGET_ID'])
                 else:
                     ins2targ[hdu.header['INSNAME']] = set(list(ins2targ[hdu.header['INSNAME']])+
-                                                        list(hdu.data['TARGET_ID']))
-
+                                                          list(hdu.data['TARGET_ID']))
     # -- keep only targets for the instrument, if specified
     if not insname is None and insname in ins2targ:
         try:
@@ -225,7 +225,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             res['WL'] = np.linspace(res['WL'].min(),
                                                     res['WL'].max(),
                                                     len(res['WL'])//binning)
-
 
                     res['TELLURICS'] = binOI(res['WL'], _WL,
                                              np.array([hdu.data['TELL_TRANS']]),
@@ -660,12 +659,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                           res['OI_T3'][k]['ET3AMP'],
                                                           medFilt=medFilt,
                                                           retFlag=True)
-                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
-                                                          res['OI_T3'][k]['T3PHI'],
-                                                          res['OI_T3'][k]['FLAG'],
-                                                          res['OI_T3'][k]['ET3PHI'],
-                                                          medFilt=medFilt)
-
+                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL, 
+                                                         res['OI_T3'][k]['T3PHI'],
+                                                         res['OI_T3'][k]['FLAG'], 
+                                                         res['OI_T3'][k]['ET3PHI'],
+                                                         medFilt=medFilt, phase=True)
                         # -- KLUDGE!
                         # res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
                         #                                    res['OI_T3'][k]['ET3AMP'],
@@ -1225,8 +1223,7 @@ def wTarg(hdu, targname, targets):
     else:
         return hdu.data['TARGET_ID']==targets[targname]
 
-
-def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False):
+def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False):
     """
     _wl: new WL vector
     WL: actual WL vector
@@ -1244,24 +1241,26 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False):
         #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>2/3)
         
         # -- at least one point in the bin is valid
-        flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float_(~F[i,:]))>0)
+        flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float_(~F[i,:]), phase=phase)>0)
         if E is None:
-            res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt)
+            res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt, phase=phase)
         else:
             try:
-                res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt)
+                res[i,:] = _binVec(_wl, WL[w], T[i,:][w], E=E[i,:][w], medFilt=medFilt, phase=phase)
             except:
                 res[i,:] = np.nan
     if retFlag:
         return res, flag
     return res
 
-def _binVec(x, X, Y, E=None, medFilt=None):
+def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
     """
     bin Y(X) with new x. E is optional error bars (wor weighting)
     """
     if E is None:
         E = np.ones(len(Y))
+    # if phase:
+    #     Y = np.unwrap(Y, period=360)
     # -- X can be irregular, so traditionnal convolution may not work
     y = np.zeros(len(x))
     Gx = np.gradient(x)
@@ -1275,6 +1274,11 @@ def _binVec(x, X, Y, E=None, medFilt=None):
             y[i] = np.sum(k/E*Y)/no
         else:
             y[i] = np.sum(k*Y)/np.sum(k)
+        if phase:
+            if no!=0 and np.isfinite(no):
+                y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
+            else:
+                y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
     return y
 
 def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):

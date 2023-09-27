@@ -937,11 +937,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         MJD = []
         for _mjd in sorted(set(np.int_(res['MJD']+0.5))):
             MJD.append(np.round(np.mean(res['MJD'][np.int_(res['MJD']+0.5)==_mjd]),2))
-        try:
-            sparse_param = VuLensBin(MJD, _param)
-        except:
-            print('ERROR! for MJD=', MJD)
-            print(_param)
+        #try:
+        sparse_param = VuLensBin(MJD, _param)
+        #except:
+        #    print('ERROR! for MJD=', MJD)
+        #    print(_param)
         # == this does not work (yet)
         # MJDs = sorted(list(sparse_param['sparse'].keys()))
         # if len(MJDs)==1:
@@ -3990,7 +3990,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
 
 def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
                     multi=True, prior=None, keepFlux=False, verbose=2,
-                    strongMJD=False):
+                    strongMJD=False, randomiseParam=True):
     """
     randomised draw data and perform N fits. Some parameters of the fitting engine can be changed,
     but overall the fitting context is the same as the last fit which was run.
@@ -4041,6 +4041,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     epsfcn= fit['epsfcn']
     prior = fit['prior']
     firstGuess = fit['best']
+    uncer = fit['uncer']
 
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
@@ -4064,8 +4065,12 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
 
         for i in range(N):
             kwargs['iter'] = i
-            res.append(pool.apply_async(fitOI, (oi,firstGuess, ), kwargs, 
-                                        callback=progress))
+            if randomiseParam:
+                tmpfg = {k:firstGuess[k]+np.random.randn()*uncer[k] 
+                        if uncer[k]>0 else firstGuess[k] for k in firstGuess}
+            else:
+                tmpfg = firstGuess
+            res.append(pool.apply_async(fitOI, (oi,tmpfg, ), kwargs, callback=progress))
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
@@ -5502,9 +5507,13 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
         cb.set_ticks(Xcb)
         cb.set_ticklabels(XcbL)
         cb.ax.tick_params(labelsize=6)
-        plt.xlabel(r'$\leftarrow$ E (mas)')
+        plt.xlabel(r'$\delta$RA $\leftarrow$ E (mas)')
         if i==0:
-            plt.ylabel(r'N $\rightarrow$ (mas)')
+           plt.ylabel(r'$\delta$Dec N $\rightarrow$ (mas)')
+
+        #plt.xlabel(r'$\leftarrow$ E (mas)')
+        #if i==0:
+        #    plt.ylabel(r'N $\rightarrow$ (mas)')
 
         # -- show position of each components
         for c in sorted(comps):
