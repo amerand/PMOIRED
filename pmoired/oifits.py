@@ -198,7 +198,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             arrname = hdu.header['ARRNAME'].strip()
             oiarrays[arrname] = dict(zip(hdu.data['STA_INDEX'],
                                          np.char.strip(hdu.data['STA_NAME'])))
-
+    if oiarrays=={}:
+        print('  > \033[33mWarning: no OI_ARRAY extension, telescopes will have default names\033[0m')
     #print('oiarrays:', oiarrays)
     # -- assumes there is only one array!
     #oiarray = dict(zip(h['OI_ARRAY'].data['STA_INDEX'],
@@ -253,7 +254,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
                 sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
             except:
-                sta1 = [str(s) for s in hdu.data['STA_INDEX']]
+                sta1 = ['T'+str(s) for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
                 # --
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
@@ -313,7 +314,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
                 sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             except:
-                sta2 = [str(s[0])+'-'+str(s[1]) for s in hdu.data['STA_INDEX']]
+                sta2 = ['T'+str(s[0])+'-'+'T'+str(s[1]) for s in hdu.data['STA_INDEX']]
 
             #print('     sta2:', sta2)
             if debug:
@@ -399,7 +400,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
                 sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
             except:
-                sta2 = [str(s[0])+'-'+str(s[1]) for s in hdu.data['STA_INDEX']]
+                sta2 = ['T'+str(s[0])+'-'+'T'+str(s[1]) for s in hdu.data['STA_INDEX']]
 
 
             if 'AMPTYP' in hdu.header and hdu.header['AMPTYP'] == 'correlated flux':
@@ -556,7 +557,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
                 sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             except:
-                sta3 = [str(s[0])+'-'+str(s[1])+'-'+str(s[2]) for s in hdu.data['STA_INDEX']]
+                sta3 = ['T'+str(s[0])+'-'+'T'+str(s[1])+'-'+'T'+str(s[2]) for s in hdu.data['STA_INDEX']]
 
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
