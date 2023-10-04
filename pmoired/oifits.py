@@ -199,6 +199,16 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             oiarrays[arrname] = dict(zip(hdu.data['STA_INDEX'],
                                          np.char.strip(hdu.data['STA_NAME'])))
     if oiarrays=={}:
+        if 'TELESCOP' in h[0].header and h[0].header['TELESCOP']=='VLTI':
+            print('  > \033[33mWarning: no OI_ARRAY extension, guessing from header (VLTI)\033[0m')
+            tmp = {}
+            for i in range(8):
+                k = 'ESO ISS CONF STATION%d'%(i+1)
+                if k in h[0].header:
+                    tmp[i+1] = h[0].header[k].strip()
+            oiarrays['VLTI'] = tmp
+
+    if oiarrays=={}:
         print('  > \033[33mWarning: no OI_ARRAY extension, telescopes will have default names\033[0m')
     #print('oiarrays:', oiarrays)
     # -- assumes there is only one array!
