@@ -249,9 +249,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_FLUX [HDU #%d]  for target="%s"/target_id='%(
                       ih, targname), targets[targname])
                 continue
-            oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
-            #res['OI_ARRAY'] = oiarray
-            sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
+            try:
+                oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+                sta1 = [oiarray[s] for s in hdu.data['STA_INDEX']]
+            except:
+                sta1 = [str(s) for s in hdu.data['STA_INDEX']]
             for k in set(sta1):
                 # --
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
@@ -307,10 +309,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_VIS2 [HDU #%d]  for target="%s"/target_id='%(
                             ih, targname), targets[targname])
                 continue
-            oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
-            #res['OI_ARRAY'] = oiarray
-            #print('VIS2 oiarray: (%s)'%hdu.header['ARRNAME'].strip(), oiarray)
-            sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            try:
+                oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+                sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            except:
+                sta2 = [str(s[0])+'-'+str(s[1]) for s in hdu.data['STA_INDEX']]
+
             #print('     sta2:', sta2)
             if debug:
                 print('DEBUG: loading OI_VIS2', set(sta2))
@@ -391,9 +395,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('  > \033[33mWARNING\033[0m: no data in OI_VIS [HDU #%d]  for target="%s"/target_id='%(
                             ih, targname), targets[targname])
                 continue
-            oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
-            #res['OI_ARRAY'] = oiarray
-            sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            try:
+                oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+                sta2 = [oiarray[s[0]]+oiarray[s[1]] for s in hdu.data['STA_INDEX']]
+            except:
+                sta2 = [str(s[0])+'-'+str(s[1]) for s in hdu.data['STA_INDEX']]
+
 
             if 'AMPTYP' in hdu.header and hdu.header['AMPTYP'] == 'correlated flux':
                 ext = 'OI_CF'
@@ -545,9 +552,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             ih, targname), targets[targname])
                 continue
             # -- T3 baselines == telescopes pairs
-            oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
-            #res['OI_ARRAY'] = oiarray
-            sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
+            try:
+                oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
+                sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
+            except:
+                sta3 = [str(s[0])+'-'+str(s[1])+'-'+str(s[2]) for s in hdu.data['STA_INDEX']]
+
             # -- limitation: assumes all telescope have same number of char!
             n = len(sta3[0])//3 # number of char per telescope
             _unit = 'deg'
