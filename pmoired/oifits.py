@@ -1,14 +1,34 @@
+import copy
+import glob
+import os
+from collections import OrderedDict
+
 import numpy as np
 from astropy.io import fits
 import scipy.signal
-import copy
-
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.constants as aC
 import astropy.units as aU
 
-from collections import OrderedDict
+
+def _globlist(filenames, strict=False):
+    if type(filenames)!=str and _isiterable(filenames):
+        res = []
+        for f in filenames:
+            res.extend(_globlist(f, strict=strict))
+        return res
+    assert type(filenames)==str, 'cannot find file(s) for '+str(filenames) 
+
+    if os.path.exists(filenames):
+        return [filenames]
+    else:
+        g = sorted(glob.glob(filenames))
+        if not strict and len(g)==0:
+            print('\033[31mWARNING\033[0m no file(s) found for '+str(filenames))
+        else:
+            assert len(g)>0, 'no file(s) found for '+str(filenames)
+        return g
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
@@ -226,7 +246,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
             if not tellurics is False:
                 if not binning is None and len(hdu.data['TELL_TRANS'])==len(_WL):
-                    if useTelluricsWL:
+                    if useTelluricsWL and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
                         # -- corrected wavelength
                         res['WL'] = hdu.data['CORR_WAVE']*1e6
                         if not binning is None:
@@ -245,7 +265,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['PWV'] = hdu.header['PWV']
                 elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
-                    if useTelluricsWL:
+                    if useTelluricsWL and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
                         # -- corrected wavelength
                         res['WL'] = hdu.data['CORR_WAVE']*1e6
 
@@ -1954,6 +1974,8 @@ def getESOPipelineParams(H, verbose=True):
         p[H[k]] = H[k.replace('NAME', 'VALUE')]
         if verbose:
             print(H[k]+'='+c+H[k.replace('NAME', 'VALUE')]+'\033[0m', end=' ')
+    if verbose:
+        print()
     if p!={} and last_rec!='':
         P[last_rec] = {'ID':H['ESO PRO '+rec+' ID'],
                     'DRS':H['ESO PRO '+rec+' DRS ID'],

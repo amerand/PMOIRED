@@ -89,24 +89,6 @@ def _isiterable(x):
         res = False
     return res
 
-def _globlist(filenames, strict=False):
-    if type(filenames)!=str and _isiterable(filenames):
-        res = []
-        for f in filenames:
-            res.extend(_globlist(f, strict=strict))
-        return res
-    assert type(filenames)==str, 'cannot find file(s) for '+str(filenames) 
-
-    if os.path.exists(filenames):
-        return [filenames]
-    else:
-        g = sorted(glob.glob(filenames))
-        if not strict and len(g)==0:
-            print('\033[31mWARNING\033[0m no file(s) found for '+str(filenames))
-        else:
-            assert len(g)>0, 'no file(s) found for '+str(filenames)
-        return g
-
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
@@ -163,7 +145,6 @@ class OI:
             print('loading session saved in', filenames)
             self.load(filenames)
         elif not filenames is None:
-            filenames = _globlist(filenames)
             self.addData(filenames, insname=insname, targname=targname,
                             verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                             tellurics=tellurics, binning=binning,
@@ -282,6 +263,7 @@ class OI:
         verbose: default is True
 
         """
+        filenames = oifits._globlist(filenames)
         if not type(filenames)==list or not type(filenames)==tuple:
             filenames = [filenames]
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
@@ -293,7 +275,7 @@ class OI:
     def getESOPipelineParams(self, verbose=True):
         for i,d in enumerate(self.data):
             if 'header' in d:
-                print('=', d['filename'], '='*20)
+                print('\033[5m=', d['filename'], '='*20, '\033[0m')
                 self.data[i]['recipes'] = oifits.getESOPipelineParams(d['header'],
                                                                     verbose=verbose)
         return
@@ -430,7 +412,7 @@ class OI:
                     else:
                         d['fit'] = fit[i].copy()
         if debug:
-            print([d['fit']['obs'] for d in self.data])
+            print('fit>obs:' ,[d['fit']['obs'] for d in self.data])
 
         for d in self.data:
             if 'fit' in d and 'obs' in d['fit']:
@@ -439,7 +421,7 @@ class OI:
                         list(filter(lambda x: x.startswith('OI_'), d.keys())))
                 d['fit']['obs'] = _checkObs(d, d['fit']['obs']).copy()
                 if debug:
-                    print(d['fit']['obs'])
+                    print('fit>obs:', d['fit']['obs'])
         return
 
     def _setPrior(self, model, prior=None, autoPrior=True):
@@ -537,9 +519,8 @@ class OI:
         self.computeModelSpectra(uncer=False)
         return
 
-    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True):
+    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True, debug=False):
         if not prior is None:
-            print(prior)
             assert _checkPrior(prior), 'ill formed "prior"'
 
         if model is None:
@@ -559,7 +540,7 @@ class OI:
                 m['fit']['prior'] = prior
             else:
                 m['fit'] = {'prior':prior}
-        tmp = oimodels.residualsOI(self._merged, model)
+        tmp = oimodels.residualsOI(self._merged, model, debug=debug)
         #return np.sum(tmp**2)/(len(tmp)-len(model)+1)
         if reduced:
             return np.mean(tmp**2)
