@@ -11,6 +11,13 @@ from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.constants as aC
 import astropy.units as aU
 
+def _isiterable(x):
+    res = True 
+    try:
+        iter(x)
+    except:
+        res = False
+    return res
 
 def _globlist(filenames, strict=False):
     if type(filenames)!=str and _isiterable(filenames):
