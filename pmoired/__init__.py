@@ -910,7 +910,7 @@ class OI:
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, imTight=False, showChi2=False, cColors={}, cMarkers={},
              showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True,
-             barycentric=False):
+             barycentric=False, autoLimV=False):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -1060,7 +1060,7 @@ class OI:
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None, checkImVis=False, vWl0=vWl0,
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
-                        barycentric=barycentric)
+                        barycentric=barycentric, autoLimV=autoLimV)
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -1105,7 +1105,7 @@ class OI:
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=False, vWl0=vWl0, showChi2=showChi2,
                     debug=self.debug, bckgGrid=bckgGrid,
-                    barycentric=barycentric)
+                    barycentric=barycentric, autoLimV=autoLimV)
             if allInOne:
                 self.fig += 1
             else:
@@ -1136,7 +1136,7 @@ class OI:
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vWl0=vWl0, bckgGrid=bckgGrid,
                         showChi2=showChi2, debug=self.debug, imoi=imoi,
-                        barycentric=barycentric))
+                        barycentric=barycentric, autoLimV=autoLimV))
                 self.fig += 1
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,

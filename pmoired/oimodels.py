@@ -26,6 +26,13 @@ try:
 except:
     import dpfit, dw
 
+try:
+    this_dir, this_filename = os.path.split(__file__)
+    sys.path = [this_dir] + sys.path
+    import ulensBin2
+except:
+    print('warning: no microlensing package')
+
 from collections import Counter
 
 from astropy import constants
@@ -34,8 +41,6 @@ _c = np.pi**2/180/3600/1000*1e6
 
 # -- default max number of processes
 MAX_THREADS = multiprocessing.cpu_count()
-
-
 
 def Ssingle(oi, param, noLambda=False):
     """
@@ -1344,7 +1349,6 @@ def VuLensBin(mjd, param):
         x2, y2 = b*1/(1+q), 0
     - ul flip: optional. if ='y', then flip scene upside down
     """
-    import ulensBin2
     p = {k.split('ul ')[1]:param[k] for k in param if k.startswith('ul ')}
     p['theta'] *= np.pi/180
     for k in ['b', 'q']:
@@ -3078,6 +3082,10 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         res = np.append(res, tmp*np.sqrt(len(res)))
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
+
+    if 'additional residuals' in param:
+        res = np.append(res, param['additional residuals'](computeLambdaParams(param)))
+
     # if what:
     #     return res, wh
     # else:
@@ -4317,7 +4325,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            figWidth=None, figHeight=None, logB=False, logV=False, logS=False,
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
-           cColors={}, cMarkers={}, imoi=None, bckgGrid=True, barycentric=False):
+           cColors={}, cMarkers={}, imoi=None, bckgGrid=True, barycentric=False,
+           autoLimV=False):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -4390,7 +4399,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi, barycentric=barycentric)
+                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi, 
+                   barycentric=barycentric, autoLimV=autoLimV)
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
                     if 'WL mask' in m:
@@ -5236,9 +5246,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     if logV:
                         ax.set_ylim(1e-4,1)
                         ax.set_yscale('log')
-                    else:
+                    elif not autoLimV:
                         ax.set_ylim(0,1)
-
+                    else:                        
+                        #ax.set_ylim(0)
+                        pass
+                        
             #if l=='NFLUX' and 'TELLURICS' in oi:
             #    plt.plot(oi['WL'], oi['TELLURICS'])
 
