@@ -1239,8 +1239,13 @@ class OI:
         plt.close(fig)
         plt.figure(fig, figsize=(figWidth, figHeight))
         i = -1 # default, in case only SED
+        self._modelAxes = {}
         for i,wl0 in enumerate(imWl0):
             ax = plt.subplot(1, nplot, i+1, aspect='equal')
+            if not 'images' in self._modelAxes:
+                self._modelAxes['images'] = [ax]
+            else:
+                self._modelAxes['images'].append(ax)
             if not imPlx is None:
                 mas2au = lambda x: x/imPlx
                 au2mas = lambda x: x*imPlx
@@ -1357,6 +1362,8 @@ class OI:
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
+            if not 'SED' in self._modelAxes:    
+                self._modelAxes['SED'] = [ax]
             if not vWl0 is None:
                 um2kms = lambda um: (um-vWl0)/um*299792
                 kms2um = lambda kms: vWl0*(1 + kms/299792)
@@ -1408,7 +1415,6 @@ class OI:
                 plt.legend(fontsize=6)
             ax.tick_params(axis='x', labelsize=6)
             ax.tick_params(axis='y', labelsize=6)
-
         try:
             plt.tight_layout()
         except:
