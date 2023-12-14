@@ -1010,6 +1010,7 @@ class OI:
         #     self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
         #                             imX=imX, imY=imY, visibilities=True)
 
+        self._dataAxes = {}
         if perSetup:
             def betterinsname(d):
                 n = -int(np.log10(np.ptp(d['WL'])/len(d['WL']))-1)
@@ -1061,6 +1062,7 @@ class OI:
                         imFov=None, checkImVis=False, vWl0=vWl0,
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
                         barycentric=barycentric, autoLimV=autoLimV)
+                self._dataAxes[perSetup[j]] = oimodels.ai1ax
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -1106,6 +1108,7 @@ class OI:
                     checkImVis=False, vWl0=vWl0, showChi2=showChi2,
                     debug=self.debug, bckgGrid=bckgGrid,
                     barycentric=barycentric, autoLimV=autoLimV)
+            self._dataAxes['ALL'] = oimodels.ai1ax
             if allInOne:
                 self.fig += 1
             else:
@@ -1138,6 +1141,7 @@ class OI:
                         showChi2=showChi2, debug=self.debug, imoi=imoi,
                         barycentric=barycentric, autoLimV=autoLimV))
                 self.fig += 1
+                self._dataAxes[i] = oimodels.ai1ax
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,

@@ -4352,7 +4352,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     global ai1ax, ai1mcB, ai1mcT, ai1i
 
     if type(oi)==list:
-        # -- multiple data sets
+        # -- multiple data sets -> recursive call
         models = []
         if allInOne:
             ai1mcB = {'i':0} # initialize global marker/color for baselines
@@ -4464,12 +4464,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 fontsize = 10
             if showIm:
                 plt.figure(f)
-            #plt.suptitle(title, fontsize=fontsize)
-            #plt.tight_layout()
-            ai1mcB = {'i':0} # initialize global marker/color for baselines
-            ai1mcT = {'i':0} # initialize global marker/color for triangles
-            ai1ax = {} # initialise global list of axes
-            ai1i = [] # initialise global list of axes
+            #print('DEBUG: cleaning')
+            # ai1mcB = {'i':0} # initialize global marker/color for baselines
+            # ai1mcT = {'i':0} # initialize global marker/color for triangles
+            # ai1ax = {} # initialise global list of axes
+            # ai1i = [] # initialise global list of axes
         return models
 
     # == actual plotting starts here
@@ -4699,7 +4698,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     ax = plt.subplot(111, aspect='equal')
                 else:
                     ax = plt.subplot(n_flux+1, ncol, 1, aspect='equal')
-
             # -- for each observables per baselines
             ext = [e for e in ['OI_VIS', 'OI_VIS2'] if e in oi]
             for e in ext:
@@ -4776,7 +4774,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 except:
                     print('bmax:', bmax)
 
-            if allInOne and not 'UV' in ai1ax:
+            #if allInOne and not 'UV' in ai1ax:
+            if not 'UV' in ai1ax:
                 ai1ax['UV'] = ax
             t = np.linspace(0, 2*np.pi, 100)
             for b in Bc:
