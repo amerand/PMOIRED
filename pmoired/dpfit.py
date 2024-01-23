@@ -18,6 +18,7 @@ Thu 28 Feb 2013 12:34:31 CLST: correcting leading to x2 for chi2 display
 Mon  8 Apr 2013 10:51:03 BRT: alternate algorithms
 Wed Aug 19 14:26:24 UTC 2015: updated randomParam
 Wed Jan 24 10:20:06 CET 2018: Python 3 version
+Tue 23 Jan 2024 16:33:35 CET: Adding "constant correlation by categories" 
 
 http://www.rhinocerus.net/forum/lang-idl-pvwave/355826-generalized-least-squares.html
 """
