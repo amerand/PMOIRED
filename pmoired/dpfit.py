@@ -238,6 +238,23 @@ def meta(x, params):
         res += dpfunc.__dict__[ff](x, tmp)
     return res
 
+def invCOVconstRho(n,rho): 
+    """
+    Inverse coveariance matrix nxn, with non diag==r, 
+
+    from wolfram alpha, n>=2
+    https://www.wolframalpha.com/
+    inv({{1,r},{r,1}})
+    inv({{1,r,r},{r,1,r},{r,r,1}})
+    inv({{1,r,r,r},{r,1,r,r},{r,r,1,r},{r,r,r,1}})
+    inv({{1,r,r,r,r},{r,1,r,r,r},{r,r,1,r,r},{r,r,r,1,r},{r,r,r,r,1}})
+    inv({{1,r,r,r,r,r},{r,1,r,r,r,r},{r,r,1,r,r,r},{r,r,r,1,r,r},{r,r,r,r,1,r},{r,r,r,r,r,1}})
+    inv({{1,r,r,r,r,r,r},{r,1,r,r,r,r,r},{r,r,1,r,r,r,r},{r,r,r,1,r,r,r},{r,r,r,r,1,r,r},{r,r,r,r,r,1,r},{r,r,r,r,r,r,1}})
+    etc...
+    """
+    return (rho*np.ones([n,n]) + (-(n-2)*rho - rho -1 )*np.identity(n))/((n-1)*rho**2 - (n-2)*rho - 1)
+
+
 def iterable(obj):
     """
     https://stackoverflow.com/questions/1952464/in-python-how-do-i-determine-if-an-object-is-iterable
@@ -256,7 +273,8 @@ trackP={}
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
-               follow=None, maxfev=5000, bounds={}, factor=100):
+               follow=None, maxfev=5000, bounds={}, factor=100, 
+               correlations=None):
     """
     - params is a Dict containing the first guess.
 
@@ -294,6 +312,18 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         True (or 1): show progress
         2: show progress and best fit with errors
         3: show progress, best fit with errors and correlations
+
+    - correlations: dict describing correlations between subsets of data sets (categories). 
+        {'catg': list or np.array, same size as x. should contain values in [cat1, cat2] below
+
+        'rho':{cat1:rho1, cat2:rho2...} # correlation factor between catg's (-1..1)
+        'err':{cat1:err1, cat2:err2...} # uncertainties in catg's
+
+        OR
+
+        'invcov':{catg1:invcov1, catg2:invcov2, ...}
+        }
+        
 
     returns dictionary with:
     'best': bestparam,
@@ -352,7 +382,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                         sigma=err, epsfcn=epsfcn, ftol=ftol)
         info, mesg, ier = {'nfev':Ncalls, 'exec time':time.time()-t0}, 'curve_fit', None
     else:
-        if bounds is None or bounds == {}:
+        if (bounds is None or bounds=={}) and correlations is None:
             # ==== LEGACY! ===========================
             if verbose:
                 print('[dpfit] using scipy.optimize.leastsq')
@@ -371,20 +401,38 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             if verbose:
                 print('[dpfit] using scipy.optimize.minimize (%s)'%method)
             Bounds = []
-            for k in fitOnly:
-                if k in bounds.keys():
-                    Bounds.append(bounds[k])
-                else:
-                    Bounds.append((-np.inf, np.inf))
-
+            if not bounds is None:
+                for k in fitOnly:
+                    if k in bounds.keys():
+                        Bounds.append(bounds[k])
+                    else:
+                        Bounds.append((-np.inf, np.inf))
+            if not correlations is None:
+                C = set(correlations['catg'])
+                if not 'invcov' in correlations:
+                    correlations['invcov'] = {}
+                for c in C:
+                    if not c in correlations['invcov'] and not c is None:
+                        if c in correlations['rho'] and c in correlations['err']:
+                            _n = np.sum(np.array(correlations['catg'])==c)
+                            correlations['invcov'][c] = invCOVconstRho(_n, correlations['rho'][c])
+                            correlations['invcov'][c] /= correlations['err'][c]**2
+                        else:
+                            print('warning: cannot compute covariance for "'+c+'"')
             result = scipy.optimize.minimize(_fitFuncMin, pfit,
                             tol=ftol, options={'maxiter':maxfev},
-                            bounds = Bounds, method=method,
-                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,)
+                            #bounds = Bounds, method=method,
+                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations)
                             )
             plsq = result.x
-            display(result)
             try:
+                cov = result.hess_inv
+                if not type(cov)==np.ndarray:
+                    cov = 2*cov.todense()/(len(y)-len(pfit)+1)
+                else:
+                    cov *= 2/(len(y)-len(pfit)+1)
+
+            except:
                 # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
                 # Do Moore-Penrose inverse discarding zero singular values.
                 _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
@@ -394,15 +442,12 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                 s = s[s > threshold]
                 VT = VT[:s.size]
                 cov = np.dot(VT.T / s**2, VT)
-            except:
-                cov = np.zeros((len(fitOnly), len(fitOnly)))
-            # ------------------------------------------------------
-            info = {'nfev':Ncalls, 'exec time':time.time()-t0},
+            info = {'nfev':result.nfev, 'exec time':time.time()-t0}
             mesg, ier = result.message, None
 
     if verbose:
         print('[dpfit]', mesg)
-        #print('[dpfit] ier:', ier)
+        #print('[dpfit] info:', info)
         print('[dpfit]', info['nfev'], 'function calls', end=' ')
         t = 1000*info['exec time']/info['nfev']
         n=-int(np.log10(t))+3
@@ -436,11 +481,14 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     for i,k in enumerate(fitOnly):
         pfix[k] = plsq[i]
 
-
     # -- reduced chi2
     model = func(x,pfix)
     # -- residuals
-    if np.iterable(err) and len(np.array(err).shape)==2:
+    if not correlations is None:
+        ndof = len(y)-len(pfit)+1
+        chi2 = result.fun*ndof
+        reducedChi2 = chi2/ndof
+    elif np.iterable(err) and len(np.array(err).shape)==2:
         # -- assumes err matrix is co-covariance
         r = y - model
         chi2 = np.dot(np.dot(np.transpose(r), np.linalg.inv(err)), r)
@@ -812,7 +860,8 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
 
     return res
 
-def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False, follow=None):
+def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False, 
+                follow=None, correlations=None):
     """
     interface  scipy.optimize.minimize:
     - x,y,err are the data to fit: f(x) = y +- err
@@ -826,6 +875,16 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
     np.array([[err1**2, 0, .., 0],
              [ 0, err2**2, 0, .., 0],
              [0, .., 0, errN**2]]) is the equivalent of 1D errors
+
+    correlations: dict describing correlations between subsets of data sets (categories). every 
+        categories should have either an inverse covariance or an error. function's parameter "err" 
+        will be ignored
+        
+        {'catg': list or np.array, same size as x. should contain values in [cat1, cat2] below    
+        'invcov':{catg1:invcov1, catg2:invcov2, ...},
+        'err':{catg3:err3, ...}
+        }
+
     """
     global verboseTime, Ncalls, trackP
     Ncalls+=1
@@ -837,7 +896,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
     # -- complete with the non fitted parameters:
     for k in pfix:
         params[k]=pfix[k]
-    if err is None:
+    if err is None or not correlations is None:
         err = np.ones(np.array(y).shape)
 
     # -- compute residuals
@@ -860,24 +919,40 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
             except:
                 res.append(df)
 
-    try:
-        chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
-    except:
-        # list of elements
+    # -- compute chi2
+    if correlations is None:
+        try:
+            chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
+        except:
+            # list of elements
+            chi2 = 0
+            N = 0
+            res2 = []
+            for r in res:
+                if np.isscalar(r):
+                    chi2 += r**2
+                    N+=1
+                    res2.append(r)
+                else:
+                    chi2 += np.sum(np.array(r)**2)
+                    N+=len(r)
+                    res2.extend(list(r))
+            res = res2
+            chi2 /= float(N-len(pfit)+1)
+    else:
+        # -- take into correlations using "correlations" dict
         chi2 = 0
-        N = 0
-        res2 = []
-        for r in res:
-            if np.isscalar(r):
-                chi2 += r**2
-                N+=1
-                res2.append(r)
-            else:
-                chi2 += np.sum(np.array(r)**2)
-                N+=len(r)
-                res2.extend(list(r))
-        res = res2
-        chi2 /= float(N-len(pfit)+1)
+        res = np.array(res)
+        for c in set(correlations['catg']):
+            w = np.array(correlations['catg'])==c
+            if c in correlations['invcov']:
+                chi2 += np.dot(np.dot(np.transpose(res[w]), correlations['invcov'][c]), res[w])
+            elif c in correlations['err']:
+                chi2 += np.sum(res[w]**2/correlations['err'][c]**2)
+            else:                
+                chi2 += np.sum(res[w]**2/err[w]**2)
+        # -- reduced chi2
+        chi2 /= float(len(res)-len(pfit)+1)
 
     if verbose and time.time()>(verboseTime+10):
         verboseTime = time.time()
