@@ -7,6 +7,7 @@ import platform, subprocess
 import itertools
 import sys
 import pickle
+from collections import Counter
 
 import warnings
 warnings.filterwarnings(action='ignore', category=RuntimeWarning) 
@@ -191,6 +192,8 @@ def _orbit(t, P, Vrad=False, verbose=False):
     # a1 = a*m2/(m1+m2)
     # mass function = m2**3 sin(i)**3 / (m1+m2)**2
 
+    parameters: a, e, P, MJD0, omega, OMEGA, incl
+
     t = array of MJDs
     type can be 
     - 'x' or 'y': separation vector B-A, in mas
@@ -207,10 +210,18 @@ def _orbit(t, P, Vrad=False, verbose=False):
     
     if 'Ma' in P and 'Mb' in P and 'plx' in P:
         P['a'] = ((P['Ma']+P['Mb'])*(P['P']/326.25)**2)**(1/3.) # in AU
-        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['i']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
+        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
         P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
         P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
         P['a'] *= P['plx'] # in mas
+
+    if 'M' in P and 'plx' in P:
+        P['a'] = (P['M']*(P['P']/326.25)**2)**(1/3.) # in AU
+        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
+        #P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
+        #P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
+        P['a'] *= P['plx'] # in mas
+
 
     # separation
     if 'a' in P:
@@ -222,8 +233,8 @@ def _orbit(t, P, Vrad=False, verbose=False):
                   z
         # -- inclination
         x, y, z = x,\
-                  y*np.cos(P['i']*np.pi/180) + z*np.sin(P['i']*np.pi/180), \
-                 -y*np.sin(P['i']*np.pi/180) + z*np.cos(P['i']*np.pi/180)
+                  y*np.cos(P['incl']*np.pi/180) + z*np.sin(P['incl']*np.pi/180), \
+                 -y*np.sin(P['incl']*np.pi/180) + z*np.cos(P['incl']*np.pi/180)
         # -- OMEGA
         x, y, z = x*np.cos(P['OMEGA']*np.pi/180) + y*np.sin(P['OMEGA']*np.pi/180), \
                  -x*np.sin(P['OMEGA']*np.pi/180) + y*np.cos(P['OMEGA']*np.pi/180), \
@@ -2793,7 +2804,7 @@ def computeSlopeVisOI(oi, errfilt={}):
     """
     compute the slope of the visibility
     """
-
+    pass
 
 def testTelescopes(k, telescopes):
     """
@@ -2925,19 +2936,19 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
 
     if type(oi)==list:
         for i,o in enumerate(oi):
-            # if what:
-            #     tmp = residualsOI(o, param, timeit=timeit, what=True)
-            #     res = np.append(res, tmp[0])
-            #     wh += tmp[1]
-            # else:
+            if what:
+                tmp = residualsOI(o, param, timeit=timeit, what=True)
+                res = np.append(res, tmp[0])
+                wh += tmp[1]
+            else:
                 res = np.append(res, residualsOI(o, param,
                                                 timeit=timeit, 
                                                 what=what,
                                                 debug=debug))
-        # if what:
-        #    return res, wh
-        # else:
-        return res
+        if what:
+           return res, wh
+        else:
+            return res
 
     if 'fit' in oi:
         fit = oi['fit']
@@ -3005,14 +3016,14 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
     t0 = time.time()
     for f in fit['obs']:
         # -- for each observable:
-        if f in ext.keys():
+        if f in sorted(ext.keys()):
             if 'PHI' in f:
                 rf = lambda x: ((x + 180)%360 - 180)
             else:
                 rf = lambda x: x
             # -- for each telescope / baseline / triangle
             #print(f, end=' ')
-            for k in oi[ext[f]].keys():
+            for k in sorted(oi[ext[f]].keys()):
                 test = testTelescopes(k, ignoreTelescope) or testBaselines(k, ignoreBaseline)
                 if not test:
                     mask = np.logical_and(w[None,:], ~oi[ext[f]][k]['FLAG'])
@@ -3049,7 +3060,30 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                                  m[ext[f]][k][f].shape, mask.shape, err.shape)
 
                         if what:
-                            wh.extend([f+':'+k]*len(tmp))
+                            #wh.extend([f+':'+k]*len(tmp))
+                            if f=='T3PHI':
+                                if k!='all':
+                                    kk=''.join(['%s%s'%('+' if m[ext[f]][k]['formula'][0][ii]==1 else '-',
+                                                        m[ext[f]][k]['formula'][1][ii]) for ii in range(3)])
+                                else:   
+                                    kk = []                               
+                                    for j in range(len(m[ext[f]][k]['formula'][0][0])):
+                                        s = ''
+                                        for ii in range(3):
+                                            if m[ext[f]][k]['formula'][0][ii][j]==1:
+                                                s+='+'
+                                            else:
+                                                s+='-'
+                                            s+= m['OI_VIS']['all']['NAME'][m[ext[f]][k]['formula'][2+ii][j]]
+                                        if mask[j]:
+                                            kk.append(s)
+                            else:
+                                kk = k
+                            if not type(kk) is list:
+                                wh += [f+':'+kk+';MJD:%.4f'%x for x in oi[ext[f]][k]['MJD2'][mask].flatten()]
+                            else:
+                                for j,_k in enumerate(kk):   
+                                    wh.append(f+':'+_k+';MJD:%.4f'%oi[ext[f]][k]['MJD2'][mask].flatten()[j])
                     else:
                         res = np.append(res, (err[mask]*0+1).flatten())
                         if what:
@@ -3086,13 +3120,28 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
     if 'additional residuals' in param:
         res = np.append(res, param['additional residuals'](computeLambdaParams(param)))
 
-    # if what:
-    #     return res, wh
-    # else:
-    #print(len(res), np.round(res[:3], 3), np.round(res[-8:], 3), param)
-    #print(len(res), end=' ')
-    #print(Counter(wh))
-    return res
+    if what:
+        return res, wh
+    else:
+        return res
+
+def computeCorrelationsOI(oi, param, dt_s=60):
+    """
+    chi2 taking into correlations for baselines and CP
+
+    consider correlations if data are separated by less that dt_s seconds
+
+    * ±1/3 correlation between T3PHI sharing one baseline 
+    
+    * correlations for a spectrum of V2, |V|, DPHI or T3PHI
+    """
+    # -- for data out of oifits.py
+    if not 'OI_T3' in oi:
+        return
+    
+    # -- for merged data
+    #if 'NAME' in oi:
+    pass
 
 def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
                 doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8,
@@ -3767,10 +3816,12 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     res = []
     bad = []
     errTooLarge = []
+    noUncer = []
+    infos = []
     # -- remove bad fit (no uncertainties)
     for i,f in enumerate(fits):
         if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
-            # -- all uncertainties are >0
+            # -- some uncertainties are >0
             # -- check errors are reasonable / grid:
             test = False
             if 'grid' in expl:
@@ -3786,15 +3837,19 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         else:
             bad.append(f.copy())
             bad[-1]['bad'] = True
-
+            noUncer.append(i)
+            infos.append(f['mesg'])
 
     if debug or verbose:
         print('fits to be taken into account:', len(res), '/', len(fits))
         if len(bad)-len(errTooLarge):
-            print(' ', len(bad)-len(errTooLarge), 'did not numerically converge')
+            print(' ', len(bad)-len(errTooLarge), 'did not numerically converge',
+                '(incl %d have no uncertainties)'%len(noUncer))
+        #print(Counter(infos))
         if len(errTooLarge):
             print(' ', len(errTooLarge),
-              "fit[s] have uncertainties larger than the grid's step[s] and will be ignored")
+              "have uncertainties larger than the grid's step[s]")
+        
     # -- unique fits:
     tmp = []
     ignore = []
@@ -3815,6 +3870,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
                         fitOnly[i].append(k)
 
     # -- create list of unique minima
+    if verbose or debug:
+        print('making list of unique minima...')
     for i,f in enumerate(res):
         if i in ignore:
             continue
@@ -3883,7 +3940,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
 def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
              vmin=None, vmax=None, cmap='gist_stern', interpolate=False,
-             expl=None, tight=False):
+             expl=None, tight=False, constrain=None):
     """
     res: results from a gridFitOI
     px, py: the two parameters to show (default 2 first alphabetically)
@@ -3908,27 +3965,28 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
 
     # -- initial positions
     ix, iy = [], []
-    for r in res:
-        for f in r['firstGuess']:
-            if r['bad']:
-                plt.plot(f[px], f[py], 'x', color='r', alpha=0.3)
-            else:
-                if type(f)==dict:
-                    plt.plot(f[px], f[py], '+', color='k', alpha=0.3)
-                    plt.plot([f[px], r['best'][px]],
-                             [f[py], r['best'][py]], '-k', alpha=0.2)
-                    ix.append(f[px])
-                    iy.append(f[py])
+    if not (type(interpolate)==int and interpolate>1):
+        for r in res:
+            for f in r['firstGuess']:
+                if r['bad']:
+                    plt.plot(f[px], f[py], 'x', color='r', alpha=0.3)
+                else:
+                    if type(f)==dict:
+                        plt.plot(f[px], f[py], '+', color='k', alpha=0.3)
+                        plt.plot([f[px], r['best'][px]],
+                                 [f[py], r['best'][py]], '-k', alpha=0.2)
+                        ix.append(f[px])
+                        iy.append(f[py])
 
-                elif type(f)==list:
-                    for _f in f:
-                        plt.plot(_f[px], _f[py], '+', color='k', alpha=0.3)
-                        plt.plot([_f[px], r['best'][px]],
-                                 [_f[py], r['best'][py]], '-k', alpha=0.2)
-                        ix.append(_f[px])
-                        iy.append(_f[py])
+                    elif type(f)==list:
+                        for _f in f:
+                            plt.plot(_f[px], _f[py], '+', color='k', alpha=0.3)
+                            plt.plot([_f[px], r['best'][px]],
+                                     [_f[py], r['best'][py]], '-k', alpha=0.2)
+                            ix.append(_f[px])
+                            iy.append(_f[py])
 
-    S = 3 # interpolation factor
+    S = 4 # interpolation factor
     if type(expl) is dict and 'grid' in expl and px in expl['grid']:
         dx = expl['grid'][px][2]
         IX = np.linspace(expl['grid'][px][0]-expl['grid'][px][2]/2,
@@ -3966,31 +4024,70 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
         vmin = np.log10(vmin)
         vmax = np.log10(vmax)
 
-    plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap,
-                plotnonfinite=True)
-    plt.colorbar(label=color)
+    if not (type(interpolate)==int and interpolate>1):
+        plt.scatter(x, y, c=c, vmin=vmin, vmax=vmax, cmap=cmap,
+                    plotnonfinite=True)
+        plt.colorbar(label=color)
+        # -- global minimum
+        plt.plot(x[0], y[0], marker=r'$\bigodot$',
+             color=matplotlib.cm.get_cmap(cmap)(0),
+             markersize=20, alpha=0.5)
 
     if interpolate:
         nX, nY = len(IX), len(IY)
         IX, IY = np.meshgrid(IX, IY)
-        #plt.plot(IX.flatten(), IY.flatten(), '.g')
+        if constrain is None:
+            constrain = []
+        mask = np.ones(IX.shape)
+        for p in constrain:
+            form = p[0]
+            val = str(p[2])
+            for i in range(3):
+                if px in form:
+                    form = form.replace(px, 'IX')
+                if px in val:
+                    val = val.replace(px, 'IX')
+                if py in form:
+                    form = form.replace(py, 'IY')
+                if py in val:
+                    val = val.replace(py, 'IY')
+            # -- residual
+            if len(p)==3:
+                resi = '('+form+'-'+str(val)+')'
+            elif len(p)==4:
+                resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
+            if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
+                resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
+            print(resi)
+            #print(eval(resi)==0)
+
+            # try:
+            #     res.append(eval(resi))
+            # except:
+            #     print('WARNING: could not compute constraint "'+resi+'"')
+
+
         grP = np.array([(x[i], y[i]) for i in range(len(x))])
         gr = np.array([IX, IY]).reshape(2, -1).T
         tmp = scipy.interpolate.RBFInterpolator(grP, c,
-                                                kernel='linear', neighbors=4,
+                                                kernel='linear', neighbors=2,
                                                 #kernel='thin_plate_spline',
                                                 #kernel='cubic',
+                                                #kernel='gaussian', epsilon=.15*np.sqrt(dx*dy),
+                                                #kernel='multiquadric',epsilon=.1*np.sqrt(dx*dy),
                                                 )(gr).reshape((nY, nX))
-        plt.pcolormesh(IX, IY, tmp, cmap=cmap, alpha=0.5, rasterized=True)
+        if interpolate>1:
+            alpha=1
+        else:
+            alpha=0.8
+        plt.pcolormesh(IX, IY, tmp*mask, cmap=cmap, alpha=alpha, rasterized=True)
+        if interpolate>1:
+            plt.colorbar(label=color)
 
     if tight:
         plt.xlim(np.min(IX)-dx/2, np.max(IX)+dx/2)
         plt.ylim(np.min(IY)-dy/2, np.max(IY)+dy/2)
 
-    # -- global minimum
-    plt.plot(x[0], y[0], marker=r'$\bigodot$',
-             color=matplotlib.cm.get_cmap(cmap)(0),
-             markersize=20, alpha=0.5)
     plt.xlabel(px)
     plt.ylabel(py)
     plt.tight_layout()
@@ -4981,6 +5078,16 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 err = oi[data[l]['ext']][k]['E'+data[l]['var']][j,:].copy()
                 ign = (~mask).copy()
                 showIgn = False
+                if 'baseline ranges' in oi['fit']:
+                    for bmin, bmax in oi['fit']['baseline ranges']:
+                        if not 'T3' in data[l]['ext']:
+                                mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
+                                        (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
+                        else:
+                            for b in ['B1', 'B2', 'B3']:
+                                mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
+                                         (oi[data[l]['ext']][k][b][j]>=bmin))
+
                 if 'max error' in oi['fit'] and \
                         data[l]['var'] in oi['fit']['max error']:
                     # -- ignore data with large error bars

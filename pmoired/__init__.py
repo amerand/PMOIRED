@@ -164,7 +164,7 @@ class OI:
             name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
         if not name.endswith('.pmrd'):
             name += '.pmrd'
-        assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists'
+        assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists (use "overwrite=True")'
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
                 'images', '_expl']
         with open(name, 'wb') as f:
@@ -349,6 +349,11 @@ class OI:
         'wl ranges': gives a list of wavelength ranges (in um) where to fit.
             e.g. [(1.5, 1.6), (1.65, 1.75)]
             it will not override flagged data
+        -> by default, the full defined range is fitted.
+
+        'baseline ranges': gives a list of baselines ranges (in m) where to fit.
+            e.g. [(10, 20), (40, 100)] it will not override flagged data
+            it will affect bose baselines AND triangles if any baseline if out of range(s)
         -> by default, the full defined range is fitted.
 
         'min error': forcing errors to have a minimum value. Keyed by the same
@@ -754,6 +759,7 @@ class OI:
         self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
+        self.bestfit['constrain'] = constrain
         #self.computeModelSpectra()
         return
 
@@ -799,7 +805,8 @@ class OI:
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
                           logV=logV, interpolate=interpolate,
-                          expl=self._expl, tight=tight)
+                          expl=self._expl, tight=tight, 
+                          constrain=self.bestfit['constrain'])
         if xy:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
@@ -1875,7 +1882,7 @@ def _checkSetupFit(fit):
     keys = {'min error':dict, 'min relative error':dict,
             'max error':dict, 'max relative error':dict,
             'mult error':dict,
-            'obs':list, 'wl ranges':list,
+            'obs':list, 'wl ranges':list, 'baseline ranges':list,
             'Nr':int, 'spec res pix':float,
             'continuum ranges':list,
             'ignore negative flux':bool,

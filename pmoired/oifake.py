@@ -1067,8 +1067,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             # -- KLUDGE -> account for T3 amplitude
             ncp = np.maximum(1, (thres['T3AMP']/np.abs(T3))**(1/3))
             #ncp = np.maximum(1, thres['T3AMP']/minV)
-
-            #print(ncp.min(), ncp.max())
+            if debug:
+                print(tri, 'NCP:', ncp.min(), ncp.max(), 'noise T3PHI:', noise['T3PHI'])
 
             OIT3[''.join(tri)] = {
                 'MJD':tmp['MJD'],
@@ -1079,7 +1079,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                 'ET3AMP':noise['T3AMP']*np.ones((len(lst), len(wl)))*np.abs(T3),
                 'T3PHI':np.angle(T3)*180/np.pi+
                     ncp*noise['T3PHI']*np.random.randn(len(lst), len(wl)),
-                'ET3PHI':ncp*noise['T3PHI'], #noise['T3PHI']*np.ones((len(lst), len(wl))),
+                'ET3PHI':ncp*noise['T3PHI']*np.ones((len(lst), len(wl))),
                 'u1':s1*tmp['u'][b1], 'v1':s1*tmp['v'][b1],
                 'u2':s2*tmp['u'][b2], 'v2':s2*tmp['v'][b2],
                 'u1/wl': s1*tmp['u'][b1][:,None]/wl[None,:],

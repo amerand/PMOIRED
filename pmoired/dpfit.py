@@ -419,30 +419,30 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                             correlations['invcov'][c] = invCOVconstRho(_n, correlations['rho'][c])
                             correlations['invcov'][c] /= correlations['err'][c]**2
                         else:
-                            print('warning: cannot compute covariance for "'+c+'"')
+                            print('warning: cannot compute covariance for "'+str(c)+'"')
+                            correlations['err'][c] = err[correlations['catg']==c]
             result = scipy.optimize.minimize(_fitFuncMin, pfit,
                             tol=ftol, options={'maxiter':maxfev},
                             #bounds = Bounds, method=method,
                             args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations)
                             )
             plsq = result.x
-            try:
-                cov = result.hess_inv
-                if not type(cov)==np.ndarray:
-                    cov = 2*cov.todense()/(len(y)-len(pfit)+1)
-                else:
-                    cov *= 2/(len(y)-len(pfit)+1)
-
-            except:
-                # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
-                # Do Moore-Penrose inverse discarding zero singular values.
-                _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
-                threshold = np.finfo(float).eps * max(result.jac.shape) * s[0]
-                if verbose:
-                    print('[dpfit] zeros in cov?', any(s<=threshold))
-                s = s[s > threshold]
-                VT = VT[:s.size]
-                cov = np.dot(VT.T / s**2, VT)
+            #try:
+            cov = result.hess_inv
+            if not type(cov)==np.ndarray:
+                cov = 2.*cov.todense()/(len(y)-len(pfit)+1)
+            else:
+                cov = np.float_(cov)*2./(len(y)-len(pfit)+1)
+            # except:
+            #     # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
+            #     # Do Moore-Penrose inverse discarding zero singular values.
+            #     _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
+            #     threshold = np.finfo(float).eps * max(result.jac.shape) * s[0]
+            #     if verbose:
+            #         print('[dpfit] zeros in cov?', any(s<=threshold))
+            #     s = s[s > threshold]
+            #     VT = VT[:s.size]
+            #     cov = np.dot(VT.T / s**2, VT)
             info = {'nfev':result.nfev, 'exec time':time.time()-t0}
             mesg, ier = result.message, None
 
@@ -602,7 +602,7 @@ def randomParam(fit, N=None, x='auto'):
         res.append(p)
     ymin, ymax = None, None
     tmp = []
-    if x == 'auto':
+    if type(x)==str and x == 'auto':
         x = fit['x']
     if not x is None:
         for r in res:

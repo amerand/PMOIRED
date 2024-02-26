@@ -1633,7 +1633,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                             tmp[k][p] = r['fit'][k][p]
                         else:
                             tmp[k] = {p:r['fit'][k][p]}
-            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges',
+            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges',
                                                 'continuum ranges', 'prior', 'Nr',
                                                 'DPHI order', 'D|V| order',
                                                 'NFLUX order']
@@ -1733,14 +1733,15 @@ def _allInOneOI(oi, verbose=False, debug=False):
                 if not mjd in fluxes:
                     fluxes[mjd] = np.zeros(len(oi['WL']))
                     weights[mjd] = np.zeros(len(oi['WL']))
-                    names[mjd] = ''
+                    names[mjd] = []
                 fluxes[mjd][mask] += oi[e][k][key][j,mask]/\
                         oi[e][k]['E'+key][j,mask]
                 weights[mjd][mask] += 1/oi[e][k]['E'+key][j,mask]
-                names[mjd] += k
+                names[mjd].append(k)
         flags = {}
         efluxes = {}
         for mjd in fluxes.keys():
+            names[mjd] = ';'.join(names[mjd])
             mask = weights[mjd]>0
             fluxes[mjd][mask] /= weights[mjd][mask]
             flags[mjd] = ~mask
