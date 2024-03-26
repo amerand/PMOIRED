@@ -31,7 +31,8 @@ dependencies = [
     "numpy", 
     "matplotlib", 
     "astropy", 
-    "astroquery"
+    "astroquery",
+    'importlib_resources; python_version < "3.9"'
 ]
 
 [project.urls]

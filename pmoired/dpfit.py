@@ -334,7 +334,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     'cov': covariance matrix (normalized if normalizedUncer)
     'fitOnly': names of the columns of 'cov'
     """
-    global Ncalls, pfitKeys, pfix, _func, data_errors, trackP
+    global Ncalls, pfitKeys, pfix, _func, trackP
     # -- fit all parameters by default
     if fitOnly is None:
         if len(doNotFit)>0:
@@ -724,7 +724,6 @@ def showBootstrap(boot, fig=1, fontsize=8):
     plt.subplots_adjust(wspace=0, hspace=0)
 
 def _callbackAxesBoot(ax):
-    global _AX, _AY
     i = None
     for k in _AY.keys():
         if ax==_AY[k]:
@@ -785,7 +784,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
              [ 0, err2**2, 0, .., 0],
              [0, .., 0, errN**2]]) is the equivalent of 1D errors
     """
-    global verboseTime, Ncalls, trackP
+    global verboseTime, Ncalls
     Ncalls+=1
 
     params = {}
@@ -971,7 +970,7 @@ def _fitFunc2(x, *pfit, verbose=True, follow=[], errs=None):
     """
     for curve_fit
     """
-    global pfitKeys, pfix, _func, Ncalls, verboseTime
+    global Ncalls, verboseTime
     Ncalls +=1
     params = {}
     # -- build dic from parameters to fit and their values:
@@ -1383,7 +1382,6 @@ def _callbackAxes(ax):
     """
     make sure y ranges follows the data, after x range has been adjusted
     """
-    global AX, T
     xlim = ax.get_xlim()
     x = np.arange(len(T['reduced chi2']))
     w = (x>=xlim[0])*(x<=xlim[1])

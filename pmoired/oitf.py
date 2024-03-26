@@ -1,8 +1,5 @@
 # check transfer function
-try:
-    import pmoired.oifits as oifits
-except:
-    import oifits
+import pmoired.oifits as oifits
 
 from matplotlib import pyplot as plt
 import numpy as np

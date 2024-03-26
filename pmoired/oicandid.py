@@ -9,10 +9,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 import multiprocessing
 
-try:
-    from pmoired import oimodels
-except:
-    import oimodels
+from pmoired import oimodels
 
 def fitMap(oi, firstGuess=None, companion='c', fitAlso=[],
             rmin=None, rmax=None, rstep=None,

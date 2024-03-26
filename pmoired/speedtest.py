@@ -3,7 +3,7 @@
 # > p = pstats.Stats('out.txt')
 # > p.sort_stats('time').print_stats(20)
 
-import oifits, oimodels, tellcorr, dpfit, os
+import oifits, oimodels, os
 
 directory = '/Users/amerand/DATA/Science/FSCMa/'
 files = os.listdir(directory)

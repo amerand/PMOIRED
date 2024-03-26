@@ -3,23 +3,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import scipy.interpolate
-import sys, os
+import os
 import time
 import pickle
-
 try:
-    import pmoired.dpfit as dpfit
-except:
-    import dpfit
+    from importlib import resources
+except ImportError:
+    # Necessary while Python versions below 3.9 are supported.
+    import importlib_resources as resources
 
-this_dir, this_filename = os.path.split(__file__)
+import pmoired.dpfit as dpfit
 
+this_dir, this_filename = os.path.split(__file__)   # TODO clean this up
 bin_file = 'transir_gravity.pckl'
 
 try:
     # -- loading transnir
-    with open(os.path.join(this_dir, bin_file), 'rb') as f:
-        tran20, tran80, lbda = pickle.load(f)
+    with resources.as_file(resources.files('pmoired').joinpath(bin_file)) as p:
+        with open(p, 'rb') as f:
+            tran20, tran80, lbda = pickle.load(f)
 except:
     print('creating transmission binary file')
     wv1 = '020' # 2mm Water Vapor
@@ -60,7 +62,6 @@ def Ftran(l, param, retWL=False, retS=False):
     wl -> (wl-dl0)
     wl -> dli*(wl-wl0)**i + wl0
     """
-    global tran20, tran80, lbda
 
     tmpL = 1.0*lbda
 

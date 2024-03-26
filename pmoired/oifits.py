@@ -8,7 +8,6 @@ from astropy.io import fits
 import scipy.signal
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
-import astropy.constants as aC
 import astropy.units as aU
 
 def _isiterable(x):
