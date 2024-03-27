@@ -92,7 +92,6 @@ def forwardMat(n, p=4, debug=False):
     """
     compute matrix
     """
-    global fMats, iMats, coef
     assert (p in coefH.keys()), "coef for order "+str(p)+" are not implemented"
     if (n,p) in fMats.keys() and not debug:
         return fMats[(n,p)]
@@ -115,7 +114,6 @@ def forwardMat(n, p=4, debug=False):
     return mat
 
 def inverseMat(n,p=4, debug=False):
-    global iMats
     if not (n,p) in iMats.keys():
         forwardMat(n,p, debug)
     return iMats[(n,p)]

@@ -1,8 +1,7 @@
-import os, sys
+import os
 import pickle
 import time
 import numpy as np
-from matplotlib import pyplot
 import multiprocessing
 
 this_dir, this_filename = os.path.split(__file__)
@@ -10,12 +9,10 @@ this_dir, this_filename = os.path.split(__file__)
 directory = 'binlens_images2'
 directory = os.path.join(this_dir, directory)
 
-sys.path = [directory]+sys.path
 import binlen
 
 debug = False
 def clean():
-    global directory, exe
     files = os.listdir(directory)
     for f in files:
         if f.startswith('_tmpPMOIRED') and f.endswith('.pickle'):

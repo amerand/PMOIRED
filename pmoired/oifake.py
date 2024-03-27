@@ -2,14 +2,16 @@ import numpy as np
 from astroquery.simbad import Simbad
 from matplotlib import pyplot as plt
 import itertools
-import sys, os
+try:
+    from importlib import resources
+except ImportError:
+    # Necessary while Python versions below 3.9 are supported.
+    import importlib_resources as resources
+
 
 import scipy.special
 
-try:
-    from pmoired import oimodels
-except:
-    import oimodels
+from pmoired import oimodels
 
 # -- generate fake VLTI data
 
@@ -87,26 +89,22 @@ OPL = {'IP1': (2.105, 11.5625, 11.5298, 20.9873),
 # -- https://pdm.eso.org/kronodoc/1100/Get/265745/VLT-TRE-ESO-15000-2551_1.PDF
 def loadHorizon(filename=None):
     # -- use custom computation hzlib.tabulateAll()
-    if filename is None:
-        #filename = 'newVltiHzn.txt'
-        this_dir, this_filename = os.path.split(__file__)
-        filename = 'newVltiHzn_obsDoors.txt'
-        filename = os.path.join(this_dir, filename)
-
-    f = open(filename, 'r')
-    #print('- reading VLTI horizons from '+filename)
-    for l in f.readlines():
-        if not l.startswith('#'):
-            az.append(float(l.split()[0]))
-            for i, k in enumerate(keys):
-                horizon[k].append(float(l.split()[i+1]))
-        elif l.startswith('# az'):
-            keys = l.split('# az')[1].split()
-            az = []
-            horizon = {k:[] for k in keys}
-        else:
-            pass
-    f.close()
+    with resources.as_file(resources.files('pmoired').joinpath('newVltiHzn_obsDoors.txt')) as p:
+        if filename is None:
+            filename = p
+        with open(filename, 'r') as f:
+            #print('- reading VLTI horizons from '+filename)
+            for l in f.readlines():
+                if not l.startswith('#'):
+                    az.append(float(l.split()[0]))
+                    for i, k in enumerate(keys):
+                        horizon[k].append(float(l.split()[i+1]))
+                elif l.startswith('# az'):
+                    keys = l.split('# az')[1].split()
+                    az = []
+                    horizon = {k:[] for k in keys}
+                else:
+                    pass
     for k in keys:
         horizon[k] = (az, horizon[k])
     return horizon

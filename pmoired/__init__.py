@@ -1,7 +1,4 @@
-try:
-    from pmoired import oimodels, oifits, oifake #, oicandid
-except:
-    import oimodels, oifits, oifake #, oicandid
+from pmoired import oimodels, oifits, oifake #, oicandid
 
 
 import multiprocessing
@@ -16,7 +13,6 @@ import os
 import pickle
 import time
 import requests
-import glob
 
 import numpy as np
 #import warnings

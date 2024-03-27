@@ -7,7 +7,6 @@ import platform, subprocess
 import itertools
 import sys
 import pickle
-from collections import Counter
 
 import warnings
 warnings.filterwarnings(action='ignore', category=RuntimeWarning) 
@@ -21,21 +20,10 @@ import scipy.special
 import scipy.interpolate
 import scipy.stats
 
-try:
-    import pmoired.dpfit as dpfit
-    import pmoired.dw as dw
-except:
-    import dpfit, dw
 
-try:
-    this_dir, this_filename = os.path.split(__file__)
-    sys.path = [this_dir] + sys.path
-    import ulensBin2
-except:
-    #print('warning: no microlensing package')
-    pass
-
-from collections import Counter
+import pmoired.dpfit as dpfit
+import pmoired.dw as dw
+# import pmoired.ulensBin2 as ulensBin2
 
 from astropy import constants
 
@@ -1698,7 +1686,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         plt.scatter(P[:,0], P[:,1], marker='.',
                     #s=10*P[:,8]/min(P[:,8])*cont[0,:],
                     c=np.sum(cont, axis=0), cmap='bone_r')
-        plt.colorbar(label='continuum flux (avg over $\lambda$)')
+        plt.colorbar(label=r'continuum flux (avg over $\lambda$)')
         plt.xlabel('<- E (mas)'); plt.ylabel('-> N (mas)')
         ax.invert_xaxis()
 
@@ -3655,7 +3643,7 @@ _prog_N = 1
 _prog_Nmax = 0
 _prog_t0 = time.time()
 def progress(results=None):
-    global _prog_N, _prog_Nmax, _prog_t0
+    global _prog_N
     _nb = 60 # length of the progress bar
     tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
     if tleft>100:
@@ -3695,7 +3683,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
     constrain: list of conditions, with same syntax as priors (see computePriorL).
     """
-    global _prog_N, _prog_Nmax, _prog_t0, MAX_THREADS
+    global _prog_N, _prog_Nmax, _prog_t0
 
     assert type(expl)==dict, "expl must be a dict"
     assert 'grid' in expl or 'rand' in expl or 'randn' in expl
@@ -4103,7 +4091,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
 
     see also: doFit 
     """
-    global _prog_N, _prog_Nmax, _prog_t0, MAX_THREADS
+    global _prog_N, _prog_Nmax, _prog_t0
 
     if N is None:
         # -- count number of spectral vector data
@@ -5020,7 +5008,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 # -- TODO: use GridSpec?
                                 ax = plt.subplot(2, ncol, i_col+1)
                                 axr = plt.subplot(2, ncol, ncol+i_col+1, sharex=ax)
-                                axr.set_title('residuals ($\sigma$)',
+                                axr.set_title(r'residuals ($\sigma$)',
                                               color='0.5', fontsize=8, x=.5, y=.9)
                                 ax.tick_params(axis='y', labelsize=8)
                                 axr.tick_params(axis='y', labelsize=8)
@@ -5311,7 +5299,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 else:
                     rms = 0.5*(np.percentile(resi, 84)-np.percentile(resi, 16))
                     f = '%%rms'
-                fmt = '$\chi^2$=%.2f '
+                fmt = r'$\chi^2$=%.2f '
                 if rms<=0 or not np.isfinite(np.log10(rms)):
                     n = 1
                 else:
@@ -5582,7 +5570,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
             title ='Image '
         n = 2-np.log10(np.median(np.abs(np.diff(oi['WL'][mask]))))
 
-        title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
+        title += r'$\lambda$=%.'+str(int(n))+r'f$\mu$m'
         title = title%_wl
         plt.title(title, fontsize=9)
 
@@ -5721,7 +5709,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
     if bckgGrid:
         plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
     ax.legend(fontsize=5)
-    plt.xlabel('wavelength ($\mu$m)')
+    plt.xlabel(r'wavelength ($\mu$m)')
     ax.tick_params(axis='x', labelsize=6)
     ax.tick_params(axis='y', labelsize=6)
 
@@ -5734,7 +5722,6 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
     return m
 
 def _callbackAxes(ax):
-    global _AX, _AY
     i = None
     for k in _AY.keys():
         if ax==_AY[k]:
@@ -6059,7 +6046,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                         color=color3 if combi else color2, fmt='d',
                         capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
             n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-            fmt = '%s=\n'+'%.'+'%d'%n+'f'+'$\pm$'+'%.'+'%d'%n+'f'
+            fmt = '%s=\n'+'%.'+'%d'%n+'f'+r'$\pm$'+'%.'+'%d'%n+'f'
             plt.title(fmt%(k1, boot['best'][k1], boot['uncer'][k1]),
                         fontsize=fontsize)
         plt.legend(fontsize=5)
@@ -6583,7 +6570,7 @@ def testAzVar():
 
     ax = plt.subplot(2,4,4, sharex=ax0, sharey=ax0)
     imYn = 1. # in 1/100 visibility
-    plt.title('$\Delta$|V| (1/100)')
+    plt.title(r'$\Delta$|V| (1/100)')
     ax.set_aspect('equal')
     res = 100*(np.abs(Vis)-np.abs(Visp))
     pv = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0,
@@ -6599,7 +6586,7 @@ def testAzVar():
     ax = plt.subplot(2,4,6, sharex=ax0, sharey=ax0)
     plt.xlabel(r'B$\theta$/$\lambda$ (m.rad/m)')
     ax.set_aspect('equal')
-    plt.title('$\phi$ numerical')
+    plt.title(r'$\phi$ numerical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Vis),
                     cmap='hsv', vmin=-180, vmax=180, shading='auto',
                     rasterized=True)
@@ -6608,14 +6595,14 @@ def testAzVar():
     ax = plt.subplot(2,4,7, sharex=ax0, sharey=ax0)
     plt.xlabel(r'B$\theta$/$\lambda$ (m.rad/m)')
     ax.set_aspect('equal')
-    plt.title('$\phi$ semi-analytical')
+    plt.title(r'$\phi$ semi-analytical')
     plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, 180/np.pi*np.angle(Visp),
                     cmap='hsv', vmin=-180, vmax=180, shading='auto',
                     rasterized=True)
 
     ax = plt.subplot(2,4,8, sharex=ax0, sharey=ax0)
     imYn = 1
-    plt.title('$\Delta\phi$ (deg)')
+    plt.title(r'$\Delta\phi$ (deg)')
     ax.set_aspect('equal')
     res = 180/np.pi*((np.angle(Vis)-np.angle(Visp)+np.pi)%(2*np.pi)-np.pi)
     pp = plt.pcolormesh(_c*diam*U/wl0, _c*diam*V/wl0, res, shading='auto',
