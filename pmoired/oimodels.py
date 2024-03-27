@@ -32,7 +32,8 @@ try:
     sys.path = [this_dir] + sys.path
     import ulensBin2
 except:
-    print('warning: no microlensing package')
+    #print('warning: no microlensing package')
+    pass
 
 from collections import Counter
 
