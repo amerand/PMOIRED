@@ -25,7 +25,6 @@ import pmoired.dpfit as dpfit
 import pmoired.dw as dw
 # import pmoired.ulensBin2 as ulensBin2
 
-
 from astropy import constants
 
 _c = np.pi**2/180/3600/1000*1e6

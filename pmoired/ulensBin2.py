@@ -88,9 +88,7 @@ def computeImages(MJD, param, parallel=False, debug=False):
     t0 = time.time()
     cols = ['t0', 'u0', 'tE', 'b', 'q', 'theta', 'rhos']
     if not 't0' in param and 'mjd0' in param:
-        #param['t0'] = param['mjd0']-50000.5
-        param['t0'] = param['mjd0']- 49999.5 # argh!
-
+        param['t0'] = param['mjd0']- 49999.5 
 
     _p = [param[c] for c in cols]
     if _p!=_lastParam:
@@ -113,21 +111,18 @@ def computeImages(MJD, param, parallel=False, debug=False):
     if debug:
         print('D> -- computeImage starts')
     for mjd in MJD:
-        #t = round(mjd -50000.5, 2)
-        #img = 'img.%.2f.txt'%t
-        #imgp = img.replace('.txt', '.pickle')
         if mjd in _lastMJD:
             if debug:
                 print('D> same parameters and known MJD: re-using image')
             res[round(mjd, 2)] = _lastMJD[mjd]
             continue
 
-
         if debug:
             print('D> computing for epoch MJD=%f:'%mjd)
         t1 = time.time()
         tmp = [param[k] for k in cols]
-        tmp += [round(mjd -50000.5, 2)]
+        tmp += [round(mjd - 49999.5, 2)]
+
         if debug:
             print('D> computing:', tmp)
 
@@ -163,6 +158,44 @@ def computeImages(MJD, param, parallel=False, debug=False):
         print('D> -- computeImage done in %.2fs'%(time.time()-t0))
     #print("computeImages:", res.keys())
 
+    return res
+
+def lightCurve(MJD, param, stepping=None):
+    """
+    param: dictionnary containing ['t0', 'u0', 'tE', 'b', 'q', 'theta', 'rhos']
+
+    MJD: list of MJDs
+
+    stepping: use a interpolated light curve instead of for every date
+    """
+    cols = ['t0', 'u0', 'tE', 'b', 'q', 'theta', 'rhos']
+    if not 't0' in param and 'mjd0' in param:
+        param['t0'] = param['mjd0']- 49999.5 
+    res = []
+    if stepping is None:
+        X = MJD
+    else:
+        X = np.linspace(np.min(MJD), np.max(MJD), int(np.ptp(MJD)/stepping)+1)
+
+    for mjd in X:
+        tmp = [param[k] for k in cols]
+        tmp += [mjd - 49999.5]
+        ng, xg, yg = binlen.binlen_image(*tmp)
+        # -- normalise fluxes to flux of source
+        # -- "0.002" -> grid size in fortran code
+        fscale = (0.002/param['rhos'])**2/np.pi
+        res.append(ng*fscale)
+        #xg = xg[:ng]
+        #yg = yg[:ng]
+        # -- from Fortran code
+        #if param['b']<=1:
+        #    offx = param['b']*(-0.5+1/(1+param['q']))
+        #else:
+        #    offx = param['b']/2 -param['q']/(1+param['q'])/param['b']
+        #xg += offx
+    res = np.array(res)
+    if not stepping is None:
+        res = np.interp(MJD, X, res)
     return res
 
 def imageTxt2Sparse(X=None, Y=None, rhos=None, filename=None, debug=debug,savefile=True):
@@ -222,7 +255,8 @@ def imageTxt2Sparse(X=None, Y=None, rhos=None, filename=None, debug=debug,savefi
 
     if not rhos is None:
         # -- normalise fluxes to flux of source
-        # -- not sure how to justify the "0.002"!
+        # -- not sure how to justify the "0.002"! -> Maybe the stepping in ray tracing?
+        # "0.002" -> grid size in fortran code
         fscale = (0.002/rhos)**2/np.pi
         sparse['I'] *= fscale
     if savefile:

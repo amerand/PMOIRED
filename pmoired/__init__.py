@@ -15,8 +15,8 @@ import time
 import requests
 
 import numpy as np
-import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
+#import warnings
+#warnings.filterwarnings("ignore", category=RuntimeWarning) 
 import matplotlib.pyplot as plt
 import scipy
 import astropy
@@ -149,6 +149,7 @@ class OI:
             self.data = []
         self._merged = []
     def __del__(self):
+        """not doing anything"""
         self.data = None
     def save(self, name=None, overwrite=False):
         """
