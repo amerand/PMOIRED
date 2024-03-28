@@ -859,7 +859,7 @@ def fluxCube(cube, wl):
 
 __mjd0 = 57000
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
-            diam=None, cube=None, noise=0, thres=None,
+            diam=None, cube=None, noise=None, thres=None,
             model=None, insname='fake', debug=False,
             doubleDL=False):
     """
@@ -877,6 +877,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         spectrum: spectrum (same lemgth as wl), should be sum(image, axis=(0,1))
     model = a dictionnary describing a model (usual PMOIRED syntax)
     doubleDL = use double passage delay line (default=False)
+    noise = noise to apply. If ==0, no noise; if None, typical noise (relative / degrees):
+          {'V2': 0.01, '|V|':0.01, 'PHI':1., 'FLUX':0.01, 'T3PHI':1., 'T3AMP':0.01}
     """
     global __mjd0
     if noise == 0:

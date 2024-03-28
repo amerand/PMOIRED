@@ -2408,10 +2408,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
     oi['WL cont'] = np.bool_(w)
     w = oi['WL cont'].copy()
 
-    if debug:
-        print('computeDiffPhiOI: continuum', oi['WL cont'])
-        #print(' ', oi['WL'][oi['WL cont']])
-
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.2)
         order = max(order, 2)
@@ -2420,7 +2416,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         order = oi['fit']['DPHI order']
     if 'fit' in oi and 'N|V| order' in oi['fit']:
         vorder = oi['fit']['N|V| order']
-
+    #print('computeDiffPhiOI: order=%d'%order)
+    if debug:
+        print('computeDiffPhiOI: continuum', oi['WL cont'])
+        
     if np.sum(oi['WL cont'])<order+1:
         print('WARNING: not enough WL to compute continuum!')
         return oi
@@ -2434,10 +2433,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 err = oi['OI_VIS'][k]['EPHI'][i,:]
                 if 'max error' in oi['fit'] and 'DPHI' in oi['fit']['max error']:
                     # -- ignore data with large error bars
-                    mask *= (err<oi['fit']['max error']['DPHI'])
+                    mask *= (err<=oi['fit']['max error']['DPHI'])
                 if 'max relative error' in oi['fit'] and 'DPHI' in oi['fit']['max relative error']:
                     # -- ignore data with large error bars
-                    mask *= (err<(oi['fit']['max relative error']['DPHI']*
+                    mask *= (err<=(oi['fit']['max relative error']['DPHI']*
                                     np.abs(oi['OI_VIS'][k]['PHI'][i,:])))
                 if 'mult error' in fit and 'DPHI' in oi['fit']['mult error']:
                     # -- force error to a minimum value
@@ -2449,6 +2448,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     # -- force error to a minimum value
                     err = np.maximum(oi['fit']['min relative error']['DPHI']*
                                      np.abs(oi['OI_VIS'][k]['PHI'][i,:]), err)
+                # -- ignore 0-errors
                 mask *= err>0
             else:
                 err = None
@@ -2459,7 +2459,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 else:
                     c = np.polyfit(oi['WL'][mask], phi[mask],
                                     order)
-
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
                 # -- not polynomial fit, use median
