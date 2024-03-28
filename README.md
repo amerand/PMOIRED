@@ -21,26 +21,20 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
-_`PMOIRED` can be used without installing it. Look at the examples to see how to call it_.
+Run the following command in the the 'PMOIRED' directory of the sources, after downloading or cloning the repository:
 
-Run the following command in the the root directory of the sources:
 ```
-python3 -m pip install .
-```
-
-To uninstall (assuming you have recorded the install files at described above):
-```
-python3 -m pip uninstall pmoired
+pip3 install .
 ```
 
-## Examples
+To uninstall:
+```
+pip3 uninstall pmoired
+```
 
-Check out the examples provided in the package in the directory `examples`, in the form of Jupyter notebooks:
-- [Model definition](https://github.com/amerand/PMOIRED/blob/master/examples/Model%20definitions%20and%20examples.ipynb) Illustrates the syntax for model definition. Start here!
-- [Alpha Cen A](https://github.com/amerand/PMOIRED/blob/master/examples/angular%20diameter%20alphaCenA.ipynb) PIONIER data from [Kervella et al. (2017)](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A.137K/abstract). Fitting V2 with uniform disk or limb-darkened disks, including with parametrised darkening. Most `PMOIRED` basics are covered there.
-- [FU Ori](https://github.com/amerand/PMOIRED/blob/master/examples/chromatic%20multi%20components%20FUOri.ipynb) GRAVITY data from [Liu et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019ApJ...884...97L/abstract). Fitting 2-components model with chromatic flux ratio.
-- [AX Cir](https://github.com/amerand/PMOIRED/blob/master/examples/companion%20search%20AXCir.ipynb) PIONIER data from [Gallenne et al. 2015](https://ui.adsabs.harvard.edu/abs/2015A%26A...579A..68G/abstract), shows how `PMOIRED` can be used to cover most of the features of [CANDID](https://github.com/amerand/CANDID)'s companion grid search and estimation of detection limit for a third component.
-- [Keplerian disks](https://github.com/amerand/PMOIRED/blob/master/examples/Be%20model%20comparison%20with%20AMHRA.ipynb) shows how to generate VLTI simulated data from a data cube (image x wavelength) and how to fit them with `PMOIRED`. The data cube is a [Be star Model](https://amhra.oca.eu/AMHRA/bedisk/input.htm) from [AMHRA](https://amhra.oca.eu/AMHRA/index.htm). The model has been re-implemented in `PMOIRED`: data can be directly fitted. This notebook shows a comparison between the 2 implementations. Please refer to [Delaa et al. (2011)](https://ui.adsabs.harvard.edu/abs/2011A%26A...529A..87D/abstract) for a description of the Keplerian disk model. `PMOIRED` is also used to fit VLTI/AMBER observations of alpha Col, and results are compared to [Meilland et al. (2012)](https://ui.adsabs.harvard.edu/abs/2012A%26A...538A.110M/abstract) which use the Delaa etl al. (2011) model. 
+## Examples and tutorials
+
+Examples are available in a separate repository: [PMOIRED_examples](https://github.com/amerand/PMOIRED_examples). These examples are Jupyter Notebooks reproducing published results with other tools, and serve both as tutorials and verification of `PMOIRED`. They cover most of the features of `PMOIRED`, from the basics to more advanced operations. 
 
 ## Using and quoting `PMOIRED`
 
