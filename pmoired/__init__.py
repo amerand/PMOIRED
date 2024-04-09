@@ -30,7 +30,7 @@ MAX_THREADS = multiprocessing.cpu_count()
 #print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 #print('https://github.com/amerand/PMOIRED')
 
-__version__= '1.2.0'
+__version__= '1.2.1'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
