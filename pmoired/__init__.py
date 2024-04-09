@@ -30,7 +30,7 @@ MAX_THREADS = multiprocessing.cpu_count()
 #print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 #print('https://github.com/amerand/PMOIRED')
 
-__version__= '1.2'
+__version__= '1.2.0'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -1916,3 +1916,6 @@ def _checkPrior(prior):
 
         return False
     return True
+
+if __name__ == "__main__":
+    pass

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["pmoired"]
-exclude = ["tutorials", "examples", "banner"]
+exclude = ["banner"]
 
 [tool.setuptools.package-data]
 pmoired = ["newVltiHzn_obsDoors.txt", 
@@ -22,10 +22,18 @@ license = {file="LICENCE.txt"}
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Visualization",
 ]
+keywords = ["optical interferometry", "visualization", "display", "OIFITS", "data modeling"]
+description = "Display and fit Optical (spectro-)Interferometric OIFITS data"
 authors = [
     {name = "Antoine Mérand", email = "amerand@eso.org"},
 ]
+
 dependencies = [
     "scipy", 
     "numpy", 
@@ -37,6 +45,7 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/amerand/PMOIRED"
+Issues = "https://github.com/amerand/PMOIRED/issues"
 Bibliography = "https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA"
 Publications = "https://ui.adsabs.harvard.edu/search/p_=0&q=%20full%253A%22PMOIRED%22"
 
