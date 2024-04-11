@@ -3442,7 +3442,7 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
         len(fit['cord'].keys())>1 and any([fit['uncer'][k]>0 for k in fit['uncer']]):
         dpfit.dispCor(fit)
     if lowmemory:
-        for k in ['x']:
+        for k in ['x', 'y']:
             if k in fit:
                 fit.pop(k)
     return fit
@@ -3801,6 +3801,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     return res
 
 def analyseGrid(fits, expl, debug=False, verbose=1):
+    global _prog_N, _prog_Nmax, _prog_t0
+
     res = []
     bad = []
     errTooLarge = []
@@ -3859,24 +3861,49 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
 
     # -- create list of unique minima
     if verbose or debug:
-        print('making list of unique minima...')
+        print(time.asctime()+': making list of unique minima...')
+    _prog_N = 1
+    _prog_Nmax = len(res)
+    _prog_t0 = time.time()
+    mask = np.array([True for i in range(len(res))])
+    keep = list(range(len(res)))
+    for j in ignore:
+        keep.remove(j)
     for i,f in enumerate(res):
+        #print(keep)
+        progress()
         if i in ignore:
             continue
         # -- compute distance between minima, based on fitted parameters
-        d = [np.mean([(f['best'][k]-g['best'][k])**2/(uncer[i][k]*uncer[j][k])
-                     for k in fitOnly[i]]) for j,g in enumerate(res)]
+        # TODO: only compute to the *remaining* minima, not all of them!
+        d = [np.mean([(f['best'][k]-res[j]['best'][k])**2/(uncer[i][k]*uncer[j][k])
+                     for k in fitOnly[i]]) for j in keep]
+        #print('d >', d)
         # -- group solutions with closeby ones
-        w = np.array(d)/len(fitOnly[i])<1
-
+        w = np.array(d)/len(fitOnly[i]) < 1
+        #print(' keep[w] > ', np.array(keep)[w])
         if debug:
             print(i, np.round(d, 2), w)
             print(list(np.arange(len(res))[w]))
-        tmp.append(res[np.arange(len(res))[w][np.argmin(chi2[w])]])
+
+        # -- best solution from the bunch
+        #print(' chi2[w] >', chi2[np.array(keep)[w]])
+        #print(' best chi2 in pos', np.argmin(chi2[np.array(keep)[w]]))
+        #tmp.append(res[np.arange(len(res))[w][np.argmin(chi2[w])]])
+        tmp.append(res[np.array(keep)[w][np.argmin(chi2[np.array(keep)[w]])]])
+
         tmp[-1]['index'] = i
         # -- which minima should be considered
-        map[i] = list(np.arange(len(res))[w])
-        ignore.extend(list(np.arange(len(res))[w]))
+        #map[i] = list(np.arange(len(res))[w])
+        map[i] = list(np.array(keep)[w])
+        
+        #ignore.extend(list(np.arange(len(res))[w]))
+        ignore.extend(list(np.array(keep)[w]))
+
+        #for j in list(np.arange(len(res))[w]):
+        for j in np.array(keep)[w]:
+            keep.remove(j)
+    print()
 
     if debug or verbose:
         print('unique minima:', len(tmp), '/', len(res), end=' ')
@@ -3890,7 +3917,14 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
         print(' \033[33mfinding the global minimum may be unreliable\033[0m')
 
     # -- keep track of all initial values leading to the local minimum
+    if verbose or debug:
+        print(time.asctime()+': linking unique minima to first guess(es)')
+    #_prog_N = 1
+    #_prog_Nmax = len(tmp)
+    #_prog_t0 = time.time()
+
     for i,t in enumerate(tmp):
+        #progress() this is always very fast
         _fG = []
         for j in map[t['index']]:
             if type(res[j]['firstGuess'])==list:
@@ -3898,13 +3932,13 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
             else:
                 _fG.append(res[j]['firstGuess'].copy())
         t['firstGuess'] = _fG
-
         # t['firstGuess'] = []
         # for j in map[t['index']]:
         #     if type(res[j]['firstGuess'])==list:
         #         t['firstGuess'].extend(res[j]['firstGuess'])
         #     else:
         #         t['firstGuess'].append(res[j]['firstGuess'])
+    print()
 
     res = tmp
     res = sorted(res, key=lambda r: r['chi2'])
@@ -3916,6 +3950,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
             res[-1]['firstGuess'] = [res[-1]['firstGuess'].copy()]
         res[-1]['bad'] = True
     if verbose:
+        print(time.asctime()+': done')
         print('-'*12)
         print('best fit: chi2=', res[0]['chi2'])
         dpfit.dispBest(res[0])

@@ -41,41 +41,14 @@ __versions__={'pmoired':__version__,
               'matplotlib':matplotlib.__version__
               }
 
-def checkCurrentVersion():
-    """
-    ugly!
-    """
-    global __version__
-    link = "https://raw.githubusercontent.com/amerand/PMOIRED/master/pmoired/__init__.py"
-    f = requests.get(link, verify=False, timeout=5)
-    lines = f.text.split('\n')
-    lines = list(filter(lambda x: x.replace(' ', '').startswith('__version__='), lines))
-    if len(lines)==1:
-        return lines[0].split('__version__=')[1].replace('"', '').replace("'",'').strip()
-    else:
-        return None
-
-if False:
-    print('checking for newer version... ', end='')
-    try:
-        curver = checkCurrentVersion()
-        if not curver is None and curver>__version__:
-            print('\033[44mNew version available on github: ', curver, end='\033[0m ')
-        if not curver is None and curver==__version__:
-            print('Up to date', end=' ')
-        if not curver is None and curver<__version__:
-            print('You have a newer version than github!?', end=' ')
-        print('[you have '+__version__+']' )
-    except:
-        print('failed (no connection to github?)')
-
-try:
-    jup = os.popen('jupyter --version').readlines()
-    for j in jup:
-        __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
-except:
-    # -- cannot get versions of jupyter tools
-    pass
+# not required for the core module
+# try:
+#     jup = os.popen('jupyter --version').readlines()
+#     for j in jup:
+#         __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
+# except:
+#     # -- cannot get versions of jupyter tools
+#     pass
 
 def _isiterable(x):
     res = True 
