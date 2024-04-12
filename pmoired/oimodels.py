@@ -3885,7 +3885,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
     for j in ignore:
         keep.remove(j)
     for i,f in enumerate(res):
-        if len(res)>1000
+        if len(res)>1000:
             progress()
         if i in ignore:
             continue
