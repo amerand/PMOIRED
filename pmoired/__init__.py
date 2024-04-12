@@ -665,7 +665,7 @@ class OI:
 
     def gridFit(self, expl, Nfits=None, model=None, fitOnly=None, doNotFit=None,
                 maxfev=None, ftol=None, multi=True, epsfcn=None, prior=None,
-                autoPrior=True, constrain=None, verbose=2):
+                autoPrior=True, constrain=None, verbose=2, deltaChi2=None):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
         with grid / randomised parameters. Nfits can be determined from "expl" if
@@ -726,7 +726,8 @@ class OI:
                                        epsfcn=epsfcn, constrain=constrain,
                                        prior=prior, verbose=verbose)
         self._expl = expl
-        self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose)
+        self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose, 
+                                         deltaChi2=deltaChi2)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
         self.bestfit['constrain'] = constrain

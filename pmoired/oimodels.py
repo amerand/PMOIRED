@@ -3442,9 +3442,13 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
         len(fit['cord'].keys())>1 and any([fit['uncer'][k]>0 for k in fit['uncer']]):
         dpfit.dispCor(fit)
     if lowmemory:
-        for k in ['x', 'y']:
+        for k in ['x', 'y', 'track', 'model']:
             if k in fit:
                 fit.pop(k)
+        if 'info' in fit:
+            for k in ['fvec', 'fjac']:
+                if k in fit['info']:
+                    fit['info'].pop(k)
     return fit
 
 def _updateAzAmpsProjangs(params):
@@ -3800,7 +3804,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     #    res = analyseGrid(res, expl, verbose=1)
     return res
 
-def analyseGrid(fits, expl, debug=False, verbose=1):
+def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
     global _prog_N, _prog_Nmax, _prog_t0
 
     res = []
@@ -3809,8 +3813,14 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     noUncer = []
     infos = []
     # -- remove bad fit (no uncertainties)
+    chi2min = np.nanmin([f['chi2'] for f in fits])
+    chi2TooLarge = []
     for i,f in enumerate(fits):
-        if np.sum([f['uncer'][k]**2 for k in f['uncer']]):
+        if not deltaChi2 is None and f['chi2']>chi2min+deltaChi2:
+            bad.append(f.copy())
+            bad[-1]['bad'] = True
+            chi2TooLarge.append(i)
+        elif np.sum([f['uncer'][k]**2 for k in f['uncer']]):
             # -- some uncertainties are >0
             # -- check errors are reasonable / grid:
             test = False
@@ -3833,12 +3843,16 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     if debug or verbose:
         print('fits to be taken into account:', len(res), '/', len(fits))
         if len(bad)-len(errTooLarge):
-            print(' ', len(bad)-len(errTooLarge), 'did not numerically converge',
+            print(' ', len(bad)-len(errTooLarge)-len(chi2TooLarge), 'did not numerically converge',
                 '(incl %d have no uncertainties)'%len(noUncer))
         #print(Counter(infos))
         if len(errTooLarge):
             print(' ', len(errTooLarge),
               "have uncertainties larger than the grid's step[s]")
+        if len(chi2TooLarge):
+            print(' ', len(chi2TooLarge), "have chi2r > %.3f + %f = %.3f"%(chi2min, deltaChi2, 
+                chi2min+deltaChi2))
+
         
     # -- unique fits:
     tmp = []
@@ -3862,48 +3876,41 @@ def analyseGrid(fits, expl, debug=False, verbose=1):
     # -- create list of unique minima
     if verbose or debug:
         print(time.asctime()+': making list of unique minima...')
-    _prog_N = 1
-    _prog_Nmax = len(res)
-    _prog_t0 = time.time()
+    if len(res)>1000:
+        _prog_N = 1
+        _prog_Nmax = len(res)
+        _prog_t0 = time.time()
     mask = np.array([True for i in range(len(res))])
     keep = list(range(len(res)))
     for j in ignore:
         keep.remove(j)
     for i,f in enumerate(res):
-        #print(keep)
-        progress()
+        if len(res)>1000
+            progress()
         if i in ignore:
             continue
         # -- compute distance between minima, based on fitted parameters
-        # TODO: only compute to the *remaining* minima, not all of them!
         d = [np.mean([(f['best'][k]-res[j]['best'][k])**2/(uncer[i][k]*uncer[j][k])
                      for k in fitOnly[i]]) for j in keep]
-        #print('d >', d)
         # -- group solutions with closeby ones
         w = np.array(d)/len(fitOnly[i]) < 1
-        #print(' keep[w] > ', np.array(keep)[w])
         if debug:
             print(i, np.round(d, 2), w)
             print(list(np.arange(len(res))[w]))
 
         # -- best solution from the bunch
-        #print(' chi2[w] >', chi2[np.array(keep)[w]])
-        #print(' best chi2 in pos', np.argmin(chi2[np.array(keep)[w]]))
-        #tmp.append(res[np.arange(len(res))[w][np.argmin(chi2[w])]])
         tmp.append(res[np.array(keep)[w][np.argmin(chi2[np.array(keep)[w]])]])
 
         tmp[-1]['index'] = i
         # -- which minima should be considered
-        #map[i] = list(np.arange(len(res))[w])
         map[i] = list(np.array(keep)[w])
         
-        #ignore.extend(list(np.arange(len(res))[w]))
         ignore.extend(list(np.array(keep)[w]))
 
-        #for j in list(np.arange(len(res))[w]):
         for j in np.array(keep)[w]:
             keep.remove(j)
-    print()
+    if len(res)>1000:
+        print()
 
     if debug or verbose:
         print('unique minima:', len(tmp), '/', len(res), end=' ')
