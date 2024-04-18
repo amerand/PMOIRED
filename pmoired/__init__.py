@@ -579,7 +579,7 @@ class OI:
         self._limexpl['nsigma'] = nsigma
         return
 
-    def showLimGrid(self, px=None, py=None, aspect=None,
+    def showLimGrid(self, px=None, py=None, aspect=None, logV=True,
                     vmin=None, vmax=None, mag=False, cmap='inferno'):
         """
         show the results from `detectionLimit` as 2D coloured map.
@@ -617,21 +617,31 @@ class OI:
 
         self.fig+=1
         plt.close(self.fig)
-        plt.figure(self.fig, figsize=(8,4))
-        ax1 = plt.subplot(121, aspect=aspect)
+        if xy:
+            plt.figure(self.fig, figsize=(FIG_MAX_WIDTH,FIG_MAX_WIDTH/3))
+            ax1 = plt.subplot(131, aspect=aspect)
+        else:
+            plt.figure(self.fig, figsize=(FIG_MAX_WIDTH,FIG_MAX_WIDTH/2))
+            ax1 = plt.subplot(121, aspect=aspect)
+
         if xy:
             ax1.invert_xaxis()
         if mag:
             c = np.array([-2.5*np.log10(r[self._limexpl['param']]) for r in self.limgrid])
+            _unit = 'mag'
+        elif logV:
+            c = np.array([np.log10(r[self._limexpl['param']]) for r in self.limgrid])
+            _unit = 'log10'
         else:
             c = np.array([r[self._limexpl['param']] for r in self.limgrid])
+            _unit = ''
         cx = np.array([r[px] for r in self.limgrid])
         cy = np.array([r[py] for r in self.limgrid])
         
         cx, cy, c = cx[np.isfinite(c)], cy[np.isfinite(c)], c[np.isfinite(c)]
 
         print('distribution of %.1fsigma detections:'%self._limexpl['nsigma'])
-        print(' median', self._limexpl['param'], ':', round(np.median(c),4), ' (mag)' if mag else '')
+        print(' median', self._limexpl['param'], ':', round(np.median(c),4), _unit)
         if len(self.limgrid)>13:
             print(' 1sigma (68%%) %.4f -> %.4f'%(np.percentile(c, 16),
                                                  np.percentile(c, 100-16)))
@@ -650,13 +660,37 @@ class OI:
 
         plt.scatter(cx, cy, c=c, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.title('%.1f$\sigma$ detection'%self._limexpl['nsigma'])
-        plt.colorbar(label=self._limexpl['param']+(' (mag)' if mag else ''))
+        plt.colorbar(label=self._limexpl['param']+' '+_unit)
         plt.xlabel(px)
         plt.ylabel(py)
 
-        plt.subplot(122)
+        if xy:
+            plt.subplot(132)
+        else:
+            plt.subplot(122)
+
         plt.hist(c, bins=max(int(np.sqrt(len(self.limgrid))), 5))
-        plt.xlabel(self._limexpl['param']+(' (mag)' if mag else ''))
+        plt.xlabel(self._limexpl['param']+' '+_unit)
+
+        if xy:
+            # -- radial detection limit
+            ax3 = plt.subplot(133)
+            R = np.array([np.sqrt(x[px]**2+x[py]**2) for x in self.limgrid]) 
+            r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
+            plt.plot(R, c, '.k', alpha=0.2)
+            _r, _f = [], []
+            for i in range(len(r)-1):
+                w = (R>=r[i])*(R<=r[i+1])
+                if sum(w):
+                    _r.append(0.5*(r[i]+r[i+1]))
+                    _f.append(np.median(c[w]))
+            plt.plot(_r, _f, '-r', linewidth=5, alpha=0.5)
+            plt.xlabel('radial distance (mas)')
+            plt.ylabel(self._limexpl['param']+' '+_unit)
+            if mag:
+                ax3.invert_yaxis()
+            plt.title('radial detection limit')
+
         try:
             plt.tight_layout()
         except:
