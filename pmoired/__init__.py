@@ -30,7 +30,7 @@ MAX_THREADS = multiprocessing.cpu_count()
 #print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 #print('https://github.com/amerand/PMOIRED')
 
-__version__= '1.2.1'
+__version__= '1.2.2'
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -580,7 +580,8 @@ class OI:
         return
 
     def showLimGrid(self, px=None, py=None, aspect=None, logV=True,
-                    vmin=None, vmax=None, mag=False, cmap='inferno'):
+                    vmin=None, vmax=None, mag=False, cmap='inferno',
+                    x0=None, y0=None):
         """
         show the results from `detectionLimit` as 2D coloured map.
 
@@ -675,7 +676,29 @@ class OI:
         if xy:
             # -- radial detection limit
             ax3 = plt.subplot(133)
-            R = np.array([np.sqrt(x[px]**2+x[py]**2) for x in self.limgrid]) 
+            if x0 is None:
+                _x0 = lambda z: 0
+            elif type(x0)==str:
+                if not x0 in self.limgrid[0]:
+                    print('warning: unknown parameter', x0)
+                    _x0 = lambda z: 0
+                else:
+                    _x0 = lambda z: z[x0]
+            else: # assume number
+                _x0 = lambda z: x0
+            
+            if y0 is None:
+                _y0 = lambda z: 0
+            elif type(y0)==str:
+                if not y0 in self.limgrid[0]:
+                    print('warning: unknown parameter', y0)
+                    _y0 = lambda z: 0
+                else:
+                    _y0 = lambda z: z[y0]
+            else: # assume number
+                _y0 = lambda z: y0
+
+            R = np.array([np.sqrt((x[px]-_x0(x))**2+(x[py]-_y0(x))**2) for x in self.limgrid]) 
             r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
             plt.plot(R, c, '.k', alpha=0.2)
             _r, _f = [], []
