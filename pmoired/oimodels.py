@@ -192,29 +192,28 @@ def _orbit(t, P, Vrad=False, verbose=False):
     M = 2*np.pi*(t-P['MJD0'])/P['P']
     E = 0
     for i in range(20):
-        E = M + P['e']*np.sin(E)
-    cos_nu = (np.cos(E)-P['e'])/(1-P['e']*np.cos(E))
+        E = M + np.abs(P['e'])*np.sin(E)
+    cos_nu = (np.cos(E)-np.abs(P['e']))/(1-np.abs(P['e'])*np.cos(E))
     nu = np.arccos(cos_nu)
     nu[np.sin(M)<0] = 2*np.pi-nu[np.sin(M)<0]
     
     if 'Ma' in P and 'Mb' in P and 'plx' in P:
-        P['a'] = ((P['Ma']+P['Mb'])*(P['P']/326.25)**2)**(1/3.) # in AU
-        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
+        P['a'] = ((P['Ma']+P['Mb'])*(P['P']/365.25)**2)**(1/3.) # in AU
+        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
         P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
         P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
         P['a'] *= P['plx'] # in mas
 
     if 'M' in P and 'plx' in P:
-        P['a'] = (P['M']*(P['P']/326.25)**2)**(1/3.) # in AU
-        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-P['e']**2)) # km/s
+        P['a'] = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
+        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
         #P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
         #P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
         P['a'] *= P['plx'] # in mas
-
-
+ 
     # separation
     if 'a' in P:
-        r = P['a']*(1-P['e']**2)/(1+P['e']*np.cos(nu))
+        r = P['a']*(1-np.abs(P['e'])**2)/(1+np.abs(P['e'])*np.cos(nu))
         x, y, z = r*np.cos(nu), r*np.sin(nu), 0
         # -- omega
         x, y, z = x*np.cos((180-P['omega'])*np.pi/180) + y*np.sin((180-P['omega'])*np.pi/180), \
@@ -222,18 +221,18 @@ def _orbit(t, P, Vrad=False, verbose=False):
                   z
         # -- inclination
         x, y, z = x,\
-                  y*np.cos(P['incl']*np.pi/180) + z*np.sin(P['incl']*np.pi/180), \
-                 -y*np.sin(P['incl']*np.pi/180) + z*np.cos(P['incl']*np.pi/180)
+                  y*np.cos((P['incl']+180)*np.pi/180) + z*np.sin((P['incl']+180)*np.pi/180), \
+                 -y*np.sin((P['incl']+180)*np.pi/180) + z*np.cos((P['incl']+180)*np.pi/180)
         # -- OMEGA
-        x, y, z = x*np.cos(P['OMEGA']*np.pi/180) + y*np.sin(P['OMEGA']*np.pi/180), \
-                 -x*np.sin(P['OMEGA']*np.pi/180) + y*np.cos(P['OMEGA']*np.pi/180), \
+        x, y, z = x*np.cos((P['OMEGA']+90)*np.pi/180) + y*np.sin((P['OMEGA']+90)*np.pi/180), \
+                 -x*np.sin((P['OMEGA']+90)*np.pi/180) + y*np.cos((P['OMEGA']+90)*np.pi/180), \
                   z
     if 'Ka' in P and 'Kb' in P:
-        VA = P['Ka']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
-        VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VA = P['Ka']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
     if 'K' in P:
         # -- "Va-Vb" 
-        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + P['e']*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
     return (x,y)
 
 def _orbitOLD(t, param, Vrad=False, verbose=False):
@@ -3094,7 +3093,14 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         print('residualsOI > "res": %.3fms'%(1000*(time.time()-t0)))
         print('residualsOI > total: %.3fms'%(1000*(time.time()-tt)))
         print('-'*30)
-    res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+    if 'fit' in oi:
+        if 'ignore relative flux' in oi['fit'] and oi['fit']['ignore relative flux']:
+            pass
+        else:
+            res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+    else:
+        res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+
     if what:
         wh.extend(['<0?'])
     if 'fit' in oi and 'prior' in oi['fit']:
