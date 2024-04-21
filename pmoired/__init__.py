@@ -579,7 +579,7 @@ class OI:
         self._limexpl['nsigma'] = nsigma
         return
 
-    def showLimGrid(self, px=None, py=None, aspect=None, logV=True,
+    def showLimGrid(self, px=None, py=None, aspect=None, logV=False,
                     vmin=None, vmax=None, mag=False, cmap='inferno',
                     x0=None, y0=None):
         """
@@ -660,7 +660,7 @@ class OI:
                                                    np.percentile(c, 100-.15)))
 
         plt.scatter(cx, cy, c=c, cmap=cmap, vmin=vmin, vmax=vmax)
-        plt.title('%.1f$\sigma$ detection'%self._limexpl['nsigma'])
+        plt.title(r'%.1f$\sigma$ detection'%self._limexpl['nsigma'])
         plt.colorbar(label=self._limexpl['param']+' '+_unit)
         plt.xlabel(px)
         plt.ylabel(py)
@@ -856,7 +856,7 @@ class OI:
                     plt.plot(0,0,'*', label=c,
                              markersize=10, alpha=0.5)
                     leg = True
-            plt.xlabel('E $\leftarrow$ '+px)
+            plt.xlabel(r'E $\leftarrow$ '+px)
             plt.ylabel(py+r'$\rightarrow$ N')
             if leg and legend:
                 plt.legend(fontsize=7)
@@ -935,7 +935,7 @@ class OI:
                 plt.subplot(showAny, 1, p)
                 p+=1
                 plt.plot(d['WL'], d['TELLURICS'])
-                plt.xlabel('wavelength ($\mu$m)')
+                plt.xlabel(r'wavelength ($\mu$m)')
                 plt.ylabel("flux (arb. unit)")
         return
 
@@ -1350,11 +1350,11 @@ class OI:
             if not imPow == 1:
                 if imPow==0.5:
                     #title = r'$\sqrt{\mathrm{I}} at $'
-                    cb.set_label('$\sqrt{Flux}$')
+                    cb.set_label(r'$\sqrt{Flux}$')
                 elif np.abs(imPow-1/int(1/imPow))<1e-3 and int(1/imPow)<6:
                     #title = 'Image$^{1/%d}$ '%int(1/imPow)
                     #title = r'$\sqrt[%d]{\mathrm{I}}$ at '%int(1/imPow)
-                    cb.set_label('$\sqrt[%d]{Flux}$'%int(1/imPow))
+                    cb.set_label(r'$\sqrt[%d]{Flux}$'%int(1/imPow))
                 else:
                     #title = '$\mathrm{I}^{%.2f}$ at '%imPow
                     cb.set_label('$Flux^{%.2f}$'%imPow)
@@ -1366,7 +1366,7 @@ class OI:
             else:
                 n = 3
 
-            title += '$\lambda$=%.'+str(int(n))+'f$\mu$m'
+            title += r'$\lambda$=%.'+str(int(n))+r'f$\mu$m'
             title = title%self.images['WL'][i0]
             if not vWl0 is None:
                 title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]*bcorr-vWl0)/self.images['WL'][i0]*299792)
@@ -1435,9 +1435,9 @@ class OI:
             else:
                 plt.ylim(0)
             if bcorr==1:
-                plt.xlabel('wavelength ($\mu$m)')
+                plt.xlabel(r'wavelength ($\mu$m)')
             else:
-                plt.xlabel('barycentric wavelength ($\mu$m)')
+                plt.xlabel(r'barycentric wavelength ($\mu$m)')
 
             if key=='flux ':
                 plt.title('SED', fontsize=9)
