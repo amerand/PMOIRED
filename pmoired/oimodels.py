@@ -40,7 +40,6 @@ def Ssingle(oi, param, noLambda=False):
         _param = computeLambdaParams(param)
     else:
         _param = param.copy()
-
     # -- flux (spectrum)
     f = np.zeros(oi['WL'].shape)
 
@@ -2903,8 +2902,9 @@ def computePriorL(param, prior):
         if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
             resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
         try:
-            res.append(eval(resi))
+            res.append(eval(resi.replace('(nan)', '(np.nan)')))
         except:
+            res.append(0.0)
             print('WARNING: could not compute prior "'+resi+'"')
     return np.array(res)
 
@@ -3822,7 +3822,12 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
     chi2min = np.nanmin([f['chi2'] for f in fits])
     chi2TooLarge = []
     for i,f in enumerate(fits):
-        if not deltaChi2 is None and f['chi2']>chi2min+deltaChi2:
+        if np.isnan(f['chi2']):
+            bad.append(f.copy())
+            bad[-1]['bad'] = True
+            noUncer.append(i)
+            infos.append(f['mesg'])
+        elif not deltaChi2 is None and f['chi2']>chi2min+deltaChi2:
             bad.append(f.copy())
             bad[-1]['bad'] = True
             chi2TooLarge.append(i)
@@ -3896,7 +3901,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         if i in ignore:
             continue
         # -- compute distance between minima, based on fitted parameters
-        d = [np.mean([(f['best'][k]-res[j]['best'][k])**2/(uncer[i][k]*uncer[j][k])
+        d = [np.nanmean([(f['best'][k]-res[j]['best'][k])**2/(uncer[i][k]*uncer[j][k])
                      for k in fitOnly[i]]) for j in keep]
         # -- group solutions with closeby ones
         w = np.array(d)/len(fitOnly[i]) < 1
@@ -3905,7 +3910,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
             print(list(np.arange(len(res))[w]))
 
         # -- best solution from the bunch
-        tmp.append(res[np.array(keep)[w][np.argmin(chi2[np.array(keep)[w]])]])
+        tmp.append(res[np.array(keep)[w][np.nanargmin(chi2[np.array(keep)[w]])]])
 
         tmp[-1]['index'] = i
         # -- which minima should be considered
