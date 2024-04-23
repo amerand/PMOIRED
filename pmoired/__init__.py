@@ -184,6 +184,16 @@ class OI:
             print('loaded:', loaded)
         return
 
+    def sizeof(self):
+        print('.data    : %.3fMB'%(_recsizeof(self.data)/1024**2))
+        print('._merged : %.3fMB'%(_recsizeof(self.data)/1024**2))
+        print('.bestfit : %.3fMB'%(_recsizeof(self.bestfit)/1024**2))
+        print('.spectra : %.3fMB'%(_recsizeof(self.spectra)/1024**2))
+        print('.images  : %.3fMB'%(_recsizeof(self.images)/1024**2))
+        print('.boot    : %.3fMB'%(_recsizeof(self.boot)/1024**2))
+        print('.grid    : %.3fMB'%(_recsizeof(self.grid)/1024**2))
+        print('.limgrid : %.3fMB'%(_recsizeof(self.limgrid)/1024**2))
+        
     def info(self):
         """
         Print out information about the current session
@@ -1953,6 +1963,24 @@ def _checkPrior(prior):
 
         return False
     return True
+
+def _recsizeof(s):
+    """
+    recursive size of s (useful for debugging!)
+    """
+    if type(s)==dict:
+        tmp = sys.getsizeof(s)
+        for k in s.keys():
+            tmp += _recsizeof(s[k])
+        return tmp
+    elif type(s)==list or type(s)==tuple or type(s)==np.ndarray:
+        tmp = sys.getsizeof(s)
+        for x in s:
+            tmp += _recsizeof(x)
+        return tmp
+    else:
+        return sys.getsizeof(s)
+        
 
 if __name__ == "__main__":
     pass
