@@ -173,6 +173,96 @@ def _Kepler3rdLaw(a=None, P=None, M1M2=None):
     else:
         return abs(a**3/(P**2*M1M2) - C)<=eC
 
+def _ti2campbell(ti, c=None, deg=True):
+    """
+    Thiele-Innes parameters {'A':,'B':,'G':,'F':} to Campbell {'incl':,'omega':,'OMEGA':,'a':}
+    https://arxiv.org/pdf/2206.05726.pdf Appendix A
+    https://gitlab.obspm.fr/gaia/nsstools/-/blob/main/nsstools/classes.py?ref_type=heads
+    """
+    # -- semi-major axis
+    u = (ti['A']**2 + ti['B']**2 + ti['F']**2 + ti['G']**2)/2
+    v = ti['A']*ti['G'] - ti['B']*ti['F']
+    a = np.sqrt(u + np.sqrt(u**2-v**2))
+    
+    # -- omega ± OMEGA
+    opO = np.arctan2(ti['B']-ti['F'], ti['G']+ti['A'])
+    if not c is None:
+        print('opO: %.3f (%.3f) delta=%.3f'%(opO, c['omega']+c['OMEGA'], opO-c['omega']-c['OMEGA']))
+        print('   sign(B-F)=%2.0f sign(sin(opO))=%2.0f'%(np.sign(ti['B']-ti['F']),
+                                                         np.sign(np.sin(opO)) ))
+    if np.sign(ti['B']-ti['F'])==-1 and np.sign(np.sin(opO))==1:
+        opO -= np.pi
+    if np.sign(ti['B']-ti['F'])==1 and np.sign(np.sin(opO))==-1:
+        opO += np.pi
+    if not c is None:
+        print('   opO: %.3f (%.3f) delta=%.3f'%(opO, c['omega']+c['OMEGA'], opO-c['omega']-c['OMEGA']))
+    
+    omO = np.arctan2(ti['B']+ti['F'], ti['G']-ti['A'])
+    if not c is None:
+        print('omO: %.3f (%.3f) delta=%.3f'%(omO, c['omega']-c['OMEGA'], omO-c['omega']+c['OMEGA']))
+        print('   sign(-B-F)=%2.0f sign(sin(omO))=%2.0f'%(np.sign(-ti['B']-ti['F']),
+                                                         np.sign(np.sin(omO)) ))
+
+    if np.sign(-ti['B']-ti['F'])==-1 and np.sign(np.sin(omO))==1:
+        omO -= np.pi
+    if np.sign(-ti['B']-ti['F'])==1 and np.sign(np.sin(omO))==-1:
+        omO += np.pi
+    if not c is None:
+        print('   omO: %.3f (%.3f) delta=%.3f'%(omO, c['omega']-c['OMEGA'], omO-c['omega']+c['OMEGA']))
+
+    omega = ((opO+omO)/2)#%np.pi
+    if omega<0:
+        omega += 2*np.pi
+    OMEGA = ((opO-omO)/2)#%np.pi
+    if not c is None:
+        print('omega: %.3f (%.3f) delta=%.3f'%(omega, c['omega'], omega-c['omega']))
+        print('OMEGA: %.3f (%.3f) delta=%.3f'%(OMEGA, c['OMEGA'], OMEGA-c['OMEGA']))
+
+    if OMEGA<0:
+        omega += 3*np.pi
+        omega = omega%(2*np.pi)
+        OMEGA += np.pi
+        OMEGA = OMEGA%(2*np.pi)
+        if not c is None:
+            print('correct for OMEGA<0')
+            print('omega: %.3f (%.3f) delta=%.3f'%(omega, c['omega'], omega-c['omega']))
+            print('OMEGA: %.3f (%.3f) delta=%.3f'%(OMEGA, c['OMEGA'], OMEGA-c['OMEGA']))
+    
+    #print(np.sign(np.sin(opO)), np.sign(ti['B']-ti['F']))
+    # -- inclination
+    d1 = np.abs((ti['A']+ti['G'])*np.cos(omO))
+    d2 = np.abs((ti['F']-ti['B'])*np.sin(omO))
+    d3 = np.abs((ti['A']-ti['G'])*np.cos(opO))
+    d4 = np.abs((ti['F']+ti['B'])*np.sin(opO))
+    if d1>=d2:
+        incl = 2*np.arctan2(np.sqrt(d3), np.sqrt(d1))
+    else:
+        incl = 2*np.arctan2(np.sqrt(d4), np.sqrt(d2))
+    if not c is None:
+        print('d1,2,3,4: %.3f, %.3f, %.3f, %.3f'%(d1,d2,d3,d4))
+        print('incl %.3f (%.3f) delta=%.3f'%(incl, c['incl'], incl-c['incl']))
+        print('  %swith d3/d1: %.3f'%('*' if d1>=d2 else ' ', 2*np.arctan(np.sqrt(d3/d1))))
+        print('  %swith d4/d2: %.3f'%(' ' if d1>=d2 else '*',2*np.arctan(np.sqrt(d4/d2))))
+
+    if deg:
+       return {'a':a, 'omega':omega*180/np.pi, 'OMEGA':OMEGA*180/np.pi, 'incl':incl*180/np.pi}
+    else:
+        return {'a':a, 'omega':omega, 'OMEGA':OMEGA, 'incl':incl}
+
+
+def _campbell2ti(c):
+    """
+    Campbell {'incl':,'omega':,'OMEGA':,'a':} to Thiele-Innes parameters {'A':,'B':,'G':,'F':} 
+
+    angles in radians
+    """ 
+    return {'A': c['a']*(np.cos(c['omega'])*np.cos(c['OMEGA']) - np.sin(c['omega'])*np.sin(c['OMEGA'])*np.cos(c['incl'])),
+            'B': c['a']*(np.cos(c['omega'])*np.sin(c['OMEGA']) + np.sin(c['omega'])*np.cos(c['OMEGA'])*np.cos(c['incl'])),
+            'F':-c['a']*(np.sin(c['omega'])*np.cos(c['OMEGA']) + np.cos(c['omega'])*np.sin(c['OMEGA'])*np.cos(c['incl'])),
+            'G':-c['a']*(np.sin(c['omega'])*np.sin(c['OMEGA']) - np.cos(c['omega'])*np.cos(c['OMEGA'])*np.cos(c['incl'])),
+           }
+        
+
 def _orbit(t, P, Vrad=False, verbose=False):
     """
     position or Vrad for binary:  𝑉𝑟(𝑡)=𝐾[cos(𝜔+𝜈(𝑡))+𝑒cos𝜔]+𝛾
@@ -180,14 +270,31 @@ def _orbit(t, P, Vrad=False, verbose=False):
     # a1 = a*m2/(m1+m2)
     # mass function = m2**3 sin(i)**3 / (m1+m2)**2
 
-    parameters: a, e, P, MJD0, omega, OMEGA, incl
+    parameters: e, P, MJD0, a, omega, OMEGA, incl (angles in degrees, dates in days)
+                or
+                e, P, MJD0, A, B, G, F (4 Thiele-Innes parameters, dates in days)
+                
+    alternatively, if M (Msun) and plx (mas) are given, a is computed from Kepler third law.
 
     t = array of MJDs
-    type can be 
-    - 'x' or 'y': separation vector B-A, in mas
-    - 'Va' or 'Vb' or 'Vb-Va': velocities in km/s
+
+    return x,y by default. If Vrad='a', 'b', 'a-b' return velocity of the primary, secondary, or 
+    the velocity dfference. For velocities, 'gamma' should be given, as well as 
+    - 'Ka', 'Kb' 
+    - or 'Ma' and 'Mb' 
+    - or 'M' and 'q'==Mb/Ma
     
     """
+    # -- Thiele-Innes parameters
+    if 'A' in P and 'B' in P and 'F' in P and 'G' in P:
+        P.update(_ti2campbell(P))
+
+    # -- Kepler Third Law
+    if not 'P' in P and ('a' in P and 'plx' in P and 'M' in P):
+        P['P'] = np.sqrt((P['a']/P['plx'])**3/P['M'])*365.25
+    if not 'P' in P and ('a' in P and 'plx' in P and 'Ma' in P and 'Mb' in P):
+        P['P'] = np.sqrt((P['a']/P['plx'])**3/(P['Ma']+P['Mb']))*365.25
+
     M = 2*np.pi*(t-P['MJD0'])/P['P']
     E = 0
     for i in range(20):
@@ -202,14 +309,20 @@ def _orbit(t, P, Vrad=False, verbose=False):
         P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
         P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
         P['a'] *= P['plx'] # in mas
-
-    if 'M' in P and 'plx' in P:
+    elif 'M' in P and 'plx' in P:
         P['a'] = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
         K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
-        #P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
-        #P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
+        if 'q' in P: # q = Mb/Ma
+            P['Ka'] = K/(1+1/P['q'])
+            P['Kb'] = K/(1+P['q'])
         P['a'] *= P['plx'] # in mas
- 
+    elif 'a' in P and 'plx' in P:
+        P['M'] = (P['a']/P['plx'])**3/(P['P']/365.25)**2 # in Msun
+        K = 2*np.pi*P['a']/P['plx']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
+        if 'q' in P: # q = Mb/Ma
+            P['Ka'] = K/(1+1/P['q'])
+            P['Kb'] = K/(1+P['q'])
+    
     # separation
     if 'a' in P:
         r = P['a']*(1-np.abs(P['e'])**2)/(1+np.abs(P['e'])*np.cos(nu))
@@ -229,10 +342,24 @@ def _orbit(t, P, Vrad=False, verbose=False):
     if 'Ka' in P and 'Kb' in P:
         VA = P['Ka']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
         VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VBVA = VB-VA
     if 'K' in P:
         # -- "Va-Vb" 
         VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
-    return (x,y)
+    
+    if not Vrad is False:
+        if Vrad is True:
+            return VBVA
+        if type(Vrad) == str and Vrad=='a':
+            return VA
+        if type(Vrad) == str and Vrad=='b':
+            return VB
+        if type(Vrad) == str and Vrad=='b-a':
+            return VBVA
+        if type(Vrad) == str and Vrad=='a-b':
+            return -VBVA
+    else:
+        return (x,y)
 
 def _orbitOLD(t, param, Vrad=False, verbose=False):
     """
@@ -3111,7 +3238,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
 
-    if 'additional residuals' in param:
+    if 'additional residuals' in param:        
         res = np.append(res, param['additional residuals'](computeLambdaParams(param)))
 
     if what:
@@ -3342,7 +3469,7 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
-          onlyMJD=None, lowmemory=False):
+          onlyMJD=None, lowmemory=False, additionalRandomise=None):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -3401,7 +3528,11 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
 
     if randomise is False:
         tmp = oi
+        if not additionalRandomise is None:
+            additionalRandomise(False)
     else:
+        if not additionalRandomise is None:
+            additionalRandomise(True)
         if onlyMJD:
             MJD = []
             for o in oi: # for each datasets
@@ -4136,7 +4267,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
 
 def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
                     multi=True, prior=None, keepFlux=False, verbose=2,
-                    strongMJD=False, randomiseParam=True):
+                    strongMJD=False, randomiseParam=True, additionalRandomise=None):
     """
     randomised draw data and perform N fits. Some parameters of the fitting engine can be changed,
     but overall the fitting context is the same as the last fit which was run.
@@ -4192,7 +4323,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1,
-              'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True}
+              'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True, 
+              'additionalRandomise': additionalRandomise}
     res = []
     t = time.time()
     if multi:
@@ -4216,7 +4348,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
                         if uncer[k]>0 else firstGuess[k] for k in firstGuess}
             else:
                 tmpfg = firstGuess
-            res.append(pool.apply_async(fitOI, (oi,tmpfg, ), kwargs, callback=progress))
+            res.append(pool.apply_async(fitOI, (oi, tmpfg, ), kwargs, callback=progress))
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
@@ -4234,6 +4366,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             kwargs['iter'] = i
             res.append(fitOI(oi, firstGuess, **kwargs))
             progress()
+
     print()
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
@@ -4244,13 +4377,9 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         except:
             print(time)
 
-    try:
-        res = analyseBootstrap(res, sigmaClipping=sigmaClipping, verbose=verbose)
-        res['fit to all data'] = fit
-        return res
-    except:
-        print('WARNING: analysing bootstrap failed! returning all fits')
-        return res
+    res = analyseBootstrap(res, sigmaClipping=sigmaClipping, verbose=verbose)
+    res['fit to all data'] = fit
+    return res
 
 def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
     """
@@ -4326,7 +4455,7 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
         for k in sorted(res['best'].keys()):
             if res['uncer'][k]>0:
                 n = int(np.ceil(-np.log10(res['uncer'][k])+1))
-                fmt = '%.'+'%d'%n+'f'
+                fmt = '%.'+'%d'%max(n, 0)+'f'
                 print("'"+k+"'%s:"%(' '*(ns-len(k))), fmt%res['best'][k], end=', ')
                 print('# +/-', fmt%res['uncer'][k])
             else:
@@ -6098,7 +6227,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                         color=color3 if combi else color2, fmt='d',
                         capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
             n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-            fmt = '%s=\n'+'%.'+'%d'%n+'f'+r'$\pm$'+'%.'+'%d'%n+'f'
+            fmt = '%s=\n'+'%.'+'%d'%max(n,0)+'f'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
             plt.title(fmt%(k1, boot['best'][k1], boot['uncer'][k1]),
                         fontsize=fontsize)
         plt.legend(fontsize=5)

@@ -863,7 +863,7 @@ class OI:
         return
 
     def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2, 
-                     strongMJD=False, randomiseParam=True):
+                     strongMJD=False, randomiseParam=True, additionalRandomise=None):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
         by a previously ran fit. By default Nfits is set to the number of
@@ -872,6 +872,10 @@ class OI:
 
         keepFlux: do not randomize fluxes (False by default)
 
+        additionalRandomise: optional function to randomise the data in "additional residuals"
+            additionalRandomise(True) will randomise the data
+            additionalRandomise(False) will reset the data to its original order and weights
+            
         See Also: showBootstrap
         """
         if self._merged is None:
@@ -882,8 +886,10 @@ class OI:
         oimodels.MAX_THREADS = MAX_THREADS
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi, 
                                             keepFlux=keepFlux, verbose=verbose, 
-                                            strongMJD=strongMJD, 
-                                            randomiseParam=randomiseParam)
+                                            strongMJD=strongMJD, randomiseParam=randomiseParam,
+                                            additionalRandomise=additionalRandomise)
+        if not additionalRandomise is None:
+            additionalRandomise(False)
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
@@ -1940,7 +1946,7 @@ def _checkPrior(prior):
         return False
     test = [type(p[0])==str and p[1] in ['=', '<', '>', '<=', '>='] for p in prior]
     if not all(test):
-        print('\033[31mERROR\033[0m: ill formed tuple(s) in the "prior" list')
+        print('\033[31mERROR\033[0m: -ed tuple(s) in the "prior" list')
         for i,p in enumerate(prior):
             if not test[i]:
                 print(' ->', p)
