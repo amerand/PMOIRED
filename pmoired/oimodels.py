@@ -311,10 +311,10 @@ def _orbit(t, P, Vrad=False, verbose=False):
         P['a'] *= P['plx'] # in mas
     elif 'M' in P and 'plx' in P:
         P['a'] = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
-        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
+        P['K'] = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
         if 'q' in P: # q = Mb/Ma
-            P['Ka'] = K/(1+1/P['q'])
-            P['Kb'] = K/(1+P['q'])
+            P['Ka'] = P['K']/(1+1/P['q'])
+            P['Kb'] = P['K']/(1+P['q'])
         P['a'] *= P['plx'] # in mas
     elif 'a' in P and 'plx' in P:
         P['M'] = (P['a']/P['plx'])**3/(P['P']/365.25)**2 # in Msun
@@ -345,7 +345,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
         VBVA = VB-VA
     if 'K' in P:
         # -- "Va-Vb" 
-        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) 
     
     if not Vrad is False:
         if Vrad is True:
