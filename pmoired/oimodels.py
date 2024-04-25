@@ -3816,8 +3816,8 @@ def progress(results=None):
             fmt%(_prog_N, _prog_Nmax, tleft)+'\r'
         #print(res)
         sys.stdout.write(res)
+        _prog_last = time.time()
     _prog_N+=1
-    _prog_last = time.time()
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
