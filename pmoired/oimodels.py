@@ -20,7 +20,6 @@ import scipy.special
 import scipy.interpolate
 import scipy.stats
 
-
 import pmoired.dpfit as dpfit
 import pmoired.dw as dw
 # import pmoired.ulensBin2 as ulensBin2
@@ -294,8 +293,11 @@ def _orbit(t, P, Vrad=False, verbose=False):
         P['P'] = np.sqrt((P['a']/P['plx'])**3/P['M'])*365.25
     if not 'P' in P and ('a' in P and 'plx' in P and 'Ma' in P and 'Mb' in P):
         P['P'] = np.sqrt((P['a']/P['plx'])**3/(P['Ma']+P['Mb']))*365.25
+    try:
+        M = 2*np.pi*(t-P['MJD0'])/P['P']
+    except:
+        M = 2*np.pi*(np.array(t)-P['MJD0'])/P['P']
 
-    M = 2*np.pi*(t-P['MJD0'])/P['P']
     E = 0
     for i in range(20):
         E = M + np.abs(P['e'])*np.sin(E)
@@ -2428,7 +2430,7 @@ def computeLambdaParams(params):
                         paramsI[k] = tmp
                 if compute and not loop and tmp!='orbit':
                     try:
-                        paramsR[k] = eval(tmp)
+                        paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
                     except:
                         print('!', k, tmp)
                 else:
@@ -3466,6 +3468,18 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 
     return firstGuess
 
+def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
+          maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
+          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
+          onlyMJD=None, lowmemory=False, additionalRandomise=None):
+    try:
+        return fitOI(oi, firstGuess, fitOnly, doNotFit, verbose,
+              maxfev, ftol, follow, prior, factor,
+              randomise, iter, obs, epsfcn, keepFlux,
+              onlyMJD, lowmemory, additionalRandomise)
+    except:
+        return {}
+
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
@@ -3779,26 +3793,31 @@ def get_processor_info():
         return subprocess.check_output(command, shell=True).strip().decode()
     return "unknown processor"
 
+PROG_UPDATE = 1 # update period, in seconds
 _prog_N = 1
 _prog_Nmax = 0
 _prog_t0 = time.time()
+_prog_last = time.time()
+
 def progress(results=None):
-    global _prog_N
-    _nb = 60 # length of the progress bar
-    tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
-    if tleft>100:
-        tleft = '%3.0fmin'%(tleft/60)
-    else:
-        tleft = '%3.0fs  '%(tleft)
-    fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
-    fmt = '%s/%s'%(fmt, fmt)+' %s left'
-    res = time.asctime()+': '+\
-        '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/max(_prog_Nmax, 1))+\
-        '.'*(_nb-int(_nb*_prog_N/max(_prog_Nmax, 1))) + ']'+\
-        fmt%(_prog_N, _prog_Nmax, tleft)+'\r'
-    #print(res)
-    sys.stdout.write(res)
+    global _prog_N, _prog_last
+    if time.time()-_prog_last>= PROG_UPDATE:
+        _nb = 60 # length of the progress bar
+        tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
+        if tleft>100:
+            tleft = '%3.0fmin'%(tleft/60)
+        else:
+            tleft = '%3.0fs  '%(tleft)
+        fmt = '%'+'%d'%int(np.ceil(np.log10(_prog_Nmax)))+'d'
+        fmt = '%s/%s'%(fmt, fmt)+' %s left'
+        res = time.asctime()+': '+\
+            '['+bytes((219,)).decode('cp437')*int(_nb*_prog_N/max(_prog_Nmax, 1))+\
+            '.'*(_nb-int(_nb*_prog_N/max(_prog_Nmax, 1))) + ']'+\
+            fmt%(_prog_N, _prog_Nmax, tleft)+'\r'
+        #print(res)
+        sys.stdout.write(res)
     _prog_N+=1
+    _prog_last = time.time()
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
@@ -3823,7 +3842,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
 
     constrain: list of conditions, with same syntax as priors (see computePriorL).
     """
-    global _prog_N, _prog_Nmax, _prog_t0
+    global _prog_N, _prog_Nmax, _prog_t0, _prog_last
 
     assert type(expl)==dict, "expl must be a dict"
     assert 'grid' in expl or 'rand' in expl or 'randn' in expl
@@ -3892,6 +3911,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     _prog_N = 1
     _prog_Nmax = N
     _prog_t0 = time.time()
+    _prog_last = time.time()
 
     if multi:
         if type(multi)!=int:
@@ -3907,7 +3927,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         for i in range(N):
             if dLimParam is None:
                 kwargs['iter'] = i
-                res.append(pool.apply_async(fitOI, (oi, PARAM[i], ), kwargs,
+                res.append(pool.apply_async(tryfitOI, (oi, PARAM[i], ), kwargs,
                                             callback=progress))
             else:
                 kwargs = {'nsigma': dLimSigma}
@@ -3916,6 +3936,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
+        res = [r for r in res if r!={}]
     else:
         if debug:
             print('single thread')
@@ -3923,12 +3944,14 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         for i in range(N):
             if dLimParam is None:
                 kwargs['iter'] = i
-                res.append(fitOI(oi, PARAM[i], **kwargs))
+                res.append(tryfitOI(oi, PARAM[i], **kwargs))
                 progress()
             else:
                 kwargs = {'nsigma': dLimSigma}
                 res.append(limitOI(oi, PARAM[i], dLimParam, **kwargs))
                 progress()
+        res = [r for r in res if r!={}]
+
     print() # clear progress bar
 
     if verbose:
@@ -3942,8 +3965,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     return res
 
 def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
-    global _prog_N, _prog_Nmax, _prog_t0
-
+    global _prog_N, _prog_Nmax, _prog_t0, _prog_last
     res = []
     bad = []
     errTooLarge = []
@@ -4022,6 +4044,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         _prog_N = 1
         _prog_Nmax = len(res)
         _prog_t0 = time.time()
+        _prog_last = time.time()
+
     mask = np.array([True for i in range(len(res))])
     keep = list(range(len(res)))
     for j in ignore:
@@ -4274,7 +4298,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
 
     see also: doFit 
     """
-    global _prog_N, _prog_Nmax, _prog_t0
+    global _prog_N, _prog_Nmax, _prog_t0, _prog_last
 
     if N is None:
         # -- count number of spectral vector data
@@ -4340,6 +4364,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         _prog_N = 1
         _prog_Nmax = N
         _prog_t0 = time.time()
+        _prog_last = time.time()
 
         for i in range(N):
             kwargs['iter'] = i
@@ -4361,6 +4386,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         _prog_N = 1
         _prog_Nmax = N
         _prog_t0 = time.time()
+        _prog_last = time.time()
 
         for i in range(N):
             kwargs['iter'] = i
