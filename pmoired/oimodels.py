@@ -3801,7 +3801,7 @@ _prog_last = time.time()
 
 def progress(results=None):
     global _prog_N, _prog_last
-    if time.time()-_prog_last>= PROG_UPDATE:
+    if time.time()-_prog_last >= PROG_UPDATE:
         _nb = 60 # length of the progress bar
         tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
         if tleft>100:
@@ -4254,7 +4254,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
                 resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
             if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
                 resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
-            print(resi)
+            #print(resi)
             #print(eval(resi)==0)
 
             # try:
