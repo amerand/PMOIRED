@@ -3799,9 +3799,11 @@ _prog_Nmax = 0
 _prog_t0 = time.time()
 _prog_last = time.time()
 
-def progress(results=None):
+def progress(results=None, finish=False):
     global _prog_N, _prog_last
-    if time.time()-_prog_last >= PROG_UPDATE:
+    if finish:
+        _prog_N = _prog_Nmax
+    if finish or time.time()-_prog_last >= PROG_UPDATE:
         _nb = 60 # length of the progress bar
         tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
         if tleft>100:
@@ -3937,6 +3939,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         pool.join()
         res = [r.get(timeout=1) for r in res]
         res = [r for r in res if r!={}]
+        # -- make sure the progress bar finishes
+        progress(finish=True)
     else:
         if debug:
             print('single thread')
@@ -3950,6 +3954,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
                 kwargs = {'nsigma': dLimSigma}
                 res.append(limitOI(oi, PARAM[i], dLimParam, **kwargs))
                 progress()
+        # -- make sure the progress bar finishes
+        progress(finish=True)
         res = [r for r in res if r!={}]
 
     print() # clear progress bar
@@ -4076,6 +4082,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         for j in np.array(keep)[w]:
             keep.remove(j)
     if len(res)>1000:
+        # -- make sure the progress bar finishes
+        progress(finish=True)
         print()
 
     if debug or verbose:
@@ -4380,6 +4388,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         for r in res:
             r['y'] = None
             r['y'] = None
+        # -- make sure the progress bar finishes
+        progress(finish=True)
     else:
         Np = 1
         t = time.time()
@@ -4392,7 +4402,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             kwargs['iter'] = i
             res.append(fitOI(oi, firstGuess, **kwargs))
             progress()
-
+        # -- make sure the progress bar finishes
+        progress(finish=True)
     print()
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
