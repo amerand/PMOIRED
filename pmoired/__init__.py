@@ -134,7 +134,10 @@ class OI:
             name = time.strftime("PMOIRED_save_%Y%m%dT%H%M%S")
         if not name.endswith('.pmrd'):
             name += '.pmrd'
-        assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists (use "overwrite=True")'
+        #assert not (os.path.exists(name) and not overwrite), 'file "'+name+'" already exists (use "overwrite=True")'
+        if os.path.exists(name) and not overwrite:
+            raise Exception('file "'+name+'" already exists (use "overwrite=True")')
+
         ext = ['data', 'bestfit', 'boot', 'grid', 'limgrid', 'fig', 'spectra',
                 'images', '_expl']
         with open(name, 'wb') as f:
@@ -163,7 +166,9 @@ class OI:
         """
         if not os.path.exists(name) and os.path.exists(name+'.pmrd'):
             name += '.pmrd'
-        assert os.path.exists(name), 'file "'+name+'" does not exist'
+        #assert os.path.exists(name), 'file "'+name+'" does not exist'
+        if not os.path.exists(name):
+            raise Exception('file "'+name+'" does not exist')
         with open(name, 'rb') as f:
             data = pickle.load(f)
         if type(data)==tuple and len(data)==8:
@@ -172,7 +177,9 @@ class OI:
                 self.grid, self.limgrid, self.fig, \
                 self.spectra, self._model = data
             return
-        assert type(data)==dict, 'unvalid data format?'
+        #assert type(data)==dict, 'unvalid data format?'
+        if type(data)!=dict:
+            raise Exception('unvalid data format (should be dict)')
         loaded = []
         for k in data:
             try:
@@ -369,20 +376,29 @@ class OI:
         correctType = correctType or (type(fit)==list and
                                        len(fit)==len(self.data) and
                                         all([type(f)==dict for f in fit]))
-        assert correctType, "parameter 'fit' must be a dictionnary or a list of dict "+\
-            "with same length as data (%d)"%len(self.data)
+
+        #assert correctType, "parameter 'fit' must be a dictionnary or a list of dict "+\
+        #    "with same length as data (%d)"%len(self.data)
+        if not correctType:
+            raise Exception("parameter 'fit' must be a dictionnary or a list of dict "+\
+                            "with same length as data (%d)"%len(self.data))
 
         if insname is None:
             insname = list(set([d['insname'] for d in self.data]))
         if type(insname) == str:
             insname = [insname]
         test = list(filter(lambda i: i not in [d['insname'] for d in self.data], insname))
-        assert len(test)==0, str(test)+' not an actual insname in data: '+\
-                str(set([d['insname'] for d in self.data]))
+        #assert len(test)==0, str(test)+' not an actual insname in data: '+\
+        #        str(set([d['insname'] for d in self.data]))
+        if len(test)!=0:
+            raise Exception(str(test)+' not an actual insname in data: '+\
+                            str(set([d['insname'] for d in self.data])))
 
         if type(fit)==dict:
             for d in self.data:
-                assert _checkSetupFit(fit), 'setup dictionnary is incorrect'
+                #assert _checkSetupFit(fit), 'setup dictionnary is incorrect'
+                if not _checkSetupFit(fit):
+                    raise Exception('setup dictionnary is incorrect')
                 if d['insname'] in insname:
                     if 'fit' in d and update:
                         d['fit'].update(fit)
@@ -390,7 +406,10 @@ class OI:
                         d['fit'] = fit.copy()
         if type(fit)==list:
             for i,d in enumerate(self.data):
-                assert _checkSetupFit(fit[i]), 'setup dictionnary is incorrect'
+                #assert _checkSetupFit(fit[i]), 'setup dictionnary is incorrect'
+                if not _checkSetupFit(fit):
+                    raise Exception('setup dictionnary is incorrect')
+
                 if d['insname'] in insname:
                     if 'fit' in d and update:
                         d['fit'].update(fit[i])
@@ -454,7 +473,10 @@ class OI:
             "diamout>diamin".
         """
         if not prior is None:
-            assert _checkPrior(prior), 'ill formed "prior"'
+            #assert _checkPrior(prior), 'ill formed "prior"'
+            if not _checkPrior(prior):
+                raise Exception('ill formed "prior"')
+
 
         if model is None:
             try:
@@ -463,7 +485,8 @@ class OI:
                     doNotFit = self.bestfit['doNotFit']
                     fitOnly = self.bestfit['fitOnly']
             except:
-                assert True, ' first guess as "model={...}" should be provided'
+                #assert True, ' first guess as "model={...}" should be provided'
+                raise Exception(' first guess as "model={...}" should be provided')
 
         if doNotFit=='auto':
             doNotFit = []
@@ -506,7 +529,9 @@ class OI:
 
     def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True, debug=False):
         if not prior is None:
-            assert _checkPrior(prior), 'ill formed "prior"'
+            #assert _checkPrior(prior), 'ill formed "prior"'
+            if not _checkPrior(prior):
+                raise Exception('ill formed "prior"')
 
         if model is None:
             try:
@@ -515,7 +540,8 @@ class OI:
                     doNotFit = self.bestfit['doNotFit']
                     fitOnly = self.bestfit['fitOnly']
             except:
-                assert True, ' first guess as "model={...}" should be provided'
+                #assert True, ' first guess as "model={...}" should be provided'
+                raise Exception(' first guess as "model={...}" should be provided')
 
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
@@ -571,12 +597,19 @@ class OI:
         See Also: gridFit, showLimGrid
         """
         if not prior is None:
-            assert _checkPrior(prior), 'ill formed "prior"'
+            #assert _checkPrior(prior), 'ill formed "prior"'
+            if not _checkPrior(prior):
+                raise Exception('ill formed "prior"')
 
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
-        assert not model is None, 'first guess should be provided: model={...}'
-        assert param in model, '"param" should be one of the key in dict "model"'
+        #assert not model is None, 'first guess should be provided: model={...}'
+        if model is None:
+            raise Exception('first guess should be provided: model={...}')
+        #assert param in model, '"param" should be one of the key in dict "model"'
+        if not param in model:
+            raise Exception('"param" should be one of the key in dict "model"')
+
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         oimodels.MAX_THREADS = MAX_THREADS
         self.limgrid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
@@ -607,7 +640,10 @@ class OI:
 
         See Also: detectionLimit
         """
-        assert not self.limgrid is None, 'You should run detectionLimit first!'
+        #assert not self.limgrid is None, 'You should run detectionLimit first!'
+        if self.limgrid is None:
+            raise Exception('You should run detectionLimit first!')
+
         self.fig += 1
         params = []
         for k in ['grid', 'rand', 'randn']:
@@ -761,7 +797,9 @@ class OI:
         See Also: showGrid, detectionLimit
         """
         if not prior is None:
-            assert _checkPrior(prior), 'ill formed "prior"'
+            #assert _checkPrior(prior), 'ill formed "prior"'
+            if not _checkPrior(prior):
+                raise Exception('ill formed "prior"')
 
         if model is None and not self.bestfit is None:
             model = self.bestfit['best']
@@ -784,7 +822,10 @@ class OI:
         if epsfcn is None:
             epsfcn=1e-8
 
-        assert not model is None, 'first guess should be provided: model={...}'
+        #assert not model is None, 'first guess should be provided: model={...}'
+        if model is None:
+            raise Exception('first guess should be provided: model={...}')
+
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         prior = self._setPrior(model, prior, autoPrior)
         self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
@@ -821,7 +862,10 @@ class OI:
 
         See Also: gridFit
         """
-        assert not self.grid is None, 'You should run gridFit first!'
+        #assert not self.grid is None, 'You should run gridFit first!'
+        if self.grid is None:
+            raise Exception('You should run gridFit first!')
+
         params = []
         for k in self._expl:
             for g in self._expl[k]:
@@ -891,7 +935,10 @@ class OI:
         if self._merged is None:
             self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
 
-        assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
+        #assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
+        if self.bestfit is None:
+            raise Exception('you should run a fit first (using "doFit")')
+
         model = self.bestfit
         oimodels.MAX_THREADS = MAX_THREADS
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi, 
@@ -1017,7 +1064,10 @@ class OI:
         if not imFov is None:
             if showSED is None:
                 showSED = True
-            assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
+            #assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
+            if imPix<imFov/500:
+                raise Exception("the pixel of the synthetic image is too small!")
+       
         else:
             if showSED is None:
                 showSED = False
@@ -1229,12 +1279,17 @@ class OI:
 
         # -- just if the function is used to show models
         if len(self.data)==0 or (len(self.data)==1 and not WL is None):
-            assert not WL is None, 'specify wavelength vector "WL="'
+            #assert not WL is None, 'specify wavelength vector "WL="'
+            if WL is None:
+                raise Exception('specify wavelength vector "WL="')
             # -- create fake data
             self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}}]
 
 
-        assert type(model)==dict, 'model should be a dictionnary!'
+        #assert type(model)==dict, 'model should be a dictionnary!'
+        if not type(model)==dict:
+            raise Exception('model should be a dictionnary!')
+
         if not imFov is None:
             self.computeModelImages(imFov, model=model, imPix=imPix,
                                     imX=imX, imY=imY)
@@ -1536,7 +1591,10 @@ class OI:
 
         Adds 'Xp' and 'Yp' deprojected coordinates of the pixels in "self.images"
         """
-        assert self.images!={}, 'run ".computeModelImages" first!'
+        #assert self.images!={}, 'run ".computeModelImages" first!'
+        if self.images=={}:
+            raise Exception('run ".computeModelImages" first!')
+
         if type(incl)==str and incl in self.images['model']:
             incl = self.images['model'][incl]
         if type(projang)==str and projang in self.images['model']:
@@ -1572,7 +1630,10 @@ class OI:
         """
         # if len(self._model)==0:
         #     print('no best images model to compute half light radii!')
-        assert self.images!={}, 'run ".computeModelImages" first!'
+        #assert self.images!={}, 'run ".computeModelImages" first!'
+        if self.images=={}: 
+            raise Exception('run ".computeModelImages" first!')
+
         self.deprojectImages(incl, projang, x0, y0)
 
         res = {'WL':self.images['WL'], 'HLR':[],  'I':[]}
@@ -1625,7 +1686,10 @@ class OI:
         if model=='best' and not self.bestfit is None:
             model = self.bestfit['best']
 
-        assert type(model) is dict, "model must be a dictionnary"
+        #assert type(model) is dict, "model must be a dictionnary"
+        if not type(model) is dict:
+            raise Exception("model must be a dictionnary")
+
         if imPix is None:
             imPix = imFov/101
 
@@ -1777,7 +1841,9 @@ class OI:
                 models = oimodels.dpfit.randomParam(self.bestfit, N=Niter,
                                                     x=None)['r_param']
 
-        assert type(model) is dict, "model must be a dictionnary"
+        #assert type(model) is dict, "model must be a dictionnary"
+        if not type(model) is dict:
+            raise Exception("model must be a dictionnary")
 
         if len(self._merged)>0:
             self.spectra = _computeSpectra(model, self._merged, models=models)
