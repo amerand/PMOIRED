@@ -379,7 +379,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         pass
     return
 
-def showTellurics(filename, fig=0):
+def showTellurics(filename, fig=99):
     h = fits.open(filename)
     if not 'TELLURICS' in h:
         print('no tellurics model found')
