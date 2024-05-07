@@ -810,7 +810,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             imN = None
         else:
             imN = int(np.sqrt(len(X.flatten())))
-        #print('_param', _param)
         tmp = Vkepler([1], [1], res['WL'][wwl], _param, fullOutput=True,
                       imFov=imFov, imPix=imPix, imX=imX, imY=imY, imN=imN)
         flux = np.zeros(len(res['WL']))
@@ -1610,7 +1609,6 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
 
     # -- safety margin: takes more points for _fudge>1
     drin /= _fudge
-
 
     # -- cos and sin values for rotations
     ci, si = np.cos(param['incl']*np.pi/180), np.sin(param['incl']*np.pi/180)
@@ -2519,7 +2517,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 else:
                     kv = 'V1mas'
                 if kv in _param:
-                    vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
+                    if 'Rin' in _param:
+                        vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
+                    elif 'diamin' in _param:
+                        vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
 
                 dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-_param[k])>=dwl)
@@ -2730,7 +2731,10 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 else:
                     kv = 'V1mas'
                 if kv in _param:
-                    vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
+                    if 'Rin' in _param:
+                        vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
+                    elif 'diamin' in _param:
+                        vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
 
                 # -- effects of "vel" depends on the size of the disk and "fpow"
                 #dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
@@ -4564,7 +4568,11 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 else:
                     kv = 'V1mas'
                 if kv in _param:
-                    vel = _param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
+                    if 'Rin' in _param:
+                        vel = _param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
+                    elif 'diamin' in _param:
+                        vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
+
                 dwl = np.sqrt(dwl**2 + (0.5*_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:
