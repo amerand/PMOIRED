@@ -1702,7 +1702,11 @@ class OI:
             pass
             return
 
-        if len(self._merged)>0 and not visibilities:
+        if len(self._merged)==0:
+            # -- merge data to accelerate computations
+            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+
+        if not visibilities:
             # -- fast:
             if debug:
                 print('D> on "merged"')
@@ -1713,7 +1717,7 @@ class OI:
             if debug:
                 print('D> on "data"')
             tmp = [oimodels.VmodelOI(d, model, imFov=imFov, imPix=imPix,
-                                     imX=imX, imY=imY) for d in self.data]
+                                    imX=imX, imY=imY) for d in self.data]
 
         # -- image coordinates in mas
         X, Y = np.meshgrid(np.linspace(-imFov/2, imFov/2, 2*int(imFov/imPix/2)+1),
