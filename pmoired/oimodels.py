@@ -4148,7 +4148,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
 
 def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
              vmin=None, vmax=None, cmap='gist_stern', interpolate=False,
-             expl=None, tight=False, constrain=None):
+             expl=None, tight=False, constrain=None, significance=False):
     """
     res: results from a gridFitOI
     px, py: the two parameters to show (default 2 first alphabetically)
@@ -4161,11 +4161,15 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
 
     if not aspect is None:
         ax = plt.subplot(111, aspect=aspect)
-    # -- color of local minima
-    if not color=='chi2':
-        c = np.array([r['best'][color] for r in res if ~r['bad']])
+    if not significance is False:
+            c = np.array([_nSigmas(significance, r['chi2'], r['ndof'])
+                          for r in res if ~r['bad']])
     else:
-        c = np.array([r[color] for r in res if ~r['bad']])
+        # -- color of local minima
+        if not color=='chi2':
+            c = np.array([r['best'][color] for r in res if ~r['bad']])
+        else:
+            c = np.array([r[color] for r in res if ~r['bad']])
 
     # -- coordinates: keep only valid minima
     x = [r['best'][px] for r in res if ~r['bad']]

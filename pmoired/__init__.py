@@ -843,19 +843,28 @@ class OI:
         return
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
-                vmin=None, vmax=None, logV=False, cmap='spring', fig=None,
-                interpolate=False, legend=True, tight=False):
+                vmin=None, vmax=None, logV=False, cmap='magma', fig=None,
+                interpolate=False, legend=True, tight=False, 
+                significance=False):
         """
         show the results from `gridFit` as 2D coloured map.
 
         px, py: parameters to show in x and y axis (default the first 2 parameters
             from the grid, in alphabetical order)
+        
         color: which parameter to show as colour (default is 'chi2')
+        
         aspect: default is None, but can be set to "equal"
+        
         vmin, vmax: apply cuts to the colours (default: None)
+        
         logV: show the colour as log scale
+        
         cmap: valid matplotlib colour map (default="spring")
+        
         interpolate: show a continuous interpolation of the minimum chi2 map
+        
+        significance: shows the detection in sigmas
 
         The crosses are the starting points of the fits, and the circled dot
         is the global minimum.
@@ -884,11 +893,29 @@ class OI:
             self.fig += 1
             fig=self.fig
 
+        if not significance is False:
+            #print('significance:', significance)
+            m = self.grid[0]['best'].copy()
+            if type(significance)==str:
+                # -- parameters to 0 to get non-detection chi2
+                if not significance in m:
+                    raise Exception('"significance" should be the parameters which give the chi2 ref when ==0')
+                m[significance] = 0
+                significance = self._chi2FromModel(m)
+            elif type(significance)==float:
+                pass                
+            elif type(significance)==dict:
+                significance = self._chi2FromModel(significance)               
+            elif xy:
+                m[px.replace(',x', ',f')]=0
+                significance = self._chi2FromModel(m)                
+            #print('significance:', significance)
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
                           logV=logV, interpolate=interpolate,
-                          expl=self._expl, tight=tight, 
-                          constrain=self.bestfit['constrain'])
+                          expl=self._expl, tight=tight, significance=significance,
+                          #constrain=self.bestfit['constrain']
+                          )
         if xy:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
