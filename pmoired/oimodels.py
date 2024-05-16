@@ -14,7 +14,8 @@ warnings.filterwarnings(action='ignore', category=RuntimeWarning)
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.cm
+#import matplotlib.cm # deprecated in 3.8
+import matplotlib.colormaps
 
 import scipy.special
 import scipy.interpolate
@@ -4164,7 +4165,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     if not significance is False:
         c = np.array([_nSigmas(significance, r['chi2'], r['ndof'])
                         for r in res if ~r['bad']])
-        color = r'significance [min($\sigma$, 8)]'
+        color = r'significance min($\sigma$, 8)'
     else:
         # -- color of local minima
         if not color=='chi2':
@@ -4243,7 +4244,8 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
         plt.colorbar(label=color)
         # -- global minimum
         plt.plot(x[0], y[0], marker=r'$\bigodot$',
-             color=matplotlib.cm.get_cmap(cmap)(0),
+             #color=matplotlib.cm.get_cmap(cmap)(0),
+             color=plt.get_cmap(cmap)(0),
              markersize=20, alpha=0.5)
 
     if interpolate:
@@ -4980,7 +4982,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         colors = list(itertools.permutations([0.1, 0.6, 0.9])) + ['0.5']
         colors += [(.1,.1,.9), (.1,.9,.1), (.9,.1,.1)]
     else:
-        colors = matplotlib.cm.nipy_spectral(np.linspace(0, .9, len(oi['baselines'])))
+        #colors = matplotlib.cm.nipy_spectral(np.linspace(0, .9, len(oi['baselines'])))
+        colors = matplotlib.colormaps['nipy_spectral'](np.linspace(0, .9, len(oi['baselines'])))
 
     if figWidth is None and figHeight is None:
         figHeight =  min(max(ncol, 10), FIG_MAX_HEIGHT)
@@ -5770,7 +5773,8 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                 symbols[c] = {'m':'+', 'c':'orange'}
             else:
                 symbols[c] = {'m':markers[_im%len(markers)],
-                              'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
+                              #'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
+                              'c':matplotlib.colormaps['nipy_spectral'](0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
                              }
                 _im+=1
         if c in cColors:
