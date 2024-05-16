@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 #import matplotlib.cm # deprecated in 3.8
-import matplotlib.colormaps
+#import matplotlib.colormaps
 
 import scipy.special
 import scipy.interpolate
@@ -1944,6 +1944,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     observed V2 = smeared(V**2) != (smeared(V))**2
     """
     D = {'|V|':('OI_VIS', 'B/wl'),
+         'N|V|':('OI_VIS', 'B/wl'),
          'DPHI':('OI_VIS', 'B/wl'),
          'V2':('OI_VIS2', 'B/wl'),
          'T3PHI':('OI_T3', 'Bmax/wl'),
@@ -2249,7 +2250,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             print(' '*indent+'VmodelOI > T3 %.3fms'%(1000*(time.time()-t0)))
 
     t0 = time.time()
-    if 'fit' in oi and 'obs' in oi['fit'] and 'DPHI' in oi['fit']['obs']:
+    if 'fit' in oi and 'obs' in oi['fit'] and \
+            ('DPHI' in oi['fit']['obs'] or 'N|V|' in oi['fit']['obs']):
         if debug:
             print('VmodelOI: differential phase')
         res = computeDiffPhiOI(res, param, debug=debug)
@@ -3077,7 +3079,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         fit = {'obs':[]}
 
     t0 = time.time()
-    if 'DPHI' in fit['obs']:
+    if 'DPHI' in fit['obs'] or 'N|V|' in fit['obs']:
         oi = computeDiffPhiOI(oi, param)
         if timeit:
             print('residualsOI > dPHI %.3fms'%(1000*(time.time()-t0)))
