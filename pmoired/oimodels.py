@@ -4162,8 +4162,9 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     if not aspect is None:
         ax = plt.subplot(111, aspect=aspect)
     if not significance is False:
-            c = np.array([_nSigmas(significance, r['chi2'], r['ndof'])
-                          for r in res if ~r['bad']])
+        c = np.array([_nSigmas(significance, r['chi2'], r['ndof'])
+                        for r in res if ~r['bad']])
+        color = r'significance [min($\sigma$, 8)]'
     else:
         # -- color of local minima
         if not color=='chi2':
