@@ -675,7 +675,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         elif type(_xs)==str and _xs=='orbit':
             # -- collect orbital parameters
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
-            #print('orbital params (X):', oP)
             x = lambda o: _orbit(o['MJD2'], oP)[0]
         else:
             x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
@@ -685,7 +684,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         elif type(_ys)==str and _ys=='orbit':
             # -- collect orbital parameters
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
-            #print('orbital params (Y):', oP)
             y = lambda o: _orbit(o['MJD2'], oP)[1]
         else:
             y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
@@ -4501,21 +4499,22 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
             print('using %d fits out of %d (sigma clipping %.2f)'%(
                     np.sum(mask), len(Boot), sigmaClipping))
         ns = max([len(k) for k in res['best'].keys()])
-        print('{', end='')
-        for k in sorted(res['best'].keys()):
-            if res['uncer'][k]>0:
-                n = int(np.ceil(-np.log10(res['uncer'][k])+1))
-                fmt = '%.'+'%d'%max(n, 0)+'f'
-                print("'"+k+"'%s:"%(' '*(ns-len(k))), fmt%res['best'][k], end=', ')
-                print('# +/-', fmt%res['uncer'][k])
-            else:
-                print("'"+k+"'%s:"%(' '*(ns-len(k))), end='')
-                if type(res['best'][k])==str:
-                    print("'"+res['best'][k]+"',")
-                else:
-                    print(res['best'][k], ',')
+        # print('{', end='')
+        # for k in sorted(res['best'].keys()):
+        #     if res['uncer'][k]>0:
+        #         n = int(np.ceil(-np.log10(res['uncer'][k])+1))
+        #         fmt = '%.'+'%d'%max(n, 0)+'f'
+        #         print("'"+k+"'%s:"%(' '*(ns-len(k))), fmt%res['best'][k], end=', ')
+        #         print('# +/-', fmt%res['uncer'][k])
+        #     else:
+        #         print("'"+k+"'%s:"%(' '*(ns-len(k))), end='')
+        #         if type(res['best'][k])==str:
+        #             print("'"+res['best'][k]+"',")
+        #         else:
+        #             print(res['best'][k], ',')
+        # print('}')
+        dpfit.dispBest(res)
 
-        print('}')
     if verbose>1 and np.size(res['cov'])>1:
         dpfit.dispCor(res)
     return res

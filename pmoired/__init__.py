@@ -1,6 +1,5 @@
 from pmoired import oimodels, oifits, oifake #, oicandid
 
-
 import multiprocessing
 try:
     # -- see https://stackoverflow.com/questions/64174552
@@ -13,6 +12,7 @@ import os
 import pickle
 import time
 import requests
+from inspect import signature
 
 import numpy as np
 #import warnings
@@ -472,11 +472,13 @@ class OI:
         autoPrior: (default: True). Set automaticaly priors such as "diam>0" or
             "diamout>diamin".
         """
+        if not all(['fit' in d for d in self.data]):
+            raise Exception('define fit context with "setupFit" first!')
+
         if not prior is None:
             #assert _checkPrior(prior), 'ill formed "prior"'
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
-
 
         if model is None:
             try:
@@ -527,7 +529,8 @@ class OI:
         self.computeModelSpectra(uncer=False)
         return
 
-    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True, debug=False):
+    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True, 
+                       ndof=None, nfit=None, debug=False):
         if not prior is None:
             #assert _checkPrior(prior), 'ill formed "prior"'
             if not _checkPrior(prior):
@@ -536,9 +539,9 @@ class OI:
         if model is None:
             try:
                 model = self.bestfit['best']
-                if doNotFit=='auto':
-                    doNotFit = self.bestfit['doNotFit']
-                    fitOnly = self.bestfit['fitOnly']
+                doNotFit = self.bestfit['doNotFit']
+                fitOnly = self.bestfit['fitOnly']
+                ndof = self.bestfit['ndof']
             except:
                 #assert True, ' first guess as "model={...}" should be provided'
                 raise Exception(' first guess as "model={...}" should be provided')
@@ -554,7 +557,13 @@ class OI:
         tmp = oimodels.residualsOI(self._merged, model, debug=debug)
         #return np.sum(tmp**2)/(len(tmp)-len(model)+1)
         if reduced:
-            return np.mean(tmp**2)
+            if ndof is None and not nfit is None:
+                ndof = len(tmp)-nfit+1
+                
+            if ndof is None:
+                return np.mean(tmp**2)
+            else:
+                return np.sum(tmp**2)/ndof
         else:
             return np.sum(tmp**2)
 
@@ -1194,6 +1203,13 @@ class OI:
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
+            if not model is None and 'additional residuals' in model:
+                if 'plot' in signature(model['additional residuals']).parameters:
+                    model['additional residuals'](model, plot=self.fig)
+                    self.fig+=1
+                else:
+                    pass
+
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix,imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
@@ -1241,6 +1257,13 @@ class OI:
                 self.fig += 1
             else:
                 self.fig += len(self.data)
+            if not model is None and 'additional residuals' in model:
+                if 'plot' in signature(model['additional residuals']).parameters:
+                    model['additional residuals'](model, plot=self.fig)
+                    self.fig+=1
+                else:
+                    pass
+
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
@@ -2032,6 +2055,13 @@ def _checkSetupFit(fit):
             'N|V| order':int,
             'NFLUX order': int}
     ok = True
+    if not 'obs' in fit:
+        raise Exception('list of observables should be defined (see method setupFit)')
+    knownObs =  ['V2', '|V|', 'N|V|', 'PHI', 'DPHI', 'T3PHI', 'T3AMP', 'FLUX', 'NFLUX', 'CF']
+    for k in fit['obs']:
+        if k not in knownObs:
+            raise Exception("Unknown observable '"+k+"', not in "+str(knownObs) )
+
     for k in fit.keys():
         if not k in keys.keys():
             print('!WARNING! unknown fit setup "'+k+'"')
