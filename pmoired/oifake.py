@@ -2,12 +2,19 @@ import numpy as np
 from astroquery.simbad import Simbad
 from matplotlib import pyplot as plt
 import itertools
-try:
-    from importlib import resources
-except ImportError:
-    # Necessary while Python versions below 3.9 are supported.
-    import importlib_resources as resources
+#try:
+#    from importlib import resources
+#except ImportError:
+#    # Necessary while Python versions below 3.9 are supported.
+#    import importlib_resources as resources
 
+try:
+   # Necessary while Python versions below 3.9 are supported.
+   import importlib_resources as resources
+   print('resources <3.9')
+except ImportError:
+   from importlib import resources
+   print('resources >3.9')
 
 import scipy.special
 

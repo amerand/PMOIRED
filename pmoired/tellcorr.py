@@ -6,11 +6,18 @@ import scipy.interpolate
 import os
 import time
 import pickle
+# try:
+#     from importlib import resources
+# except ImportError:
+#     # Necessary while Python versions below 3.9 are supported.
+#     import importlib_resources as resources
+
 try:
-    from importlib import resources
+   # Necessary while Python versions below 3.9 are supported.
+   import importlib_resources as resources
 except ImportError:
-    # Necessary while Python versions below 3.9 are supported.
-    import importlib_resources as resources
+   from importlib import resources
+
 
 import pmoired.dpfit as dpfit
 
