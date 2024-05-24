@@ -11,10 +11,8 @@ import itertools
 try:
    # Necessary while Python versions below 3.9 are supported.
    import importlib_resources as resources
-   print('resources <3.9')
 except ImportError:
    from importlib import resources
-   print('resources >3.9')
 
 import scipy.special
 
