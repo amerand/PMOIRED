@@ -985,7 +985,8 @@ class OI:
             additionalRandomise(False)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None):
+    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None,
+                      alternateParameterNames=None, showSingleFit=True):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -1005,9 +1006,10 @@ class OI:
             self.fig = fig
         else:
             self.fig += 1
-        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig,
+        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig, showChi2=showChi2, 
                                combParam=combParam, sigmaClipping=sigmaClipping,
-                               showChi2=showChi2)
+                               alternateParameterNames=alternateParameterNames,
+                               showSingleFit=showSingleFit)
         return
 
     def showTellurics(self, fig=None):

@@ -6152,7 +6152,8 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     return rh
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
-                  combParam={}, sigmaClipping=4.5, showChi2=False):
+                  combParam={}, sigmaClipping=4.5, showChi2=False,
+                  alternateParameterNames={}, showSingleFit=True):
     """
     you can look at combination of parameters:
 
@@ -6170,6 +6171,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     #    combParam.update({'_chi2': 'chi2'})
 
     #boot['fitOnly'] = boot['fitOnly']
+
+    if alternateParameterNames is None:
+        alternateParameterNames = {}
 
     if len(combParam)>0:
         s = '$'
@@ -6198,7 +6202,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     if figWidth is None:
         figWidth = min(FIG_MAX_WIDTH, 1+2*len(boot['fitOnly']))
 
-    fontsize = max(min(4*figWidth/len(boot['fitOnly']), 14), 6)
+    fontsize = max(min(9*figWidth/len(boot['fitOnly']), 14), 6)
     plt.close(fig)
     plt.figure(fig, figsize=(figWidth, figWidth))
     _AX = {}
@@ -6211,7 +6215,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     combi = False
     # -- for each fitted parameters, show histogram
 
-    showP = sorted(boot['fitOnly'])
+    showP = sorted(boot['fitOnly'], 
+        key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
+ 
     if showChi2:
         showP.append('chi2')
 
@@ -6230,9 +6236,10 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                          color=colorC2, histtype='step', alpha=0.9)
             h = plt.hist(boot['all chi2'], bins=bins,
                          color=colorC2, histtype='stepfilled', alpha=0.05)
-            plt.plot(boot['fit to all data']['chi2'],
-                        0.4*max(h[0]), 's', markersize=fontsize/2,
-                        color=colorC2, label='fit to all data')
+            if showSingleFit:
+                plt.plot(boot['fit to all data']['chi2'],
+                            0.4*max(h[0]), 's', markersize=fontsize/2,
+                            color=colorC2, label='fit to all data')
             plt.title(r'$\chi_{\rm red}^2$', fontsize=fontsize)
             offs['chi2'] = 0
             amps['chi2'] = 1
@@ -6268,24 +6275,32 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             h = plt.hist(amps[k1]*(boot['all best'][k1]-offs[k1]), bins=bins,
                          color='k', histtype='stepfilled', alpha=0.05)
             # -- fitted and bootstrap values and uncertainties
-            if k1 in boot['fit to all data']['best']:
+            if showSingleFit and k1 in boot['fit to all data']['best']:
                 plt.errorbar(amps[k1]*(boot['fit to all data']['best'][k1]-offs[k1]),
                             0.4*max(h[0]), markersize=fontsize/2,
                             xerr=amps[k1]*boot['fit to all data']['uncer'][k1],
                             color=color1, fmt='s', capsize=fontsize/2,
                             label='fit to all data')
                 combi = False
+            elif not showSingleFit:
+                combi = False
             else:
                 combi = True
+
             plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
                         xerr=amps[k1]*boot['uncer'][k1],
                         color=color3 if combi else color2, fmt='d',
                         capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
             n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-            fmt = '%s=\n'+'%.'+'%d'%max(n,0)+'f'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
-            plt.title(fmt%(k1, boot['best'][k1], boot['uncer'][k1]),
+            fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
+            if k1 in alternateParameterNames:
+                T1 = alternateParameterNames[k1]
+            else:
+                T1 = k1
+            plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
                         fontsize=fontsize)
-        plt.legend(fontsize=5)
+        if showSingleFit:
+            plt.legend(fontsize=5)
 
         # -- title
         _AX[i1].yaxis.set_visible(False)
@@ -6308,7 +6323,17 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     # -- show density plots
     for i1, k1 in enumerate(showP):
         for i2 in range(i1+1, len(showP)):
+            if k1 in alternateParameterNames:
+                T1 = alternateParameterNames[k1]
+            else:
+                T1 = k1
+
             k2 = showP[i2]
+            if k2 in alternateParameterNames:
+                T2 = alternateParameterNames[k2]
+            else:
+                T2 = k2
+
             if i1==0:
                 _AY[i2] = plt.subplot(len(showP),
                             len(showP),
@@ -6341,8 +6366,14 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                 X2 = boot['all best'][k2]
                 X2r = boot['all best ignored'][k2]
 
-            plt.plot(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), m,
-                      alpha=np.sqrt(2/len(boot['mask'])), color=c)
+            if len(boot['mask'])<300:
+                plt.plot(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), m,
+                          alpha=np.sqrt(2/len(boot['mask'])), color=c)
+            else:
+                plt.hist2d(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), 
+                         cmap='binary', 
+                         bins=int(np.sqrt(len(boot['mask'])/2))
+                         )
 
             if showRejected:
                 plt.plot(amps[k1]*(X1r-offs[k1]), amps[k2]*(X2r-offs[k2]),
@@ -6390,10 +6421,12 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
             plt.plot(amps[k1]*(x-offs[k1]),
                      amps[k2]*(y-offs[k2]), '-', color=_c,
-                        label='c=%.2f'%boot['cord'][k1][k2])
-            plt.legend(fontsize=5)
+                     alpha=0.5,
+                    #label='c=%.2f'%boot['cord'][k1][k2]
+                        )
+            #plt.legend(fontsize=5)
 
-            if k1 in boot['fit to all data']['best'] and \
+            if showSingleFit and k1 in boot['fit to all data']['best'] and \
                     k2 in boot['fit to all data']['best']:
                 plt.plot(amps[k1]*(boot['fit to all data']['best'][k1]-offs[k1]),
                          amps[k2]*(boot['fit to all data']['best'][k2]-offs[k2]),
@@ -6406,23 +6439,23 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                          '+', color=_c)
 
             if i2==(len(showP)-1):
-                plt.xlabel(k1, fontsize=fontsize)
+                plt.xlabel(T1, fontsize=fontsize)
                 if offs[k1]<0:
-                    plt.xlabel(k1+'\n+%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                    plt.xlabel(T1+'\n+%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
                                 fontsize=fontsize)
                 elif offs[k1]>0:
-                    plt.xlabel(k1+'\n-%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
+                    plt.xlabel(T1+'\n-%f (%.0e)'%(np.abs(offs[k1]), 1/amps[k1]),
                                 fontsize=fontsize)
                 ax.tick_params(axis='x', labelsize=fontsize*0.8)
             else:
                 ax.xaxis.set_visible(False)
             if i1==0:
-                plt.ylabel(k2, fontsize=fontsize)
+                plt.ylabel(T2, fontsize=fontsize)
                 if offs[k2]<0:
-                    plt.ylabel(k2+'\n+%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
+                    plt.ylabel(T2+'\n+%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
                                 fontsize=fontsize)
                 elif offs[k2]>0:
-                    plt.ylabel(k2+'\n-%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
+                    plt.ylabel(T2+'\n-%f (%.0e)'%(np.abs(offs[k2]), 1/amps[k2]),
                                 fontsize=fontsize)
                 _AY[i2].callbacks.connect('ylim_changed', _callbackAxes)
                 _AY[i2].tick_params(axis='y', labelsize=fontsize*0.8)
