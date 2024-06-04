@@ -176,24 +176,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         print('loadOI: loading', res['filename'])
         print('  > insname:', '"'+insname+'"','targname:', '"'+targname+'"',
                 'pipeline:', '"'+res['pipeline']+'"')
-    try:
-        # -- VLTI 4T specific
-        OPL = {}
-        for i in range(4):
-            T = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
-            opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
-                       h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
-            opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
-            OPL[T] = opl
-        res['OPL'] = OPL
-        T = np.mean([h[0].header['ESO ISS TEMP TUN%d'%i] for i in [1,2,3,4]]) # T in C
-        P = h[0].header['ESO ISS AMBI PRES'] # pressure in mbar
-        H = h[0].header['ESO ISS AMBI RHUM'] # relative humidity: TODO outside == inside probably no ;(
-        #print('T(C), P(mbar), H(%)', T, P, H)
-        res['n_lab'] = n_JHK(res['WL'].astype(np.float64), 273.15+T, P, H)
-    except:
-        pass
-
+    
     # -- wavelength
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
@@ -216,6 +199,23 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 #print(' | dWL', res['dWL'])
                 pass
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
+
+    if 'GRAVITY' in insname:
+        # -- VLTI GRAVITY 4T specific
+        OPL = {}
+        for i in range(4):
+            T = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
+            opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
+                       h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
+            opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
+            OPL[T] = opl
+        res['OPL'] = OPL
+        T = np.mean([h[0].header['ESO ISS TEMP TUN%d'%i] for i in [1,2,3,4]]) # T in C
+        P = h[0].header['ESO ISS AMBI PRES'] # pressure in mbar
+        H = h[0].header['ESO ISS AMBI RHUM'] # relative humidity: TODO outside == inside probably no ;(
+        #print('T(C), P(mbar), H(%)', T, P, H)
+        res['n_lab'] = n_JHK(res['WL'].astype(np.float64), 273.15+T, P, H)
+
 
     oiarrays = {}
     # -- build OI_ARRAY dictionnary to name the baselines
@@ -301,7 +301,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
-
                                          }
 
                 except:
