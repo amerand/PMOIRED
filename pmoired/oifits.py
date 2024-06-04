@@ -204,11 +204,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         # -- VLTI GRAVITY 4T specific
         OPL = {}
         for i in range(4):
-            T = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
+            Tel = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
             opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
                        h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
             opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
-            OPL[T] = opl
+            OPL[Tel] = opl
         res['OPL'] = OPL
         T = np.mean([h[0].header['ESO ISS TEMP TUN%d'%i] for i in [1,2,3,4]]) # T in C
         P = h[0].header['ESO ISS AMBI PRES'] # pressure in mbar
