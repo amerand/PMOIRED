@@ -5504,8 +5504,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 # -- show phase based on OPL
                 if l=='PHI' and 'OPL' in oi.keys():
                     dOPL = oi['OPL'][k[2:]] - oi['OPL'][k[:2]]
-                    #print(k, dOPL)
-                    wl0 = 2.2
+                    wl0 = oi['WL'].mean()
                     cn = np.polyfit(oi['WL']-wl0, oi['n_lab'], 8)
                     cn[-2:] = 0.0
                     ax.plot(oi['WL'],
@@ -6152,8 +6151,8 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     return rh
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
-                  combParam={}, sigmaClipping=4.5, showChi2=False,
-                  alternateParameterNames={}, showSingleFit=True):
+                  combParam=None, sigmaClipping=4.5, showChi2=False,
+                  alternateParameterNames=None, showSingleFit=True):
     """
     you can look at combination of parameters:
 
@@ -6164,13 +6163,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     #t0 = time.time()
     boot = copy.deepcopy(b)
     #print('deep copy', time.time()-t0, 's')
-    # -- THIS IS NOT WORKING :(
-    #if showChi2:
-    #    if not type(combParam) == dict:
-    #        combParam = {}
-    #    combParam.update({'_chi2': 'chi2'})
 
-    #boot['fitOnly'] = boot['fitOnly']
+    if combParam is None:
+        combParam = {}
 
     if alternateParameterNames is None:
         alternateParameterNames = {}
@@ -6180,24 +6175,19 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
         for k in combParam:
             if not k in boot['fitOnly']:
                 boot['fitOnly'].append(k)
-            for i,f in enumerate(boot['fitOnly']):
-                if 'chi2' in k:
-                    boot['all fits'][i]['best'][k] = boot['all fits'][i]['chi2']
-                    boot['all fits'][i]['uncer'][k] = 0.0
-                else:
-                    tmp = combParam[k]+''
-                    j = 0
-                    while s in tmp and j<5:
-                        for x in boot['best'].keys():
-                            if s+x in tmp:
-                                tmp = tmp.replace(s+x, '('+str(boot['best'][x])+')')
-                        j+=1
-                    boot['all fits'][i]['best'][k] = eval(tmp)
-                    boot['all fits'][i]['uncer'][k] = 0.0
-
-        print('analyse')
+            
+            for i,f in enumerate(boot['all fits']):
+                tmp = combParam[k]+''
+                j = 0
+                while s in tmp and j<5:
+                    for x in boot['best'].keys():
+                        if s+x in tmp:
+                            tmp = tmp.replace(s+x, '('+str(boot['all fits'][i]['best'][x])+')')
+                    j+=1
+                boot['all fits'][i]['best'][k] = eval(tmp)
+                boot['all fits'][i]['uncer'][k] = 0.0
+            boot['all best'][k] = np.array([b['best'][k] for b in boot['all fits']])
         boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping)
-        print('done')
 
     if figWidth is None:
         figWidth = min(FIG_MAX_WIDTH, 1+2*len(boot['fitOnly']))
@@ -6207,17 +6197,18 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     plt.figure(fig, figsize=(figWidth, figWidth))
     _AX = {}
 
-    color1 = 'orange'
-    color2 = (0.2, 0.4, 1.0)
-    color3 = (0.8, 0.2, 0.4)
-    colorC2 = (0, 0.4, 0.2)
+    color1 = 'orange' # single fit
+    color2 = (0.2, 0.4, 1.0) # bootstrap
+    colorC2 = (0, 0.4, 0.2) # chi2
+    colorComb = (0.3, 0.4, 0.1) # combined parameters
 
-    combi = False
     # -- for each fitted parameters, show histogram
 
-    showP = sorted(boot['fitOnly'], 
+    showP = sorted(filter(lambda k: k not in combParam.keys(), boot['fitOnly']), 
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
- 
+    showP += sorted(filter(lambda k: k in combParam.keys(), boot['fitOnly']), 
+        key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
+    
     if showChi2:
         showP.append('chi2')
 
@@ -6281,15 +6272,13 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                             xerr=amps[k1]*boot['fit to all data']['uncer'][k1],
                             color=color1, fmt='s', capsize=fontsize/2,
                             label='fit to all data')
-                combi = False
-            elif not showSingleFit:
-                combi = False
-            else:
-                combi = True
+            _color = color2
+            if k1 in combParam:
+                _color = colorComb
 
             plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
                         xerr=amps[k1]*boot['uncer'][k1],
-                        color=color3 if combi else color2, fmt='d',
+                        color=_color, fmt='d',
                         capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
             n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
             fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
@@ -6381,9 +6370,8 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
             # -- combined parameters function of the other one?
             #print(combParam, k1, k2)
-            if (k1 in combParam and k2 in combParam[k1]) or \
-               (k2 in combParam and k1 in combParam[k2]):
-                _c = color3
+            if k1 in combParam or k2 in combParam:
+                _c = colorComb
             else:
                 _c = color2
 
