@@ -257,6 +257,10 @@ class OI:
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, debug=self.debug, binning=binning,
                         useTelluricsWL=useTelluricsWL, wlOffset=wlOffset))
+        # -- force recomputation of images 
+        self.images = {}
+        self.spectra = {}
+        self._merged = []
         return
 
     def getESOPipelineParams(self, verbose=True):
@@ -1336,9 +1340,6 @@ class OI:
                 raise Exception('specify wavelength vector "WL="')
             # -- create fake data
             self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}}]
-
-
-        #assert type(model)==dict, 'model should be a dictionnary!'
         if not type(model)==dict:
             raise Exception('model should be a dictionnary!')
 
