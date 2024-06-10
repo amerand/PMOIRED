@@ -2503,10 +2503,10 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 vel = 0.0 # vlocity, in km/s
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 2
+                    fv = 1.5
                 else:
                     kv = 'Vin'
-                    fv = 2
+                    fv = 1.5
                 if not kv in _param:
                     kv +='_Mm/s'
                     fv = 1000.
@@ -2715,10 +2715,10 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 2
+                    fv = 1.5
                 else:
                     kv = 'Vin'
-                    fv = 2
+                    fv = 1.5
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000.0
@@ -2737,7 +2737,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
                 # -- effects of "vel" depends on the size of the disk and "fpow"
                 #dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
-                dwl = np.sqrt(dwl**2 + (0.5*_param[k]*vel/2.998e5 )**2)
+                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5 )**2)
                 if any(np.abs(oi['WL']-_param[k])>=np.abs(dwl)):
                     w *= (np.abs(oi['WL']-_param[k])>=np.abs(dwl))
                 if k.replace('wl0', 'truncexp') in _param.keys():
@@ -4559,10 +4559,10 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 2
+                    fv = 1.5
                 else:
                     kv = 'Vin'
-                    fv = 2
+                    fv = 1.5
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000
@@ -4580,7 +4580,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                     elif 'diamin' in _param:
                         vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
 
-                dwl = np.sqrt(dwl**2 + (0.5*_param[k]*vel/2.998e5)**2)
+                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for clipping')
