@@ -2538,7 +2538,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
     if order=='auto':
         order = int(np.ptp(oi['WL'][oi['WL cont']])/0.2)
         order = max(order, 2)
-        vorder = 1*order
+        vorder = 1
     if 'fit' in oi and 'DPHI order' in oi['fit']:
         order = oi['fit']['DPHI order']
     if 'fit' in oi and 'N|V| order' in oi['fit']:
