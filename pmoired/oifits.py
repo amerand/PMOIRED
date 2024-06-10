@@ -1633,7 +1633,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                             tmp[k] = {p:r['fit'][k][p]}
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges',
                                                 'continuum ranges', 'prior', 'Nr',
-                                                'DPHI order', 'D|V| order',
+                                                'DPHI order', 'N|V| order',
                                                 'NFLUX order', 'ignore negative flux']
                         if k in r['fit']}
             r['fit'].update(tmp)
