@@ -6157,7 +6157,6 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     you can look at combination of parameters:
 
     combParam: {'sep':'np.sqrt($x**2 + $y**2)'} assuming 'x' and 'y' are parameters from the model
-
     """
     global _AX, _AY
     #t0 = time.time()
