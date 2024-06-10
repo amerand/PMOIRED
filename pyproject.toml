@@ -26,9 +26,11 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Astrophysics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-keywords = ["optical interferometry", "visualization", "display", "OIFITS", "data modeling"]
+keywords = ["optical interferometry", "visualization", "display", "OIFITS", 
+            "data modelling", "astrophysics"]
 description = "Display and fit Optical (spectro-)Interferometric OIFITS data"
 authors = [
     {name = "Antoine Mérand", email = "amerand@eso.org"},
