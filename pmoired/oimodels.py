@@ -1678,7 +1678,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             cont *= param['cont_f']/np.sum(cont*P[:,8])
             cont = cont[None,:]*(wl[:,None]/np.mean(wl))**cont_spx
         elif not cont_fwhm is None:
-            # -- assume gaussian with FWHM based on disk's dimentions
+            # -- assume gaussian with FWHM based on disk's dimensions
             cont = np.exp(-(P[:,6]*Rin)**2/(2*(cont_fwhm/2.35482)**2))
             cont /= np.sum(cont*P[:,8])
             cont = param['cont_f']*cont[None,:]*(wl[:,None]/np.mean(wl))**cont_spx
@@ -1753,8 +1753,6 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             # -- default: lorentzian, based on spectral resolution
             #flux += amp[None,:]*loren(wl[:,None]*(1-P[:,5][None,:]/2.998e5),
             #                         param[a], dwl)
-
-
 
     if False:
         # -- trying to be clever integrating...
@@ -2472,6 +2470,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         fit.update(oi['fit'])
         oi['fit'] = fit.copy()
 
+    # -- range(s) to take into consideration
     w = np.zeros(oi['WL'].shape)
     closest = []
     for WR in oi['fit']['wl ranges']:
@@ -2500,18 +2499,19 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
-                vel = 0.0
+                
+                vel = 0.0 # vlocity, in km/s
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 1.2
+                    fv = 2
                 else:
                     kv = 'Vin'
-                    fv = 1.2
+                    fv = 2
                 if not kv in _param:
                     kv +='_Mm/s'
                     fv = 1000.
                 if kv in _param:
-                    vel = _param[kv]*fv
+                    vel = np.abs(_param[kv]*fv)
 
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
@@ -2522,9 +2522,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                         vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
                     elif 'diamin' in _param:
                         vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
-
-                dwl = np.sqrt(dwl**2 + (.5*_param[k]*vel/2.998e5)**2)
-                w *= (np.abs(oi['WL']-_param[k])>=dwl)
+                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5)**2)                
                 if k.replace('_wl0', '_truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
                     w *= ~(((oi['WL']-_param[k])<=1.3*dwl)*
@@ -2717,15 +2715,15 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 1.2
+                    fv = 2
                 else:
                     kv = 'Vin'
-                    fv = 1.2
+                    fv = 2
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000.0
                 if kv in _param:
-                    vel = _param[kv]*fv
+                    vel = np.abs(_param[kv]*fv)
 
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
@@ -4561,16 +4559,17 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 vel = 0
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
-                    fv = 1.0
+                    fv = 2
                 else:
                     kv = 'Vin'
-                    fv = 1.0
+                    fv = 2
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000
 
                 if kv in _param:
-                    vel = _param[kv]*fv
+                    vel = np.abs(_param[kv]*fv)
+
                 if ',' in k:
                     kv = k.split(',')[0]+','+'V1mas'
                 else:
