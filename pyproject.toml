@@ -26,7 +26,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Topic :: Scientific/Engineering :: Astronomy",
-    "Topic :: Scientific/Engineering :: Astrophysics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 keywords = ["optical interferometry", "visualization", "display", "OIFITS", 

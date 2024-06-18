@@ -978,7 +978,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if not 'profile' in _param:
             _param['profile'] = 'uniform'
-
         if '$' in _param['profile']:
             # -- generic formula
             tmp = _param['profile'].replace('$R', '_r')
@@ -1994,7 +1993,9 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         #    n = 1
         # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-        smearing[c] = n
+        n = 1 # not working?
+        smearing[c] = n 
+        
         if n<2:
             tmp.update({k:param[k] for k in param.keys() if k.startswith(c+',')})
         else:
