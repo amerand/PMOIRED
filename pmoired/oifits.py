@@ -11,7 +11,7 @@ from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.units as aU
 
 def _isiterable(x):
-    res = True 
+    res = True
     try:
         iter(x)
     except:
@@ -24,7 +24,7 @@ def _globlist(filenames, strict=False):
         for f in filenames:
             res.extend(_globlist(f, strict=strict))
         return res
-    assert type(filenames)==str, 'cannot find file(s) for '+str(filenames) 
+    assert type(filenames)==str, 'cannot find file(s) for '+str(filenames)
 
     if os.path.exists(filenames):
         return [filenames]
@@ -38,7 +38,7 @@ def _globlist(filenames, strict=False):
 
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
-           binning=None, useTelluricsWL=True, barycentric=False, ignoreCF=False,
+           binning=None, useTelluricsWl=True, barycentric=False, ignoreCF=False,
            wlOffset=0.0):
     """
     load OIFITS "filename" and return a dict:
@@ -81,7 +81,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             tmp = loadOI(f, insname=insname, withHeader=withHeader,
                          medFilt=medFilt, tellurics=tellurics, targname=targname,
                          verbose=verbose, debug=debug, binning=binning,
-                         useTelluricsWL=useTelluricsWL, barycentric=barycentric,
+                         useTelluricsWl=useTelluricsWl, barycentric=barycentric,
                          wlOffset=wlOffset)
             if type(tmp)==list:
                 res.extend(tmp)
@@ -144,7 +144,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             # -- return list: one dict for each insname
             return [loadOI(filename, insname=ins, withHeader=withHeader,
                            verbose=verbose, medFilt=medFilt,
-                           useTelluricsWL=useTelluricsWL,
+                           useTelluricsWl=useTelluricsWl,
                            barycentric=barycentric) for ins in instruments]
 
     assert insname in instruments, 'unknown instrument "'+insname+'", '+\
@@ -176,7 +176,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         print('loadOI: loading', res['filename'])
         print('  > insname:', '"'+insname+'"','targname:', '"'+targname+'"',
                 'pipeline:', '"'+res['pipeline']+'"')
-    
+
     # -- wavelength
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
@@ -252,7 +252,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
             if not tellurics is False:
                 if not binning is None and len(hdu.data['TELL_TRANS'])==len(_WL):
-                    if useTelluricsWL and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
+                    if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
                         # -- corrected wavelength
                         res['WL'] = hdu.data['CORR_WAVE']*1e6
                         if not binning is None:
@@ -271,7 +271,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['PWV'] = hdu.header['PWV']
                 elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
-                    if useTelluricsWL and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
+                    if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
                         # -- corrected wavelength
                         res['WL'] = hdu.data['CORR_WAVE']*1e6
 
@@ -419,7 +419,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          res['OI_VIS2'][k]['FLAG'],
                                                          res['OI_VIS2'][k]['EV2'],
                                                          medFilt=medFilt)
-                        
+
                         res['OI_VIS2'][k]['FLAG'] = flag
 
         # -- V baselines == telescopes pairs
@@ -553,7 +553,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                          res[ext][k]['FLAG'],
                                                          res[ext][k]['EPHI'],
                                                          medFilt=medFilt)
-                        
+
                         res[ext][k]['FLAG'] = flag
 
         #elif debug and 'EXTNAME' in hdu.header:
@@ -570,7 +570,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG:', k, sorted(res[k].keys()))
 
     if debug:
-        print('-'*60) 
+        print('-'*60)
     res = match_VIS_VIS2_CF(res, debug=debug, ignoreCF=ignoreCF)
     if debug:
         print('-'*60)
@@ -592,7 +592,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 oiarray = oiarrays[hdu.header['ARRNAME'].strip()]
                 sta3 = [oiarray[s[0]]+oiarray[s[1]]+oiarray[s[2]] for s in hdu.data['STA_INDEX']]
             except:
-                sta3 = ['STA'+str(s[0])+'STA'+str(s[1])+'STA'+str(s[2]) 
+                sta3 = ['STA'+str(s[0])+'STA'+str(s[1])+'STA'+str(s[2])
                         for s in hdu.data['STA_INDEX']]
 
             # -- limitation: assumes all telescope have same number of char!
@@ -706,9 +706,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                           res['OI_T3'][k]['ET3AMP'],
                                                           medFilt=medFilt,
                                                           retFlag=True)
-                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL, 
+                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
                                                          res['OI_T3'][k]['T3PHI'],
-                                                         res['OI_T3'][k]['FLAG'], 
+                                                         res['OI_T3'][k]['FLAG'],
                                                          res['OI_T3'][k]['ET3PHI'],
                                                          medFilt=medFilt, phase=True)
                         # -- KLUDGE!
@@ -732,7 +732,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                            res['OI_T3'][k]['FLAG'],
                                                            res['OI_T3'][k]['ET3PHI'],
                                                            medFilt=medFilt)
-                        
+
                         res['OI_T3'][k]['FLAG'] = flag
                 res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
 
@@ -743,7 +743,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if res['OI_VIS2']=={}:
         res.pop('OI_VIS2')
         if key == 'OI_VIS2':
-            key = 'OI_CF'  
+            key = 'OI_CF'
     if 'OI_CF' in res and (res['OI_CF']=={} or ignoreCF):
         res.pop('OI_CF')
     if debug:
@@ -1236,7 +1236,7 @@ def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
                         tmp[wv2,:] = res['OI_VIS2'][k][x]
                     res['OI_VIS'][k][x] = tmp
 
-                # -- VIS2 
+                # -- VIS2
                 res['OI_VIS2'][k]['MJD'] = np.array(allMJD)
                 for x in ['u', 'v']:
                     if x in res['OI_VIS'][k]:
@@ -1286,7 +1286,7 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False):
 
         # -- 2/3 of the points in the bin are valid
         #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>2/3)
-        
+
         # -- at least one point in the bin is valid
         flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float_(~F[i,:]), phase=phase)>0)
         if E is None:
@@ -1638,8 +1638,10 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                         if k in r['fit']}
             r['fit'].update(tmp)
 
+
     for r in res:
-        r['MJD'] = np.array(sorted(set(r['configurations per MJD'].keys())))
+        if 'configurations per MJD' in r:
+            r['MJD'] = np.array(sorted(set(r['configurations per MJD'].keys())))
 
     return res
 

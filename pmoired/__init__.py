@@ -16,7 +16,7 @@ from inspect import signature
 
 import numpy as np
 #import warnings
-#warnings.filterwarnings("ignore", category=RuntimeWarning) 
+#warnings.filterwarnings("ignore", category=RuntimeWarning)
 import matplotlib.pyplot as plt
 import scipy
 import astropy
@@ -31,7 +31,6 @@ MAX_THREADS = multiprocessing.cpu_count()
 
 #print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 #print('https://github.com/amerand/PMOIRED')
-
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -52,7 +51,7 @@ __versions__={'pmoired':__version__,
 #     pass
 
 def _isiterable(x):
-    res = True 
+    res = True
     try:
         iter(x)
     except:
@@ -62,7 +61,7 @@ def _isiterable(x):
 class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
-                 tellurics=None, useTelluricsWL=False, wlOffset=0.0,
+                 tellurics=None, useTelluricsWl=False, wlOffset=0.0,
                  debug=False, verbose=True,):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
@@ -85,7 +84,7 @@ class OI:
             file (from 'pmoired.tellcorr')
 
         useTelluricsWL: use telluric calibrated wavelength (False)
-    
+
         wlOffset: add an offset (in um) to WL table
 
         verbose: default is True
@@ -94,7 +93,7 @@ class OI:
         """
         self.debug = debug
         # -- last best fit to the data
-        self.bestfit = None
+        self.bestfit = {}
         # -- bootstrap results:
         self.boot = None
         # -- grid / random fits:
@@ -118,13 +117,13 @@ class OI:
             self.addData(filenames, insname=insname, targname=targname,
                             verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                             tellurics=tellurics, binning=binning,
-                            useTelluricsWL=useTelluricsWL, wlOffset=wlOffset)
+                            useTelluricsWl=useTelluricsWl, wlOffset=wlOffset)
         else:
             self.data = []
         self._merged = []
     def __del__(self):
         """not doing anything"""
-        self.data = None
+        self.data = []
     def save(self, name=None, overwrite=False):
         """
         save session as binary file (not OIFITS :()
@@ -201,7 +200,7 @@ class OI:
         print('.boot    : %.3fMB'%(_recsizeof(self.boot)/1024**2))
         print('.grid    : %.3fMB'%(_recsizeof(self.grid)/1024**2))
         print('.limgrid : %.3fMB'%(_recsizeof(self.limgrid)/1024**2))
-        
+
     def info(self):
         """
         Print out information about the current session
@@ -213,7 +212,7 @@ class OI:
                 '-'.join(d['telescopes']),
                 '%dxWL=%.2f..%.2fum [R~%.0f]'%(len(d['WL']), d['WL'].min(), d['WL'].max(),
                                             np.mean(d['WL']/np.gradient(d['WL']))))
-        if not self.bestfit is None:
+        if not self.bestfit == {}:
             print('== FIT', '='*40)
             self.showBestfit()
 
@@ -224,7 +223,7 @@ class OI:
 
     def addData(self, filenames, insname=None, targname=None, withHeader=True,
                 medFilt=None, tellurics=None, binning=None, verbose=True,
-                useTelluricsWL=False, wlOffset=0.0):
+                useTelluricsWl=False, wlOffset=0.0):
         """
         add data to the existing ones:
 
@@ -257,8 +256,8 @@ class OI:
         self.data.extend(oifits.loadOI(filenames, insname=insname, targname=targname,
                         verbose=verbose, withHeader=withHeader, medFilt=medFilt,
                         tellurics=tellurics, debug=self.debug, binning=binning,
-                        useTelluricsWL=useTelluricsWL, wlOffset=wlOffset))
-        # -- force recomputation of images 
+                        useTelluricsWl=useTelluricsWl, wlOffset=wlOffset))
+        # -- force recomputation of images
         self.images = {}
         self.spectra = {}
         self._merged = []
@@ -284,7 +283,7 @@ class OI:
             for j in range(len(d['WL'])):
                 w = np.abs(wl-d['WL'][j])<3*d['dWL'][j]
                 if np.sum(w):
-                    # -- kernel 
+                    # -- kernel
                     k = np.exp(-(wl[w]-d['WL'][j])**2/(2*(d['dWL'][j]/2.35482)**2))
                     tmp.append(np.mean(sed[w]*k)/np.mean(k))
                 else:
@@ -322,7 +321,7 @@ class OI:
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
 
-        insname: only apply to this insname (default: None -> apply to all). 
+        insname: only apply to this insname (default: None -> apply to all).
             Can be a string (single insname) or list of insnames.
 
         "fit" contains the following keys (only "obs" is mandatory):
@@ -360,7 +359,7 @@ class OI:
         'max relative error': similar to 'min relative error' but will ignore
             (flag) data above
 
-        'mult error': syntax similar to 'min error': multiply all errors by a 
+        'mult error': syntax similar to 'min error': multiply all errors by a
             value
 
         'Nr':int, number of points to compute radial profiles (default=100)
@@ -375,7 +374,7 @@ class OI:
         'ignore negative flux':bool. Default is False
 
         example: oi.setupFit({'obs':['V2', 'T3PHI'], 'max error':{'T3PHI':10}})
-          to fit V2 and T3PHI data, reject data with errors in T3PHI>10 degrees 
+          to fit V2 and T3PHI data, reject data with errors in T3PHI>10 degrees
         """
         correctType = type(fit)==dict
         correctType = correctType or (type(fit)==list and
@@ -534,7 +533,7 @@ class OI:
         self.computeModelSpectra(uncer=False)
         return
 
-    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True, 
+    def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True,
                        ndof=None, nfit=None, debug=False):
         if not prior is None:
             #assert _checkPrior(prior), 'ill formed "prior"'
@@ -564,7 +563,7 @@ class OI:
         if reduced:
             if ndof is None and not nfit is None:
                 ndof = len(tmp)-nfit+1
-                
+
             if ndof is None:
                 return np.mean(tmp**2)
             else:
@@ -576,7 +575,7 @@ class OI:
         """
         show how chi2 / fitted parameters changed with each iteration of the fit.
         """
-        if not self.bestfit is None:
+        if not self.bestfit=={}:
             self.fig += 1
             oimodels.dpfit.showFit(self.bestfit, fig=self.fig)
         return
@@ -615,7 +614,7 @@ class OI:
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
 
-        if model is None and not self.bestfit is None:
+        if model is None and not self.bestfit=={}:
             model = self.bestfit['best']
         #assert not model is None, 'first guess should be provided: model={...}'
         if model is None:
@@ -698,7 +697,7 @@ class OI:
             _unit = ''
         cx = np.array([r[px] for r in self.limgrid])
         cy = np.array([r[py] for r in self.limgrid])
-        
+
         cx, cy, c = cx[np.isfinite(c)], cy[np.isfinite(c)], c[np.isfinite(c)]
 
         print('distribution of %.1fsigma detections:'%self._limexpl['nsigma'])
@@ -746,7 +745,7 @@ class OI:
                     _x0 = lambda z: z[x0]
             else: # assume number
                 _x0 = lambda z: x0
-            
+
             if y0 is None:
                 _y0 = lambda z: 0
             elif type(y0)==str:
@@ -758,7 +757,7 @@ class OI:
             else: # assume number
                 _y0 = lambda z: y0
 
-            R = np.array([np.sqrt((x[px]-_x0(x))**2+(x[py]-_y0(x))**2) for x in self.limgrid]) 
+            R = np.array([np.sqrt((x[px]-_x0(x))**2+(x[py]-_y0(x))**2) for x in self.limgrid])
             r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
             plt.plot(R, c, '.k', alpha=0.2)
             _r, _f = [], []
@@ -805,7 +804,7 @@ class OI:
         but will exclude some initial guesses.
             e.g. constrain = [('np.sqrt(p1**2+p2**2)', '<', 1)]
             will restrict the search for (p1,p2) satisfying the condition
-            however, best fit can be found outside the grid (unless 'prior' is 
+            however, best fit can be found outside the grid (unless 'prior' is
             specified)
 
         See Also: showGrid, detectionLimit
@@ -815,7 +814,7 @@ class OI:
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
 
-        if model is None and not self.bestfit is None:
+        if model is None and not self.bestfit=={}:
             model = self.bestfit['best']
             if doNotFit is None:
                 doNotFit = self.bestfit['doNotFit']
@@ -848,7 +847,7 @@ class OI:
                                        epsfcn=epsfcn, constrain=constrain,
                                        prior=prior, verbose=verbose)
         self._expl = expl
-        self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose, 
+        self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose,
                                          deltaChi2=deltaChi2)
         self.bestfit = self.grid[0]
         self.bestfit['prior'] = prior
@@ -858,26 +857,26 @@ class OI:
 
     def showGrid(self, px=None, py=None, color='chi2', aspect=None,
                 vmin=None, vmax=None, logV=False, cmap='magma', fig=None,
-                interpolate=False, legend=True, tight=False, 
+                interpolate=False, legend=True, tight=False,
                 significance=False):
         """
         show the results from `gridFit` as 2D coloured map.
 
         px, py: parameters to show in x and y axis (default the first 2 parameters
             from the grid, in alphabetical order)
-        
+
         color: which parameter to show as colour (default is 'chi2')
-        
+
         aspect: default is None, but can be set to "equal"
-        
+
         vmin, vmax: apply cuts to the colours (default: None)
-        
+
         logV: show the colour as log scale
-        
+
         cmap: valid matplotlib colour map (default="spring")
-        
+
         interpolate: show a continuous interpolation of the minimum chi2 map
-        
+
         significance: shows the detection in sigmas
 
         The crosses are the starting points of the fits, and the circled dot
@@ -917,12 +916,12 @@ class OI:
                 m[significance] = 0
                 significance = self._chi2FromModel(m)
             elif type(significance)==float:
-                pass                
+                pass
             elif type(significance)==dict:
-                significance = self._chi2FromModel(significance)               
+                significance = self._chi2FromModel(significance)
             elif xy:
                 m[px.replace(',x', ',f')]=0
-                significance = self._chi2FromModel(m)                
+                significance = self._chi2FromModel(m)
             #print('significance:', significance)
         oimodels.showGrid(self.grid, px, py, color=color, fig=self.fig,
                           vmin=vmin, vmax=vmax, aspect=aspect, cmap=cmap,
@@ -957,7 +956,7 @@ class OI:
                 plt.legend(fontsize=7)
         return
 
-    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2, 
+    def bootstrapFit(self, Nfits=None, multi=True, keepFlux=False, verbose=2,
                      strongMJD=False, randomiseParam=True, additionalRandomise=None):
         """
         perform 'Nfits' bootstrapped fits around dictionnary parameters found
@@ -970,20 +969,20 @@ class OI:
         additionalRandomise: optional function to randomise the data in "additional residuals"
             additionalRandomise(True) will randomise the data
             additionalRandomise(False) will reset the data to its original order and weights
-            
+
         See Also: showBootstrap
         """
         if self._merged is None:
             self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
 
-        #assert not self.bestfit is None, 'you should run a fit first (using "doFit")'
-        if self.bestfit is None:
+        #assert not self.bestfit=={}, 'you should run a fit first (using "doFit")'
+        if self.bestfit=={}:
             raise Exception('you should run a fit first (using "doFit")')
 
         model = self.bestfit
         oimodels.MAX_THREADS = MAX_THREADS
-        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi, 
-                                            keepFlux=keepFlux, verbose=verbose, 
+        self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi,
+                                            keepFlux=keepFlux, verbose=verbose,
                                             strongMJD=strongMJD, randomiseParam=randomiseParam,
                                             additionalRandomise=additionalRandomise)
         if not additionalRandomise is None:
@@ -1011,7 +1010,7 @@ class OI:
             self.fig = fig
         else:
             self.fig += 1
-        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig, showChi2=showChi2, 
+        oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig, showChi2=showChi2,
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                alternateParameterNames=alternateParameterNames,
                                showSingleFit=showSingleFit)
@@ -1110,7 +1109,7 @@ class OI:
             #assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
             if imPix<imFov/500:
                 raise Exception("the pixel of the synthetic image is too small!")
-       
+
         else:
             if showSED is None:
                 showSED = False
@@ -1164,7 +1163,7 @@ class OI:
             if perSetup == 'insname':
                 insnames = [d['insname'] for d in self.data]
                 perSetup = list(set(insnames))
-            elif perSetup == 'strict':                
+            elif perSetup == 'strict':
                 insnames = [betterinsname(d) for d in self.data]
                 perSetup = list(set(insnames))
             else:
@@ -1176,7 +1175,7 @@ class OI:
                 data = []
                 for s in perSetup:
                     data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
-                                    if s in insnames[i]], 
+                                    if s in insnames[i]],
                                     collapse=False, verbose=False))
                 if spectro:
                     useStrict = False
@@ -1191,7 +1190,7 @@ class OI:
                         data = []
                         for s in perSetup:
                             data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
-                                            if s in insnames[i]], 
+                                            if s in insnames[i]],
                                             collapse=False, verbose=False))
 
             for j,g in enumerate(data):
@@ -1340,7 +1339,7 @@ class OI:
             if WL is None:
                 raise Exception('specify wavelength vector "WL="')
             # -- create fake data
-            self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}}]
+            self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}, 'insname':''}]
         if not type(model)==dict:
             raise Exception('model should be a dictionnary!')
 
@@ -1526,7 +1525,7 @@ class OI:
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)
-            if not 'SED' in self._modelAxes:    
+            if not 'SED' in self._modelAxes:
                 self._modelAxes['SED'] = [ax]
             if not vWl0 is None:
                 um2kms = lambda um: (um-vWl0)/um*299792
@@ -1586,7 +1585,7 @@ class OI:
         return
 
     def showBestfit(self):
-        if not self.bestfit is None:
+        if not self.bestfit=={}:
             print('chi2 = %f'%self.bestfit['chi2'])
             oimodels.dpfit.dispBest(self.bestfit)
             oimodels.dpfit.dispCor(self.bestfit)
@@ -1632,7 +1631,7 @@ class OI:
         """
         result stored in self.halfradP
         """
-        if not self.bestfit is None:
+        if not self.bestfit=={}:
             self.halfradP = oimodels.halfLightRadiusFromParam(self.bestfit)
         else:
             print('no best fit model to compute half light radii!')
@@ -1685,7 +1684,7 @@ class OI:
         # if len(self._model)==0:
         #     print('no best images model to compute half light radii!')
         #assert self.images!={}, 'run ".computeModelImages" first!'
-        if self.images=={}: 
+        if self.images=={}:
             raise Exception('run ".computeModelImages" first!')
 
         self.deprojectImages(incl, projang, x0, y0)
@@ -1737,7 +1736,7 @@ class OI:
         """
         if debug:
             print('D> -- computeModelImages')
-        if model=='best' and not self.bestfit is None:
+        if model=='best' and not self.bestfit=={}:
             model = self.bestfit['best']
 
         #assert type(model) is dict, "model must be a dictionnary"
@@ -1892,7 +1891,7 @@ class OI:
         See Also: computeModelImages
         """
         models = None
-        if model=='best' and not self.bestfit is None:
+        if model=='best' and not self.bestfit=={}:
             model = self.bestfit['best']
             # -- randomise parameters, using covariance
             if uncer:
@@ -1909,6 +1908,17 @@ class OI:
             self.spectra = _computeSpectra(model, self.data, models=models)
 
 def _computeSpectra(model, data, models):
+    """
+    model: dictionnary
+    data: oi.data or oi._merged
+    models: dict containing the various computations:
+        'flux TOTAL': total flux (1D, same as 'flux WL')
+        'flux WL': wavelength vector (in um)
+        'flux COMP': dict per components
+        'err flux COMP': error on flux
+        ...
+
+    """
     allWLc = [] # -- continuum -> absolute flux
     allWLs = [] # -- with spectral lines -> normalized flux
     allMJD = []
@@ -1975,7 +1985,7 @@ def _computeSpectra(model, data, models):
             tmps = [oimodels.VmodelOI(allWL, m) for m in models]
             try:
                 efluxes = ({k.split(',')[0]:np.std([t['MODEL'][k] for t in tmps], axis=0) for k in
-                        tmp['MODEL'].keys() if k.endswith(',flux')}
+                           tmp['MODEL'].keys() if k.endswith(',flux')}
                         )
             except:
                 efluxes = {'total':np.std([t['MODEL']['totalflux'] for t in tmps], axis=0)}
@@ -2111,7 +2121,7 @@ def _recsizeof(s):
         return tmp
     else:
         return sys.getsizeof(s)
-        
+
 
 if __name__ == "__main__":
     pass
