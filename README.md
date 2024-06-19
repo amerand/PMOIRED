@@ -35,6 +35,7 @@ To uninstall (works for both PyPI and github versions):
 ```
 pip3 uninstall pmoired
 ```
+
 ## Examples and tutorials
 
 Examples are available in a separate repository: [PMOIRED_examples](https://github.com/amerand/PMOIRED_examples). These examples are Jupyter Notebooks reproducing published results with other tools, and serve both as tutorials and verification of `PMOIRED`. They cover most of the features of `PMOIRED`, from the basics to more advanced operations.
