@@ -21,7 +21,8 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
-`PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly as
+`PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
+
 ```
 pip3 install pmoired
 ```
