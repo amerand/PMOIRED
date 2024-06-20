@@ -686,11 +686,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                     (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
                     bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
                     bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
+                    bmin = np.minimum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
+                    bmin = np.minimum(res['OI_T3'][k]['B3'], bmin)
+
                     bavg = (res['OI_T3'][k]['B1'] +
                             res['OI_T3'][k]['B2'] +
                             res['OI_T3'][k]['B3'])/3
 
                     res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
+                    res['OI_T3'][k]['Bmin/wl'] = bmax[:,None]/res['WL'][None,:]
                     res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
 
                     res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
@@ -1447,7 +1451,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
-                                'FLAG', 'Bmax/wl', 'Bavg/wl', 'MJD2']
+                                'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2']
                     if debug:
                         print(l, k, res[i0][l][k].keys())
                     for t in ext1:

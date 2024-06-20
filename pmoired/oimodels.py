@@ -9,7 +9,7 @@ import sys
 import pickle
 
 import warnings
-warnings.filterwarnings(action='ignore', category=RuntimeWarning) 
+warnings.filterwarnings(action='ignore', category=RuntimeWarning)
 
 import numpy as np
 import matplotlib
@@ -183,7 +183,7 @@ def _ti2campbell(ti, c=None, deg=True):
     u = (ti['A']**2 + ti['B']**2 + ti['F']**2 + ti['G']**2)/2
     v = ti['A']*ti['G'] - ti['B']*ti['F']
     a = np.sqrt(u + np.sqrt(u**2-v**2))
-    
+
     # -- omega ± OMEGA
     opO = np.arctan2(ti['B']-ti['F'], ti['G']+ti['A'])
     if not c is None:
@@ -196,7 +196,7 @@ def _ti2campbell(ti, c=None, deg=True):
         opO += np.pi
     if not c is None:
         print('   opO: %.3f (%.3f) delta=%.3f'%(opO, c['omega']+c['OMEGA'], opO-c['omega']-c['OMEGA']))
-    
+
     omO = np.arctan2(ti['B']+ti['F'], ti['G']-ti['A'])
     if not c is None:
         print('omO: %.3f (%.3f) delta=%.3f'%(omO, c['omega']-c['OMEGA'], omO-c['omega']+c['OMEGA']))
@@ -227,7 +227,7 @@ def _ti2campbell(ti, c=None, deg=True):
             print('correct for OMEGA<0')
             print('omega: %.3f (%.3f) delta=%.3f'%(omega, c['omega'], omega-c['omega']))
             print('OMEGA: %.3f (%.3f) delta=%.3f'%(OMEGA, c['OMEGA'], OMEGA-c['OMEGA']))
-    
+
     #print(np.sign(np.sin(opO)), np.sign(ti['B']-ti['F']))
     # -- inclination
     d1 = np.abs((ti['A']+ti['G'])*np.cos(omO))
@@ -252,16 +252,16 @@ def _ti2campbell(ti, c=None, deg=True):
 
 def _campbell2ti(c):
     """
-    Campbell {'incl':,'omega':,'OMEGA':,'a':} to Thiele-Innes parameters {'A':,'B':,'G':,'F':} 
+    Campbell {'incl':,'omega':,'OMEGA':,'a':} to Thiele-Innes parameters {'A':,'B':,'G':,'F':}
 
     angles in radians
-    """ 
+    """
     return {'A': c['a']*(np.cos(c['omega'])*np.cos(c['OMEGA']) - np.sin(c['omega'])*np.sin(c['OMEGA'])*np.cos(c['incl'])),
             'B': c['a']*(np.cos(c['omega'])*np.sin(c['OMEGA']) + np.sin(c['omega'])*np.cos(c['OMEGA'])*np.cos(c['incl'])),
             'F':-c['a']*(np.sin(c['omega'])*np.cos(c['OMEGA']) + np.cos(c['omega'])*np.sin(c['OMEGA'])*np.cos(c['incl'])),
             'G':-c['a']*(np.sin(c['omega'])*np.sin(c['OMEGA']) - np.cos(c['omega'])*np.cos(c['OMEGA'])*np.cos(c['incl'])),
            }
-        
+
 
 def _orbit(t, P, Vrad=False, verbose=False):
     """
@@ -273,17 +273,17 @@ def _orbit(t, P, Vrad=False, verbose=False):
     parameters: e, P, MJD0, a, omega, OMEGA, incl (angles in degrees, dates in days)
                 or
                 e, P, MJD0, A, B, G, F (4 Thiele-Innes parameters, dates in days)
-                
+
     alternatively, if M (Msun) and plx (mas) are given, a is computed from Kepler third law.
 
     t = array of MJDs
 
-    return x,y by default. If Vrad='a', 'b', 'a-b' return velocity of the primary, secondary, or 
-    the velocity dfference. For velocities, 'gamma' should be given, as well as 
-    - 'Ka', 'Kb' 
-    - or 'Ma' and 'Mb' 
+    return x,y by default. If Vrad='a', 'b', 'a-b' return velocity of the primary, secondary, or
+    the velocity dfference. For velocities, 'gamma' should be given, as well as
+    - 'Ka', 'Kb'
+    - or 'Ma' and 'Mb'
     - or 'M' and 'q'==Mb/Ma
-    
+
     """
     # -- Thiele-Innes parameters
     if 'A' in P and 'B' in P and 'F' in P and 'G' in P:
@@ -305,7 +305,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
     cos_nu = (np.cos(E)-np.abs(P['e']))/(1-np.abs(P['e'])*np.cos(E))
     nu = np.arccos(cos_nu)
     nu[np.sin(M)<0] = 2*np.pi-nu[np.sin(M)<0]
-    
+
     if 'Ma' in P and 'Mb' in P and 'plx' in P:
         P['a'] = ((P['Ma']+P['Mb'])*(P['P']/365.25)**2)**(1/3.) # in AU
         K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
@@ -325,7 +325,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
         if 'q' in P: # q = Mb/Ma
             P['Ka'] = K/(1+1/P['q'])
             P['Kb'] = K/(1+P['q'])
-    
+
     # separation
     if 'a' in P:
         r = P['a']*(1-np.abs(P['e'])**2)/(1+np.abs(P['e'])*np.cos(nu))
@@ -347,9 +347,9 @@ def _orbit(t, P, Vrad=False, verbose=False):
         VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
         VBVA = VB-VA
     if 'K' in P:
-        # -- "Va-Vb" 
-        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) 
-    
+        # -- "Va-Vb"
+        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180))
+
     if not Vrad is False:
         if Vrad is True:
             return VBVA
@@ -1163,7 +1163,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                        np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
             V[:,wwl] *= PHI(oi[key][k])
         else:
-            #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']), 
+            #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
             V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
 
@@ -1241,7 +1241,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'MJD2']:
+            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2']:
                 if '/wl' in l and cwl!=1:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l]/cwl
                 else:
@@ -1714,7 +1714,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
             vel_dwl = np.abs(0.25*np.mean(wl)*Vin*P[:,6]**beta/2.998e5)
             #obs_dwl = np.maximum(obs_dwl, vel_dwl)
             obs_dwl = np.sqrt(obs_dwl**2 +  vel_dwl**2)
-            dwl = obs_dwl*1000 
+            dwl = obs_dwl*1000
 
         # -- line amplitude
         if a.replace('wl0', 'EW') in param:
@@ -1994,8 +1994,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
         n = 1 # not working?
-        smearing[c] = n 
-        
+        smearing[c] = n
+
         if n<2:
             tmp.update({k:param[k] for k in param.keys() if k.startswith(c+',')})
         else:
@@ -2500,7 +2500,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     dwl = 1.5*_param[k.replace('wl0', 'gaussian')]/1000.
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
-                
+
                 vel = 0.0 # vlocity, in km/s
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
@@ -2523,7 +2523,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                         vel = _param[kv]/np.sqrt(_param[kv.replace('V1mas', 'Rin')])
                     elif 'diamin' in _param:
                         vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
-                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5)**2)                
+                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5)**2)
                 if k.replace('_wl0', '_truncexp') in _param.keys():
                     dwl = 2*_param[k.replace('wl0', 'truncexp')]/1000.
                     w *= ~(((oi['WL']-_param[k])<=1.3*dwl)*
@@ -2547,7 +2547,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
     #print('computeDiffPhiOI: order=%d'%order)
     if debug:
         print('computeDiffPhiOI: continuum', oi['WL cont'])
-        
+
     if np.sum(oi['WL cont'])<order+1:
         print('WARNING: not enough WL to compute continuum!')
         return oi
@@ -3062,7 +3062,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                 wh += tmp[1]
             else:
                 res = np.append(res, residualsOI(o, param,
-                                                timeit=timeit, 
+                                                timeit=timeit,
                                                 what=what,
                                                 debug=debug))
         if what:
@@ -3185,8 +3185,8 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                                 if k!='all':
                                     kk=''.join(['%s%s'%('+' if m[ext[f]][k]['formula'][0][ii]==1 else '-',
                                                         m[ext[f]][k]['formula'][1][ii]) for ii in range(3)])
-                                else:   
-                                    kk = []                               
+                                else:
+                                    kk = []
                                     for j in range(len(m[ext[f]][k]['formula'][0][0])):
                                         s = ''
                                         for ii in range(3):
@@ -3202,7 +3202,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                             if not type(kk) is list:
                                 wh += [f+':'+kk+';MJD:%.4f'%x for x in oi[ext[f]][k]['MJD2'][mask].flatten()]
                             else:
-                                for j,_k in enumerate(kk):   
+                                for j,_k in enumerate(kk):
                                     wh.append(f+':'+_k+';MJD:%.4f'%oi[ext[f]][k]['MJD2'][mask].flatten()[j])
                     else:
                         res = np.append(res, (err[mask]*0+1).flatten())
@@ -3244,7 +3244,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
 
-    if 'additional residuals' in param:        
+    if 'additional residuals' in param:
         res = np.append(res, param['additional residuals'](computeLambdaParams(param)))
 
     if what:
@@ -3258,14 +3258,14 @@ def computeCorrelationsOI(oi, param, dt_s=60):
 
     consider correlations if data are separated by less that dt_s seconds
 
-    * ±1/3 correlation between T3PHI sharing one baseline 
-    
+    * ±1/3 correlation between T3PHI sharing one baseline
+
     * correlations for a spectrum of V2, |V|, DPHI or T3PHI
     """
     # -- for data out of oifits.py
     if not 'OI_T3' in oi:
         return
-    
+
     # -- for merged data
     #if 'NAME' in oi:
     pass
@@ -4024,10 +4024,10 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
             print(' ', len(errTooLarge),
               "have uncertainties larger than the grid's step[s]")
         if len(chi2TooLarge):
-            print(' ', len(chi2TooLarge), "have chi2r > %.3f + %f = %.3f"%(chi2min, deltaChi2, 
+            print(' ', len(chi2TooLarge), "have chi2r > %.3f + %f = %.3f"%(chi2min, deltaChi2,
                 chi2min+deltaChi2))
 
-        
+
     # -- unique fits:
     tmp = []
     ignore = []
@@ -4080,7 +4080,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         tmp[-1]['index'] = i
         # -- which minima should be considered
         map[i] = list(np.array(keep)[w])
-        
+
         ignore.extend(list(np.array(keep)[w]))
 
         for j in np.array(keep)[w]:
@@ -4314,7 +4314,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     randomised draw data and perform N fits. Some parameters of the fitting engine can be changed,
     but overall the fitting context is the same as the last fit which was run.
 
-    see also: doFit 
+    see also: doFit
     """
     global _prog_N, _prog_Nmax, _prog_t0, _prog_last
 
@@ -4365,7 +4365,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1,
-              'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True, 
+              'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True,
               'additionalRandomise': additionalRandomise}
     res = []
     t = time.time()
@@ -4376,7 +4376,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
             Np = min(multi, N)
         if verbose:
             print(time.asctime()+': running', N, 'fits on', Np, 'processes')
-          
+
         # -- run the remaining
         pool = multiprocessing.Pool(Np)
         _prog_N = 1
@@ -4387,7 +4387,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         for i in range(N):
             kwargs['iter'] = i
             if randomiseParam:
-                tmpfg = {k:firstGuess[k]+np.random.randn()*uncer[k] 
+                tmpfg = {k:firstGuess[k]+np.random.randn()*uncer[k]
                         if uncer[k]>0 else firstGuess[k] for k in firstGuess}
             else:
                 tmpfg = firstGuess
@@ -4646,7 +4646,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
            cColors={}, cMarkers={}, imoi=None, bckgGrid=True, barycentric=False,
-           autoLimV=False):
+           autoLimV=False, t3B='max'):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -4719,8 +4719,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    onlyMJD=onlyMJD, showUV=showUV, figHeight=figHeight,
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi, 
-                   barycentric=barycentric, autoLimV=autoLimV)
+                   cColors=cColors, cMarkers=cMarkers, imoi=_imoi,
+                   barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
                     if 'WL mask' in m:
@@ -4956,6 +4956,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
              'CF':{'ext':'IM_VIS', 'var':'CF', 'X':'B/wl', 'C':'PA'},
              }
+    if t3B in ['max', 'avg', 'min']:
+        data['T3PHI']['X'] = 'B%s/wl'%t3B
+        imdata['T3PHI']['X'] = 'B%s/wl'%t3B
+        data['T3AMP']['X'] = 'B%s/wl'%t3B
+        imdata['T3AMP']['X'] = 'B%s/wl'%t3B
 
     # -- plot in a certain order
     obs = list(filter(lambda x: x in obs,
@@ -5385,7 +5390,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 color = 'm' if not test else '0.5',
                                 alpha=0.5, #label='flag' if j==0 else ''
                                 )
-                        ax.errorbar(X(oi, j)[flagged], y[flagged], 
+                        ax.errorbar(X(oi, j)[flagged], y[flagged],
                                     yerr=np.abs(err[flagged]),
                                     color='m', alpha=0.2, linestyle='None')
                 else:
@@ -5577,10 +5582,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         ax.set_yscale('log')
                     elif not autoLimV:
                         ax.set_ylim(0,1)
-                    else:                        
+                    else:
                         #ax.set_ylim(0)
                         pass
-                        
+
             #if l=='NFLUX' and 'TELLURICS' in oi:
             #    plt.plot(oi['WL'], oi['TELLURICS'])
 
@@ -6174,7 +6179,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
         for k in combParam:
             if not k in boot['fitOnly']:
                 boot['fitOnly'].append(k)
-            
+
             for i,f in enumerate(boot['all fits']):
                 tmp = combParam[k]+''
                 j = 0
@@ -6203,11 +6208,11 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     # -- for each fitted parameters, show histogram
 
-    showP = sorted(filter(lambda k: k not in combParam.keys(), boot['fitOnly']), 
+    showP = sorted(filter(lambda k: k not in combParam.keys(), boot['fitOnly']),
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
-    showP += sorted(filter(lambda k: k in combParam.keys(), boot['fitOnly']), 
+    showP += sorted(filter(lambda k: k in combParam.keys(), boot['fitOnly']),
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
-    
+
     if showChi2:
         showP.append('chi2')
 
@@ -6358,8 +6363,8 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                 plt.plot(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), m,
                           alpha=np.sqrt(2/len(boot['mask'])), color=c)
             else:
-                plt.hist2d(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]), 
-                         cmap='binary', 
+                plt.hist2d(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]),
+                         cmap='binary',
                          bins=int(np.sqrt(len(boot['mask'])/2))
                          )
 
@@ -6391,7 +6396,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                                     boot['cov'][_i1,_i2])
             _X,_Y = sMa*np.cos(t), sma*np.sin(t)
             _X,_Y = _X*np.cos(a)+_Y*np.sin(a),-_X*np.sin(a)+_Y*np.cos(a)
-            if ((k1.endswith(',x') and k2.endswith(',y')) or 
+            if ((k1.endswith(',x') and k2.endswith(',y')) or
                 (k1.endswith(',y') and k2.endswith(',x'))) and \
                k1.split(',')[0]== k2.split(',')[0]:
                 print('ellipse (emin, emax, PA) for %s/%s: %.4f %.4f %.1f'%(

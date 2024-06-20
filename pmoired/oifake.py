@@ -895,7 +895,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         thres = {'V2':0.01, '|V|':0.02, 'T3AMP':0.05, 'FLUX':0.01}
 
     if doubleDL:
-        tmp = nTelescopes(t, target, lst, max_OPD=200)        
+        tmp = nTelescopes(t, target, lst, max_OPD=200)
     else:
         tmp = nTelescopes(t, target, lst)
     if any(~tmp['observable']):
@@ -1089,6 +1089,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                 'B1':tmp['B'][b1],
                 'B2':tmp['B'][b2],
                 'B3':tmp['B'][b3],
+                'Bmin/wl':np.minimum(tmp['B'][b1], tmp['B'][b2], tmp['B'][b3])[:,None]/\
+                    wl[None,:],
                 'Bmax/wl':np.maximum(tmp['B'][b1], tmp['B'][b2], tmp['B'][b3])[:,None]/\
                     wl[None,:],
                 'Bavg/wl':(tmp['B'][b1]+tmp['B'][b2]+tmp['B'][b3])[:,None]/\

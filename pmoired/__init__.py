@@ -1050,7 +1050,7 @@ class OI:
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, imTight=False, showChi2=False, cColors={}, cMarkers={},
              showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True,
-             barycentric=False, autoLimV=False):
+             barycentric=False, autoLimV=False, t3B='max'):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -1085,6 +1085,7 @@ class OI:
         - cColors: an optional dictionary to set the color of each components in
             the SED plot
         - showSED: True
+        - t3B: baseline for displaying T3 'min', 'max' or 'avg'
         """
         oimodels.FIG_MAX_WIDTH = FIG_MAX_WIDTH
         oimodels.FIG_MAX_HEIGHT = FIG_MAX_HEIGHT
@@ -1204,7 +1205,7 @@ class OI:
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None, checkImVis=False, vWl0=vWl0,
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
-                        barycentric=barycentric, autoLimV=autoLimV)
+                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
                 self._dataAxes[perSetup[j]] = oimodels.ai1ax
                 self.fig+=1
                 if type(perSetup)==list:
@@ -1257,7 +1258,7 @@ class OI:
                     #cColors=cColors, cMarkers=cMarkers
                     checkImVis=False, vWl0=vWl0, showChi2=showChi2,
                     debug=self.debug, bckgGrid=bckgGrid,
-                    barycentric=barycentric, autoLimV=autoLimV)
+                    barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
             self._dataAxes['ALL'] = oimodels.ai1ax
             if allInOne:
                 self.fig += 1
@@ -1296,7 +1297,7 @@ class OI:
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vWl0=vWl0, bckgGrid=bckgGrid,
                         showChi2=showChi2, debug=self.debug, imoi=imoi,
-                        barycentric=barycentric, autoLimV=autoLimV))
+                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B))
                 self.fig += 1
                 self._dataAxes[i] = oimodels.ai1ax
             if not imFov is None or showSED:
@@ -1851,17 +1852,17 @@ class OI:
                 tmp['OI_T3'] = {}
                 for k in d['OI_T3']:
                     tmp['OI_T3'][k] = { x: d['OI_T3'][k][x] for x in
-                        ['formula', 'MJD', 'Bmax/wl', 'Bavg/wl', 'FLAG']}
+                        ['formula', 'MJD', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG']}
             tmp = oimodels.computeT3fromVisOI(tmp)
 
             for k in d['OI_FLUX'].keys():
                 tmp['OI_FLUX'][k] = {'FLUX':d['OI_FLUX'][k]['FLAG']*0 +
                                      np.sum(res['cube'], axis=(1,2))[None,:],
                                      'EFLUX':d['OI_FLUX'][k]['FLAG']*0 + 1,
-                                    'RFLUX':d['OI_FLUX'][k]['FLAG']*0 +
+                                     'RFLUX':d['OI_FLUX'][k]['FLAG']*0 +
                                       np.sum(res['cube'], axis=(1,2))[None,:],
-                                    'MJD':d['OI_FLUX'][k]['MJD'],
-                                    'FLAG':d['OI_FLUX'][k]['FLAG'],
+                                     'MJD':d['OI_FLUX'][k]['MJD'],
+                                     'FLAG':d['OI_FLUX'][k]['FLAG'],
                                     }
             tmp = oimodels.computeNormFluxOI(tmp, param=model)
             syn.append(tmp)
