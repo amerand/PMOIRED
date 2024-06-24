@@ -990,7 +990,7 @@ class OI:
         return
 
     def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None,
-                      alternateParameterNames=None, showSingleFit=True):
+                      alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -1004,7 +1004,8 @@ class OI:
 
         if combParam=={}:
             self.boot = oimodels.analyseBootstrap(self.boot,
-                                sigmaClipping=sigmaClipping, verbose=0)
+                                sigmaClipping=sigmaClipping, verbose=0,
+                                chi2MaxClipping=chi2MaxClipping)
 
         if not fig is None:
             self.fig = fig
@@ -1013,7 +1014,7 @@ class OI:
         oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig, showChi2=showChi2,
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                alternateParameterNames=alternateParameterNames,
-                               showSingleFit=showSingleFit)
+                               showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping)
         return
 
     def showTellurics(self, fig=None):

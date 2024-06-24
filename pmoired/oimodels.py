@@ -279,10 +279,12 @@ def _orbit(t, P, Vrad=False, verbose=False):
     t = array of MJDs
 
     return x,y by default. If Vrad='a', 'b', 'a-b' return velocity of the primary, secondary, or
-    the velocity dfference. For velocities, 'gamma' should be given, as well as
+    the velocity dfference. For velocities, 'gamma' should be given, as well as:
     - 'Ka', 'Kb'
     - or 'Ma' and 'Mb'
     - or 'M' and 'q'==Mb/Ma
+
+    a slope in gamma, adding (t-MJD0)*'gamma/d'
 
     """
     # -- Thiele-Innes parameters
@@ -305,6 +307,8 @@ def _orbit(t, P, Vrad=False, verbose=False):
     cos_nu = (np.cos(E)-np.abs(P['e']))/(1-np.abs(P['e'])*np.cos(E))
     nu = np.arccos(cos_nu)
     nu[np.sin(M)<0] = 2*np.pi-nu[np.sin(M)<0]
+
+
 
     if 'Ma' in P and 'Mb' in P and 'plx' in P:
         P['a'] = ((P['Ma']+P['Mb'])*(P['P']/365.25)**2)**(1/3.) # in AU
@@ -331,24 +335,32 @@ def _orbit(t, P, Vrad=False, verbose=False):
         r = P['a']*(1-np.abs(P['e'])**2)/(1+np.abs(P['e'])*np.cos(nu))
         x, y, z = r*np.cos(nu), r*np.sin(nu), 0
         # -- omega
-        x, y, z = x*np.cos((180-P['omega'])*np.pi/180) + y*np.sin((180-P['omega'])*np.pi/180), \
-                 -x*np.sin((180-P['omega'])*np.pi/180) + y*np.cos((180-P['omega'])*np.pi/180), \
+        x, y, z = x*np.cos((-P['omega'])*np.pi/180) + y*np.sin((-P['omega'])*np.pi/180), \
+                 -x*np.sin((-P['omega'])*np.pi/180) + y*np.cos((-P['omega'])*np.pi/180), \
                   z
         # -- inclination
         x, y, z = x,\
                   y*np.cos((P['incl']+180)*np.pi/180) + z*np.sin((P['incl']+180)*np.pi/180), \
                  -y*np.sin((P['incl']+180)*np.pi/180) + z*np.cos((P['incl']+180)*np.pi/180)
         # -- OMEGA
-        x, y, z = x*np.cos((P['OMEGA']+90)*np.pi/180) + y*np.sin((P['OMEGA']+90)*np.pi/180), \
-                 -x*np.sin((P['OMEGA']+90)*np.pi/180) + y*np.cos((P['OMEGA']+90)*np.pi/180), \
+        x, y, z = x*np.cos((P['OMEGA']-90)*np.pi/180) + y*np.sin((P['OMEGA']-90)*np.pi/180), \
+                 -x*np.sin((P['OMEGA']-90)*np.pi/180) + y*np.cos((P['OMEGA']-90)*np.pi/180), \
                   z
     if 'Ka' in P and 'Kb' in P:
-        VA = P['Ka']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
-        VB = -P['Kb']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180)) + P['gamma']
+        VA =  P['Ka']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+        VB = -P['Kb']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+        if 'gamma' in P:
+            VA += P['gamma']
+            VB += P['gamma']
+
+        # -- slope in gamma velocity
+        if 'gamma/d' in P:
+            VA += (t-P['MJD0'])*P['gamma/d']
+            VB += (t-P['MJD0'])*P['gamma/d']
         VBVA = VB-VA
     if 'K' in P:
         # -- "Va-Vb"
-        VBVA = P['K']*(np.cos(P['omega']*np.pi/180+nu) + np.abs(P['e'])*np.cos(P['omega']*np.pi/180))
+        VBVA = P['K']*(np.cos((-P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((-P['omega'])*np.pi/180))
 
     if not Vrad is False:
         if Vrad is True:
@@ -363,148 +375,6 @@ def _orbit(t, P, Vrad=False, verbose=False):
             return -VBVA
     else:
         return (x,y)
-
-def _orbitOLD(t, param, Vrad=False, verbose=False):
-    """
-    INPUT PARAMETERS:
-
-    t: list of times (MJD)
-    param :  dictionnary containing the parameters:
-    param = {'a': 99.1, 'i': 32.9, 'OMEGA': 172.8, 'e':0.938,
-             'omega':2.1, 'MJD0': 2451798.0280-2400000.5, 'P':10.817}
-
-    Vrad=True: returns also the radial velocity
-
-    RETURNS:
-
-    3 (or 4) ndarray: X,Y,Z (and Vrad)
-
-    DETAILS:
-
-    alternatively, if 'M' the total mass is given:
-
-    - if 'P' is missing, it is estimated using the Kepler law assuming
-      the semi-major axis 'a' is in AU (i.e. apparent corrected from
-      distance). It also assumes 'P' is in days.
-
-    - if 'a' is missing it is estimated using the Kepler law and 'P'
-      (assumed to be in years). Results then given in AU
-
-    all angles in degress. MJD0 and P should have same unit (here days).
-
-    result is xyz where x is RA offset and y is dec offset, in units
-    of 'a'.
-
-    also, 'q' can be given (M1/M2) for the computation of the radial
-    velocity (in units of a/P). Otherwise, the function only return
-    dz/dt. Using this definition, radial velocity is positive toward
-    the observer. By default, radial velocities are not computed
-    (takes twice as long).
-
-    definition of semi-amplitude:
-    K(1,2) = 2*pi*a(1,2)*sin(i)/(P(1-e**2)**(0.5))
-
-    hence:
-    a(1,2)sini = (1-e**2)**(0.5)/(2*np.pi)*K(1,2)*P
-
-    refs:
-    http://en.wikipedia.org/wiki/Mean_anomaly
-    http://en.wikipedia.org/wiki/Eccentric_anomaly
-    http://en.wikipedia.org/wiki/True_anomaly
-    """
-    Rsol = 6.95508e8
-    AU = 1.495978707e11
-    if not 'P' in param and 'M' in param:
-        param['P'] = _Kepler3rdLaw(a=param['a'],
-                                  M1M2=param['M'])
-    # -- force a based on P and M
-    if not 'a' in param and 'M' in param:
-        _a = _Kepler3rdLaw(P=param['P'],
-                          M1M2=param['M'])*Rsol/AU
-        if verbose:
-            print('P =', param['P'], 'days')
-            print('M =', param['M'], 'Msol')
-            print('A ->', _a , 'AU')
-    else:
-        _a = np.abs(param['a'])
-
-    if not 'a' in param and 'K1' in param and 'K2' in param:
-        # a*sin(i) actually
-        # K1 & K2 in km/s, P in unit of time -> there must be a sqrt(K1K2)
-        param['a'] = (1-param['e']**2)**(0.5)/(2*np.pi)*param['K'](1,2)*np.abs(param['P'])
-
-    # The mean anomaly is the time since the last periapsis multiplied by the
-    # mean motion, and the mean motion is 2\pi divided by the duration of a full
-    # orbit.
-    mean_anomaly = ((np.array(t)-param['MJD0'])%param['P'])/param['P']*2*np.pi
-
-    #The eccentric anomaly E is related to the mean anomaly M by the formula:
-    # M = E - e sin E
-    ecc_ = np.linspace(0,2*np.pi, 10000)
-    ecc_anomaly = np.interp(mean_anomaly, ecc_ -param['e']*np.sin(ecc_), ecc_)
-
-    # the true anomaly is an angular parameter that defines the position of a
-    # body moving along a Keplerian orbit. It is the angle between the direction
-    # of periapsis and the current position of the body, as seen from the main
-    # focus of the ellipse (the point around which the object orbits).
-    if np.abs(param['e']) < 1-1e-4:
-        tmp = np.sqrt((1+np.abs(param['e']))/
-                      (1-np.abs(param['e'])))
-    else:
-        tmp = 1.0
-    true_anomaly = 2*np.arctan(tmp*np.tan(ecc_anomaly/2.))
-
-    separation = (1-param['e']**2)/\
-                 (1+np.abs(param['e'])*np.cos(true_anomaly))
-
-    separation *= _a
-
-    xyz = (separation*np.cos(true_anomaly),
-           separation*np.sin(true_anomaly),
-           0.0*separation)
-
-    # --- SEE: http://commons.wikimedia.org/wiki/File:Orbital_elements.svg
-    #          * P2 is the sky plan
-    #          * Upsilon (vernal point) is axis 'X' on the sky
-    if 'omega0' in param and 'domega' in param:
-        omega = param['omega0']+(t-param['MJD0'])*param['domega']
-        xyz = (xyz[0]*np.cos((180-omega)*np.pi/180) +
-               xyz[1]*np.sin((180-omega)*np.pi/180),
-               -xyz[0]*np.sin((180-omega)*np.pi/180) +
-               xyz[1]*np.cos((180-omega)*np.pi/180),
-               xyz[2])
-    else:
-        xyz = (xyz[0]*np.cos((180-param['omega'])*np.pi/180) +
-               xyz[1]*np.sin((180-param['omega'])*np.pi/180),
-               -xyz[0]*np.sin((180-param['omega'])*np.pi/180) +
-               xyz[1]*np.cos((180-param['omega'])*np.pi/180),
-               xyz[2])
-
-    if 'i' in param:
-        xyz = (xyz[0],
-               xyz[1]*np.cos(param['i']*np.pi/180) +
-               xyz[2]*np.sin(param['i']*np.pi/180),
-              -xyz[1]*np.sin(param['i']*np.pi/180) +
-               xyz[2]*np.cos(param['i']*np.pi/180))
-
-    if 'OMEGA' in param:
-        xyz = (xyz[0]*np.cos(param['OMEGA']*np.pi/180-np.pi/2) +
-               xyz[1]*np.sin(param['OMEGA']*np.pi/180-np.pi/2),
-              -xyz[0]*np.sin(param['OMEGA']*np.pi/180-np.pi/2) +
-               xyz[1]*np.cos(param['OMEGA']*np.pi/180-np.pi/2),
-               xyz[2])
-
-    # -- computing radial velocity (V_B - V_A)
-    if Vrad:
-        dt = param['P']*1e-6
-        xyz_dt = orbit(np.array(t)+dt, param, Vrad=False)
-        vrad = (xyz_dt[2]-xyz[2])/dt # -- in units of a/P
-        if 'plx' in param.keys():
-            vrad /= param['plx'] # -- in units of a/P/plx
-        # -- returns X, Y, Z and Vrad in units of [a, a, a, a/P/plx]
-        xyz = (xyz[0], xyz[1], xyz[2], vrad)
-
-    return xyz
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD=None,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
@@ -3933,18 +3803,27 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         for i in range(N):
             if dLimParam is None:
                 kwargs['iter'] = i
-                res.append(pool.apply_async(tryfitOI, (oi, PARAM[i], ), kwargs,
-                                            callback=progress))
+                if verbose:
+                    res.append(pool.apply_async(tryfitOI, (oi, PARAM[i], ), kwargs,
+                                                callback=progress))
+                else:
+                    res.append(pool.apply_async(tryfitOI, (oi, PARAM[i], ), kwargs))
+
             else:
                 kwargs = {'nsigma': dLimSigma}
-                res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam, ), kwargs,
-                                             callback=progress))
+                if verbose:
+                    res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam, ), kwargs,
+                                                 callback=progress))
+                else:
+                    res.append(pool.apply_async(limitOI, (oi, PARAM[i], dLimParam, ), kwargs))
+
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
         res = [r for r in res if r!={}]
         # -- make sure the progress bar finishes
-        progress(finish=True)
+        if verbose:
+            progress(finish=True)
     else:
         if debug:
             print('single thread')
@@ -4307,7 +4186,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     plt.tight_layout()
     return
 
-def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
+def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5, chi2MaxClipping=None,
                     multi=True, prior=None, keepFlux=False, verbose=2,
                     strongMJD=False, randomiseParam=True, additionalRandomise=None):
     """
@@ -4387,8 +4266,13 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         for i in range(N):
             kwargs['iter'] = i
             if randomiseParam:
-                tmpfg = {k:firstGuess[k]+np.random.randn()*uncer[k]
-                        if uncer[k]>0 else firstGuess[k] for k in firstGuess}
+                # -- todo: should use the covariance matrix!
+                if type(randomiseParam)!= bool:
+                    tmpfg = {k:firstGuess[k]+randomiseParam*np.random.randn()*uncer[k]
+                            if uncer[k]>0 else firstGuess[k] for k in firstGuess}
+                else:
+                    tmpfg = {k:firstGuess[k]+np.random.randn()*uncer[k]
+                            if uncer[k]>0 else firstGuess[k] for k in firstGuess}
             else:
                 tmpfg = firstGuess
             res.append(pool.apply_async(fitOI, (oi, tmpfg, ), kwargs, callback=progress))
@@ -4424,11 +4308,11 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5,
         except:
             print(time)
 
-    res = analyseBootstrap(res, sigmaClipping=sigmaClipping, verbose=verbose)
+    res = analyseBootstrap(res, sigmaClipping=sigmaClipping, verbose=verbose, chi2MaxClipping=chi2MaxClipping)
     res['fit to all data'] = fit
     return res
 
-def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
+def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
     """
     Boot: a list of fits (list of dict from dpfit.leastsqFit)
     """
@@ -4441,7 +4325,7 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
     try:
         res = {'best':{}, 'uncer':{}, 'fitOnly':Boot[0]['fitOnly'],
                'all best':{}, 'all best ignored':{}, 'sigmaClipping':sigmaClipping,
-               'all fits':Boot}
+               'all fits':Boot, 'chi2MaxClipping':chi2MaxClipping}
     except:
         print(Boot)
 
@@ -4458,6 +4342,9 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
                 res['uncer'][k] = np.percentile(x[tmp], 84) - np.percentile(x[tmp], 16)
                 tmp = np.abs(x-res['best'][k])<=sigmaClipping*res['uncer'][k]
             mask *= tmp
+    if not chi2MaxClipping is None:
+        mask *= np.array([b['chi2']<=chi2MaxClipping for b in Boot])
+
 
     for k in res['fitOnly']:
         for j in range(3):
@@ -4495,8 +4382,8 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2):
                    for i,ki in enumerate(fitOnly)}
     if verbose:
         if not sigmaClipping is None:
-            print('using %d fits out of %d (sigma clipping %.2f)'%(
-                    np.sum(mask), len(Boot), sigmaClipping))
+            print('using %d fits out of %d (sigma clipping:%.2f, chi2MaxClipping:%s)'%(
+                    np.sum(mask), len(Boot), sigmaClipping, str(chi2MaxClipping)))
         ns = max([len(k) for k in res['best'].keys()])
         # print('{', end='')
         # for k in sorted(res['best'].keys()):
@@ -6157,7 +6044,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                   combParam=None, sigmaClipping=4.5, showChi2=False,
-                  alternateParameterNames=None, showSingleFit=True):
+                  alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
     """
     you can look at combination of parameters:
 
@@ -6191,7 +6078,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                 boot['all fits'][i]['best'][k] = eval(tmp)
                 boot['all fits'][i]['uncer'][k] = 0.0
             boot['all best'][k] = np.array([b['best'][k] for b in boot['all fits']])
-        boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping)
+        boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping, chi2MaxClipping=chi2MaxClipping)
 
     if figWidth is None:
         figWidth = min(FIG_MAX_WIDTH, 1+2*len(boot['fitOnly']))
