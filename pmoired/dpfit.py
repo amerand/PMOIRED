@@ -18,7 +18,7 @@ Thu 28 Feb 2013 12:34:31 CLST: correcting leading to x2 for chi2 display
 Mon  8 Apr 2013 10:51:03 BRT: alternate algorithms
 Wed Aug 19 14:26:24 UTC 2015: updated randomParam
 Wed Jan 24 10:20:06 CET 2018: Python 3 version
-Tue 23 Jan 2024 16:33:35 CET: Adding "constant correlation by categories" 
+Tue 23 Jan 2024 16:33:35 CET: Adding "constant correlation by categories"
 
 http://www.rhinocerus.net/forum/lang-idl-pvwave/355826-generalized-least-squares.html
 """
@@ -239,9 +239,9 @@ def meta(x, params):
         res += dpfunc.__dict__[ff](x, tmp)
     return res
 
-def invCOVconstRho(n,rho): 
+def invCOVconstRho(n,rho):
     """
-    Inverse coveariance matrix nxn, with non diag==r, 
+    Inverse coveariance matrix nxn, with non diag==r,
 
     from wolfram alpha, n>=2
     https://www.wolframalpha.com/
@@ -274,7 +274,7 @@ trackP={}
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
-               follow=None, maxfev=5000, bounds={}, factor=100, 
+               follow=None, maxfev=5000, bounds={}, factor=100,
                correlations=None):
     """
     - params is a Dict containing the first guess.
@@ -314,7 +314,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         2: show progress and best fit with errors
         3: show progress, best fit with errors and correlations
 
-    - correlations: dict describing correlations between subsets of data sets (categories). 
+    - correlations: dict describing correlations between subsets of data sets (categories).
         {'catg': list or np.array, same size as x. should contain values in [cat1, cat2] below
 
         'rho':{cat1:rho1, cat2:rho2...} # correlation factor between catg's (-1..1)
@@ -324,7 +324,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
         'invcov':{catg1:invcov1, catg2:invcov2, ...}
         }
-        
+
 
     returns dictionary with:
     'best': bestparam,
@@ -860,7 +860,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
 
     return res
 
-def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False, 
+def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False,
                 follow=None, correlations=None):
     """
     interface  scipy.optimize.minimize:
@@ -876,11 +876,11 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
              [ 0, err2**2, 0, .., 0],
              [0, .., 0, errN**2]]) is the equivalent of 1D errors
 
-    correlations: dict describing correlations between subsets of data sets (categories). every 
-        categories should have either an inverse covariance or an error. function's parameter "err" 
+    correlations: dict describing correlations between subsets of data sets (categories). every
+        categories should have either an inverse covariance or an error. function's parameter "err"
         will be ignored
-        
-        {'catg': list or np.array, same size as x. should contain values in [cat1, cat2] below    
+
+        {'catg': list or np.array, same size as x. should contain values in [cat1, cat2] below
         'invcov':{catg1:invcov1, catg2:invcov2, ...},
         'err':{catg3:err3, ...}
         }
@@ -949,7 +949,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
                 chi2 += np.dot(np.dot(np.transpose(res[w]), correlations['invcov'][c]), res[w])
             elif c in correlations['err']:
                 chi2 += np.sum(res[w]**2/correlations['err'][c]**2)
-            else:                
+            else:
                 chi2 += np.sum(res[w]**2/err[w]**2)
         # -- reduced chi2
         chi2 /= float(len(res)-len(pfit)+1)
@@ -1022,9 +1022,9 @@ def errorEllipse(fit, p1, p2, n=100):
     returns ellipse of errors (x1, x2), computed from the covariance. The n values are centered
     around fit['best']['p1'] and fit['best']['p2']
     """
-    t = np.linspace(0,2*np.pi,n)  
+    t = np.linspace(0,2*np.pi,n)
     if 'covd' in fit:
-      sMa, sma, a = _ellParam(fit['covd'][p1][p1], fit['covd'][p2][p2], fit['covd'][p1][p2])    
+      sMa, sma, a = _ellParam(fit['covd'][p1][p1], fit['covd'][p2][p2], fit['covd'][p1][p2])
     else:
       i1 = fit['fitOnly'].index(p1)
       i2 = fit['fitOnly'].index(p2)
@@ -1065,6 +1065,12 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
     tmp += sorted(list(filter(lambda x: x not in fit['fitOnly'], fit['best'].keys())))
 
     uncer = fit['uncer']
+    if 'uncer+' in fit and 'uncer-' in fit:
+        uncerp = fit['uncer+']
+        uncerm = fit['uncer-']
+    else:
+        uncerp, uncerm = None, None
+
     pfix = fit['best']
 
     res = ''
@@ -1084,22 +1090,47 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
         else:
             formatS = pre+formatS
         if uncer[k]>0:
-            ndigit = max(-int(np.log10(uncer[k]))+2, 0)
-            if asDict:
-                fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+            if uncerp is None:
+                ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+                if asDict:
+                    fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+                else:
+                    fmt = '%.'+str(ndigit)+'f +/- %.'+str(ndigit)+'f'
+                if color:
+                    col = ('\033[94m', '\033[0m')
+                else:
+                    col = ('', '')
+                res += col[0]+formatS%k+fmt%(pfix[k], uncer[k])+col[1]+'\n'
             else:
-                fmt = '%.'+str(ndigit)+'f +/- %.'+str(ndigit)+'f'
-            if color:
-                col = ('\033[94m', '\033[0m')
-            else:
-                col = ('', '')
-            res += col[0]+formatS%k+fmt%(pfix[k], uncer[k])+col[1]+'\n'
+                ndigit = max(-int(np.log10(uncerp[k]))+2, 0)
+                ndigit = max(-int(np.log10(uncerm[k]))+2, ndigit)
+                if round(uncerp[k], ndigit) == round(uncerm[k], ndigit):
+                    if asDict:
+                        fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
+                    else:
+                        fmt = '%.'+str(ndigit)+'f +/- %.'+str(ndigit)+'f'
+                    if color:
+                        col = ('\033[94m', '\033[0m')
+                    else:
+                        col = ('', '')
+                    res += col[0]+formatS%k+fmt%(pfix[k], uncerp[k])+col[1]+'\n'
+                else:
+                    if asDict:
+                        fmt = '%.'+str(ndigit)+'f, # +%.'+str(ndigit)+'f -%.'+str(ndigit)+'f'
+                    else:
+                        fmt = '%.'+str(ndigit)+'f +%.'+str(ndigit)+'f -%.'+str(ndigit)+'f'
+                    if color:
+                        col = ('\033[94m', '\033[0m')
+                    else:
+                        col = ('', '')
+                    res += col[0]+formatS%k+fmt%(pfix[k], uncerp[k], uncerm[k])+col[1]+'\n'
+
             #print(formatS%k, fmt%(pfix[k], uncer[k]))
         elif uncer[k]==0:
             if color:
                 if k in fit['fitOnly']:
                     # fit did not converge...
-                    col = ('\033[91m', '\033[0m') 
+                    col = ('\033[91m', '\033[0m')
                 else:
                     col = ('\033[97m', '\033[0m')
             else:

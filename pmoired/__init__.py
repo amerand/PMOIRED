@@ -984,7 +984,8 @@ class OI:
         self.boot = oimodels.bootstrapFitOI(self._merged, model, Nfits, multi=multi,
                                             keepFlux=keepFlux, verbose=verbose,
                                             strongMJD=strongMJD, randomiseParam=randomiseParam,
-                                            additionalRandomise=additionalRandomise)
+                                            additionalRandomise=additionalRandomise,
+                                            sigmaClipping=None)
         if not additionalRandomise is None:
             additionalRandomise(False)
         return

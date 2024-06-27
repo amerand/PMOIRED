@@ -294,8 +294,10 @@ def _orbit(t, P, Vrad=False, verbose=False):
     # -- Kepler Third Law
     if not 'P' in P and ('a' in P and 'plx' in P and 'M' in P):
         P['P'] = np.sqrt((P['a']/P['plx'])**3/P['M'])*365.25
+        print('_orbit: setting P')
     if not 'P' in P and ('a' in P and 'plx' in P and 'Ma' in P and 'Mb' in P):
         P['P'] = np.sqrt((P['a']/P['plx'])**3/(P['Ma']+P['Mb']))*365.25
+        print('_orbit: setting P')
     try:
         M = 2*np.pi*(t-P['MJD0'])/P['P']
     except:
@@ -308,27 +310,36 @@ def _orbit(t, P, Vrad=False, verbose=False):
     nu = np.arccos(cos_nu)
     nu[np.sin(M)<0] = 2*np.pi-nu[np.sin(M)<0]
 
+    if 'Ma' in P and 'Mb' in P:
+        P['M'] = P['Ma']+P['Mb']
+        P['q'] = P['Mb']/P['Ma']
+        print(P)
+        print('_orbit: setting M, q')
 
+    if 'M' in P and 'P' in P:
+        a_au = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
 
-    if 'Ma' in P and 'Mb' in P and 'plx' in P:
-        P['a'] = ((P['Ma']+P['Mb'])*(P['P']/365.25)**2)**(1/3.) # in AU
-        K = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
-        P['Ka'] = K*P['Mb']/(P['Ma']+P['Mb'])
-        P['Kb'] = K*P['Ma']/(P['Ma']+P['Mb'])
-        P['a'] *= P['plx'] # in mas
-    elif 'M' in P and 'plx' in P:
-        P['a'] = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
-        P['K'] = 2*np.pi*P['a']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
-        if 'q' in P: # q = Mb/Ma
-            P['Ka'] = P['K']/(1+1/P['q'])
-            P['Kb'] = P['K']/(1+P['q'])
-        P['a'] *= P['plx'] # in mas
-    elif 'a' in P and 'plx' in P:
+    if not 'plx' in P and ('a' in P and 'M' in P):
+        P['plx'] = P['a']/a_au
+        #print('_orbit: setting plx')
+
+    if not 'M' in P and ('a' in P and 'plx' in P):
         P['M'] = (P['a']/P['plx'])**3/(P['P']/365.25)**2 # in Msun
-        K = 2*np.pi*P['a']/P['plx']*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
-        if 'q' in P: # q = Mb/Ma
-            P['Ka'] = K/(1+1/P['q'])
-            P['Kb'] = K/(1+P['q'])
+        a_au = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
+        #print('_orbit: setting M')
+
+    if not 'a' in P and 'plx' in P:
+        P['a'] = a_au*P['plx']
+        #print('_orbit: setting a', P['a'])
+
+    if not 'K' in P and (not 'Ka' in P and not 'Kb' in P):
+        P['K'] = 2*np.pi*a_au*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
+        #print('_orbit: setting K', P['K'])
+
+    if not 'Ka' in P and not 'Kb' in P and 'q' in P: # q = Mb/Ma
+        P['Ka'] = P['K']/(1+1/P['q'])
+        P['Kb'] = P['K']/(1+P['q'])
+        #print('_orbit: setting Ka, Kb', P['Ka'], P['Kb'])
 
     # separation
     if 'a' in P:
@@ -352,7 +363,6 @@ def _orbit(t, P, Vrad=False, verbose=False):
         if 'gamma' in P:
             VA += P['gamma']
             VB += P['gamma']
-
         # -- slope in gamma velocity
         if 'gamma/d' in P:
             VA += (t-P['MJD0'])*P['gamma/d']
@@ -4323,7 +4333,8 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
     else:
         fit = None
     try:
-        res = {'best':{}, 'uncer':{}, 'fitOnly':Boot[0]['fitOnly'],
+        res = {'best':{}, 'uncer':{}, 'uncer-':{}, 'uncer+':{},
+               'fitOnly':Boot[0]['fitOnly'],
                'all best':{}, 'all best ignored':{}, 'sigmaClipping':sigmaClipping,
                'all fits':Boot, 'chi2MaxClipping':chi2MaxClipping}
     except:
@@ -4338,8 +4349,8 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
             tmp = np.ones(len(Boot), dtype=bool)
             for j in range(3): # iterate a few times
                 x = np.array([b['best'][k] for b in Boot])
-                res['best'][k] = np.median(x[tmp])
-                res['uncer'][k] = np.percentile(x[tmp], 84) - np.percentile(x[tmp], 16)
+                res['best'][k] = np.nanmedian(x[tmp])
+                res['uncer'][k] = (np.nanpercentile(x[tmp], 84) - np.nanpercentile(x[tmp], 16))/2
                 tmp = np.abs(x-res['best'][k])<=sigmaClipping*res['uncer'][k]
             mask *= tmp
     if not chi2MaxClipping is None:
@@ -4349,8 +4360,13 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
     for k in res['fitOnly']:
         for j in range(3):
             x = np.array([b['best'][k] for b in Boot])
-            res['best'][k] = np.mean(x[mask])
-            res['uncer'][k] = np.std(x[mask])
+            #res['best'][k] = np.mean(x[mask])
+            #res['uncer'][k] = np.std(x[mask])
+            res['best'][k] = np.median(x[mask])
+            res['uncer+'][k] = np.nanpercentile(x[mask], 84)-res['best'][k]
+            res['uncer-'][k] = res['best'][k]-np.nanpercentile(x[mask], 16)
+            res['uncer'][k] = 0.5*(res['uncer+'][k]+res['uncer-'][k])
+
         res['all best'][k] = x[mask]
         res['all best ignored'][k] = x[~mask]
     res['all chi2'] = np.array([b['chi2'] for b in Boot])[mask]
@@ -6050,6 +6066,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
     combParam: {'sep':'np.sqrt($x**2 + $y**2)'} assuming 'x' and 'y' are parameters from the model
     """
+    symUncer = False
     global _AX, _AY
     #t0 = time.time()
     boot = copy.deepcopy(b)
@@ -6167,19 +6184,40 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             if k1 in combParam:
                 _color = colorComb
 
-            plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
-                        xerr=amps[k1]*boot['uncer'][k1],
-                        color=_color, fmt='d',
-                        capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
-            n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-            fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
+            if symUncer:
+                plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
+                           xerr=amps[k1]*boot['uncer'][k1],
+                           color=_color, fmt='d',
+                           capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
+            else:
+                xerr=np.array([[amps[k1]*boot['uncer-'][k1]],
+                               [amps[k1]*boot['uncer+'][k1]]])
+                plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
+                            xerr=xerr ,
+                            color=_color, fmt='d',
+                            capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
+
+
             if k1 in alternateParameterNames:
                 T1 = alternateParameterNames[k1]
             else:
                 T1 = k1
-            plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
-                        fontsize=fontsize)
-        if showSingleFit:
+            if symUncer:
+                n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
+                fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
+                plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
+                            fontsize=fontsize)
+            else:
+                n = max(int(np.ceil(-np.log10(boot['uncer+'][k1])+1)),
+                        int(np.ceil(-np.log10(boot['uncer-'][k1])+1)))
+
+                fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'
+                fmt += r'$^{+'+'%.'+'%d'%max(n,0)+'f}'
+                fmt += r'_{-'+'%.'+'%d'%max(n,0)+'f}$'
+                plt.title(fmt%(T1, boot['best'][k1], boot['uncer+'][k1], boot['uncer-'][k1]),
+                            fontsize=fontsize)
+
+        if showSingleFit and i1==0:
             plt.legend(fontsize=5)
 
         # -- title
@@ -6252,7 +6290,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             else:
                 plt.hist2d(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]),
                          cmap='binary',
-                         bins=int(np.sqrt(len(boot['mask'])/2))
+                         bins=int(np.sqrt(len(boot['mask'])/3))
                          )
 
             if showRejected:
