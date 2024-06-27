@@ -6184,11 +6184,22 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
             if k1 in combParam:
                 _color = colorComb
 
+            if k1 in alternateParameterNames:
+                T1 = alternateParameterNames[k1]
+            else:
+                T1 = k1
+
             if symUncer:
                 plt.errorbar(amps[k1]*(boot['best'][k1]-offs[k1]), 0.5*max(h[0]),
                            xerr=amps[k1]*boot['uncer'][k1],
                            color=_color, fmt='d',
                            capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
+
+                n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
+                fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
+                plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
+                            fontsize=fontsize)
+
             else:
                 xerr=np.array([[amps[k1]*boot['uncer-'][k1]],
                                [amps[k1]*boot['uncer+'][k1]]])
@@ -6197,25 +6208,18 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                             color=_color, fmt='d',
                             capsize=fontsize/2, label='bootstrap', markersize=fontsize/2)
 
-
-            if k1 in alternateParameterNames:
-                T1 = alternateParameterNames[k1]
-            else:
-                T1 = k1
-            if symUncer:
-                n = int(np.ceil(-np.log10(boot['uncer'][k1])+1))
-                fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
-                plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
-                            fontsize=fontsize)
-            else:
                 n = max(int(np.ceil(-np.log10(boot['uncer+'][k1])+1)),
                         int(np.ceil(-np.log10(boot['uncer-'][k1])+1)))
-
-                fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'
-                fmt += r'$^{+'+'%.'+'%d'%max(n,0)+'f}'
-                fmt += r'_{-'+'%.'+'%d'%max(n,0)+'f}$'
-                plt.title(fmt%(T1, boot['best'][k1], boot['uncer+'][k1], boot['uncer-'][k1]),
-                            fontsize=fontsize)
+                if round(boot['uncer+'][k1], n)==round(boot['uncer-'][k1], n):
+                    fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
+                    plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
+                                fontsize=fontsize)
+                else:
+                    fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'
+                    fmt += r'$^{+'+'%.'+'%d'%max(n,0)+'f}'
+                    fmt += r'_{-'+'%.'+'%d'%max(n,0)+'f}$'
+                    plt.title(fmt%(T1, boot['best'][k1], boot['uncer+'][k1], boot['uncer-'][k1]),
+                                fontsize=fontsize)
 
         if showSingleFit and i1==0:
             plt.legend(fontsize=5)
