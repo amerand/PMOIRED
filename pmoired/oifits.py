@@ -463,6 +463,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         _unit = hdu.header[k.replace('TYPE','UNIT')].strip()
                     except:
                         _unit = 'None'
+            _unit = 'deg'
             if 'units' in res:
                 res['units']['PHI'] = _unit
             else:
@@ -495,8 +496,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 elif any(w):
                     res[ext][k] = {vis:hdu.data['VISAMP'][w].reshape(w.sum(), -1),
                                         'E'+vis:hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
-                                        'PHI':hdu.data['VISPHI'][w].reshape(w.sum(), -1),
-                                        'EPHI':hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
+                                        #'PHI': hdu.data['VISPHI'][w].reshape(w.sum(), -1),
+                                        #'EPHI': hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
                                         'MJD':hdu.data['MJD'][w],
                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                         'u':hdu.data['UCOORD'][w],
@@ -507,6 +508,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                res['WL'][None,:],
                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
+                    try:
+                        # -- weird bug in some files from Alex
+                        res[ext][k]['PHI'] = hdu.data['VISPHI'][w].reshape(w.sum(), -1)
+                        res[ext][k]['EPHI'] = hdu.data['VISPHIERR'][w].reshape(w.sum(), -1)
+                    except:
+                        res[ext][k]['PHI'] = 0.0*res[ext][k][vis]
+                        res[ext][k]['EPHI'] = 0.0*res[ext][k][vis]+1.0
+
+
                 if any(w):
                     res[ext][k]['B/wl'] = np.sqrt(res[ext][k]['u/wl']**2+
                                                        res[ext][k]['v/wl']**2)
