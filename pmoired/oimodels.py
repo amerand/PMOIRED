@@ -6210,7 +6210,9 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
 
                 n = max(int(np.ceil(-np.log10(boot['uncer+'][k1])+1)),
                         int(np.ceil(-np.log10(boot['uncer-'][k1])+1)))
-                if round(boot['uncer+'][k1], n)==round(boot['uncer-'][k1], n):
+                check = 2*np.abs(boot['uncer+'][k1]-boot['uncer-'][k1])/\
+                          (boot['uncer+'][k1]+boot['uncer-'][k1]) < 0.2
+                if check:
                     fmt = '%s\n'+'%.'+'%d'%max(n,0)+'f\n'+r'$\pm$'+'%.'+'%d'%max(n,0)+'f'
                     plt.title(fmt%(T1, boot['best'][k1], boot['uncer'][k1]),
                                 fontsize=fontsize)

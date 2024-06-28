@@ -1104,7 +1104,8 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
             else:
                 ndigit = max(-int(np.log10(uncerp[k]))+2, 0)
                 ndigit = max(-int(np.log10(uncerm[k]))+2, ndigit)
-                if round(uncerp[k], ndigit) == round(uncerm[k], ndigit):
+                check = 2*np.abs(uncerp[k]-uncerm[k])/(uncerp[k]+uncerm[k]) < 0.2
+                if check:
                     if asDict:
                         fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
                     else:
