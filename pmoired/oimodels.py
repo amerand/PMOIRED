@@ -365,8 +365,13 @@ def _orbit(t, P, Vrad=False, verbose=False):
             VB += P['gamma']
         # -- slope in gamma velocity
         if 'gamma/d' in P:
-            VA += (t-P['MJD0'])*P['gamma/d']
-            VB += (t-P['MJD0'])*P['gamma/d']
+            try:
+                VA += (t-P['MJD0'])*P['gamma/d']
+                VB += (t-P['MJD0'])*P['gamma/d']
+            except:
+                VA += (np.array(t)-P['MJD0'])*P['gamma/d']
+                VB += (np.array(t)-P['MJD0'])*P['gamma/d']
+
         VBVA = VB-VA
     if 'K' in P:
         # -- "Va-Vb"
