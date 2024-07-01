@@ -2101,7 +2101,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl']:
+            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'Bmin/wl']:
                 if not oi['OI_T3'][k][l] is None:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
                 else:
@@ -4201,7 +4201,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     plt.tight_layout()
     return
 
-def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5, chi2MaxClipping=None,
+def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, chi2MaxClipping=None,
                     multi=True, prior=None, keepFlux=False, verbose=2,
                     strongMJD=False, randomiseParam=True, additionalRandomise=None):
     """
@@ -4327,7 +4327,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=4.5, c
     res['fit to all data'] = fit
     return res
 
-def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
+def analyseBootstrap(Boot, sigmaClipping=None, verbose=2, chi2MaxClipping=None):
     """
     Boot: a list of fits (list of dict from dpfit.leastsqFit)
     """
@@ -4360,7 +4360,6 @@ def analyseBootstrap(Boot, sigmaClipping=4.5, verbose=2, chi2MaxClipping=None):
             mask *= tmp
     if not chi2MaxClipping is None:
         mask *= np.array([b['chi2']<=chi2MaxClipping for b in Boot])
-
 
     for k in res['fitOnly']:
         for j in range(3):
@@ -6064,7 +6063,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     return rh
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
-                  combParam=None, sigmaClipping=4.5, showChi2=False,
+                  combParam=None, sigmaClipping=None, showChi2=False,
                   alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
     """
     you can look at combination of parameters:
