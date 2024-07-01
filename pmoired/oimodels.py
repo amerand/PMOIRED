@@ -2786,6 +2786,7 @@ def computeT3fromVisOI(oi):
                                'MJD':oi['OI_T3'][k]['MJD'],
                                'Bmax/wl':oi['OI_T3'][k]['Bmax/wl'],
                                'Bavg/wl':oi['OI_T3'][k]['Bavg/wl'],
+                               'Bmin/wl':oi['OI_T3'][k]['Bmin/wl'],
                                }
             s, t, w0, w1, w2 = oi['OI_T3'][k]['formula']
             if np.isscalar(s[0]):
