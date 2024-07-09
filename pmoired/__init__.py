@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.2.4'
+__version__= '1.2.6'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -62,7 +62,7 @@ class OI:
     def __init__(self, filenames=None, insname=None, targname=None,
                  withHeader=True, medFilt=None, binning=None,
                  tellurics=None, useTelluricsWl=False, wlOffset=0.0,
-                 debug=False, verbose=True,):
+                 debug=False, verbose=True, dMJD=None):
         """
         filenames: is either a single file (str) or a list of OIFITS files (list
             of str). Can also be the name of a ".pmrd" binary file from another
@@ -87,6 +87,9 @@ class OI:
 
         wlOffset: add an offset (in um) to WL table
 
+        dMJD: split data in chuncks of dMJD -> necessary if using $MJD in parameters
+            *other than 'x', 'y'*. all data within chuncks dMJD will have same model
+
         verbose: default is True
 
         See Also: addData, load, save
@@ -110,6 +113,7 @@ class OI:
         self.images = {}
         self._model = []
         self.data = []
+        self.dMJD = dMJD
         if type(filenames)==str and filenames.endswith('.pmrd'):
             print('loading session saved in', filenames)
             self.load(filenames)
@@ -430,6 +434,7 @@ class OI:
                 d['fit']['obs'] = _checkObs(d, d['fit']['obs']).copy()
                 if debug:
                     print('fit>obs:', d['fit']['obs'])
+
         return
 
     def _setPrior(self, model, prior=None, autoPrior=True):
@@ -456,7 +461,7 @@ class OI:
             prior = []
         return prior
 
-    def doFit(self, model=None, fitOnly=None, doNotFit='auto', useMerged=True,
+    def doFit(self, model=None, fitOnly=None, doNotFit='auto',
               verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
               prior=None, autoPrior=True, factor=100):
         """
@@ -496,8 +501,9 @@ class OI:
 
         if doNotFit=='auto':
             doNotFit = []
+
         # -- merge data to accelerate computations
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
@@ -551,7 +557,7 @@ class OI:
                 raise Exception(' first guess as "model={...}" should be provided')
 
         # -- merge data to accelerate computations
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
         for m in self._merged:
             if 'fit' in m:
@@ -579,25 +585,6 @@ class OI:
             self.fig += 1
             oimodels.dpfit.showFit(self.bestfit, fig=self.fig)
         return
-
-    # def candidFitMap(self, rmin=None, rmax=None, rstep=None, cmap=None,
-    #                 firstGuess=None, fitAlso=[], fig=None, doNotFit=[],
-    #                 logchi2=False, multi=True):
-    #     """
-    #     not to be used! still under development
-    #     """
-    #     self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
-    #     if fig is None:
-    #         self.fig += 1
-    #         fig = self.fig
-    #     self.candidFits = oicandid.fitMap(self._merged, rmin=rmin, rmax=rmax,
-    #                                       rstep=rstep, firstGuess=firstGuess,
-    #                                       fitAlso=fitAlso, fig=fig, cmap=cmap,
-    #                                       doNotFit=doNotFit, logchi2=logchi2,
-    #                                       multi=multi)
-    #     self.bestfit = self.candidFits[0]
-    #     self.computeModelSpectra
-    #     return
 
     def detectionLimit(self, expl, param, Nfits=None, nsigma=3, model=None, multi=True,
                         prior=None, constrain=None):
@@ -839,7 +826,7 @@ class OI:
         if model is None:
             raise Exception('first guess should be provided: model={...}')
 
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
         self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
@@ -933,7 +920,7 @@ class OI:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
             # -- find other components:
-            tmp = oimodels.computeLambdaParams(self.grid[0]['best'])
+            tmp = oimodels.computeLambdaParams(self.grid[0]['best'], MJD=None)
             C = [k.split(',')[0] for k in tmp if ',' in k]
             C = list(set(C))
             leg = False
@@ -973,7 +960,7 @@ class OI:
         See Also: showBootstrap
         """
         if self._merged is None:
-            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
 
         #assert not self.bestfit=={}, 'you should run a fit first (using "doFit")'
         if self.bestfit=={}:
@@ -990,7 +977,7 @@ class OI:
             additionalRandomise(False)
         return
 
-    def showBootstrap(self, sigmaClipping=4.5, combParam={}, showChi2=False, fig=None,
+    def showBootstrap(self, sigmaClipping=None, combParam={}, showChi2=False, fig=None,
                       alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
         """
         example:
@@ -1127,7 +1114,7 @@ class OI:
             perSetup = False
 
         if allInOne or perSetup:
-            data = oifits.mergeOI(self.data, collapse=False, verbose=False)
+            data = oifits.mergeOI(self.data, collapse=False, verbose=False, dMJD=self.dMJD)
         else:
             data = self.data
 
@@ -1158,6 +1145,8 @@ class OI:
 
         self._dataAxes = {}
         if perSetup:
+            if self.debug:
+                print('DEBUG show: perSetup')
             def betterinsname(d):
                 n = -int(np.log10(np.ptp(d['WL'])/len(d['WL']))-1)
                 f = '%.'+str(n)+'fum'
@@ -1179,7 +1168,7 @@ class OI:
                 for s in perSetup:
                     data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
                                     if s in insnames[i]],
-                                    collapse=False, verbose=False))
+                                    collapse=False, verbose=False, dMJD=self.dMJD))
                 if spectro:
                     useStrict = False
                     for D in data: # for each setup
@@ -1194,9 +1183,12 @@ class OI:
                         for s in perSetup:
                             data.append(oifits.mergeOI([self.data[i] for i in range(len(self.data))
                                             if s in insnames[i]],
-                                            collapse=False, verbose=False))
+                                            collapse=False, verbose=False, dMJD=self.dMJD))
 
             for j,g in enumerate(data):
+                if self.debug:
+                    print('DEBUG show: data', j+1,'/', len(data))
+
                 if 'fit' in g and 'obs' in g['fit']:
                     _obs = g['fit']['obs']
                 else:
@@ -1229,6 +1221,9 @@ class OI:
                                barycentric=barycentric)
             return
         elif allInOne:
+            if self.debug:
+                print('DEBUG show: allInOne')
+
             if checkImVis:
                 print('cannot check visibilites from images with "allInOne=True"')
             # -- figure out the list of obs, could be heteregenous
@@ -1331,10 +1326,6 @@ class OI:
         cmap: color map (default 'bone')
         imPlx: parallax (in mas) optional, will add sec axis in AU
         """
-        if model=='best' and type(self.bestfit) is dict and \
-                    'best' in self.bestfit:
-            model = self.bestfit['best']
-        model = oimodels.computeLambdaParams(model)
 
         # -- just if the function is used to show models
         if len(self.data)==0 or (len(self.data)==1 and not WL is None):
@@ -1342,7 +1333,15 @@ class OI:
             if WL is None:
                 raise Exception('specify wavelength vector "WL="')
             # -- create fake data
-            self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}, 'insname':''}]
+            self.data = [{'WL':np.array(WL), 'fit':{'obs':'|V|'}, 'insname':'',
+                          'MJD':[60000.]}]
+        if model=='best' and type(self.bestfit) is dict and \
+                    'best' in self.bestfit:
+            model = self.bestfit['best']
+
+        # -- this is actually not needed
+        #model = oimodels.computeLambdaParams(model,)
+
         if not type(model)==dict:
             raise Exception('model should be a dictionnary!')
 
@@ -1620,7 +1619,7 @@ class OI:
 
         other parameters: see 'doFit'
         """
-        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+        self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         self.bestfit = oimodels.sparseFitFluxes(self._merged, firstGuess, N=N,
                                         initFlux=initFlux, refFlux=refFlux,
                                         significance=significance, fitOnly=fitOnly,
@@ -1760,7 +1759,7 @@ class OI:
 
         if len(self._merged)==0:
             # -- merge data to accelerate computations
-            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
+            self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
 
         if not visibilities:
             # -- fast:
@@ -2007,8 +2006,10 @@ def _computeSpectra(model, data, models):
         M['flux TOTAL'] = np.array([])
 
     if len(allWLs):
-        allWL = {'WL':allWLs, 'fit':{'obs':['NFLUX'],
-                 'MJD':allMJD, 'continuum ranges':allCont}} # minimum required
+        allWL = {'WL':allWLs,
+                 'MJD':allMJD,
+                 'fit':{'obs':['NFLUX'],
+                 'continuum ranges':allCont}} # minimum required
         if not Nr is None:
             allWL['fit']['Nr'] = Nr
 

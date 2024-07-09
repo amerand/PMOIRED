@@ -37,7 +37,7 @@ def Ssingle(oi, param, noLambda=False):
     build spectrum for Vsingle
     """
     if not noLambda:
-        _param = computeLambdaParams(param)
+        _param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
     else:
         _param = param.copy()
     # -- flux (spectrum)
@@ -315,7 +315,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
         P['q'] = P['Mb']/P['Ma']
         print(P)
         print('_orbit: setting M, q')
-
+    a_au = None
     if 'M' in P and 'P' in P:
         a_au = (P['M']*(P['P']/365.25)**2)**(1/3.) # in AU
 
@@ -332,7 +332,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
         P['a'] = a_au*P['plx']
         #print('_orbit: setting a', P['a'])
 
-    if not 'K' in P and (not 'Ka' in P and not 'Kb' in P):
+    if not 'K' in P and (not 'Ka' in P and not 'Kb' in P) and not a_au is None:
         P['K'] = 2*np.pi*a_au*1.495978707e8*np.sin(P['incl']*np.pi/180)/(P['P']*24*3600*np.sqrt(1-np.abs(P['e'])**2)) # km/s
         #print('_orbit: setting K', P['K'])
 
@@ -469,7 +469,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     t0 = time.time()
 
     # -- compute self-referenced parameters
-    _param = computeLambdaParams(param)
+    _param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
     res = {}
     if fullOutput:
         for k in['telescopes', 'baselines', 'triangles']:
@@ -1072,8 +1072,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                     tmp[l] = oi[key][k][l].copy()/cwl
                 else:
                     tmp[l] = oi[key][k][l].copy()
-
-            tmp['EV'] = np.zeros(tmp['|V|'].shape)
+            tmp['E|V|'] = np.zeros(tmp['|V|'].shape)
             tmp['EPHI'] = np.zeros(tmp['PHI'].shape)
         res['OI_VIS'][k] = tmp
 
@@ -1787,14 +1786,16 @@ SMEA = 7
 def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, indent=0,
              v2smear=True, fullOutput=False, debug=False):
     global SMEA
-    param = computeLambdaParams(p)
     #display(param)
     if type(oi) == list:
         # -- iteration on "oi" if a list
-        return [VmodelOI(o, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+        _param = [computeLambdaParams(p, MJD=np.mean(o['MJD'])) for o in oi]
+        return [VmodelOI(o, _param[i], imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent, fullOutput=fullOutput,
-                        debug=debug) for o in oi]
+                        debug=debug) for i,o in enumerate(oi)]
 
+    param = computeLambdaParams(p, MJD=np.mean(oi['MJD']))
+    #print('param', param)
     # -- split in components if needed
     comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x])
     if len(comp)==0:
@@ -2038,7 +2039,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                                          m['OI_VIS'][k]['|V|']*\
                                          np.exp(1j*np.pi*m['OI_VIS'][k]['PHI']/180)
 
-        res['MODEL']['param'] = computeLambdaParams(p)
+        res['MODEL']['param'] = computeLambdaParams(p, MJD=np.mean(res['MJD']))
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
 
@@ -2087,11 +2088,11 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             else:
                 totalflux = oi['OI_FLUX'][k]['FLUX']*0 + res['MODEL']['totalflux'][None,:]
 
-            res['OI_FLUX'][k] = {'FLUX': totalflux,
+            res['OI_FLUX'][k] = {'FLUX':  totalflux,
                                  'RFLUX': totalflux,
                                  'EFLUX': oi['OI_FLUX'][k]['FLUX']*0,
-                                 'FLAG': oi['OI_FLUX'][k]['FLAG'],
-                                 'MJD': oi['OI_FLUX'][k]['MJD'],
+                                 'FLAG':  oi['OI_FLUX'][k]['FLAG'],
+                                 'MJD':   oi['OI_FLUX'][k]['MJD'],
             }
         if timeit:
             print(' '*indent+'VmodelOI > fluxes %.3fms'%(1000*(time.time()-t0)))
@@ -2101,7 +2102,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'Bmin/wl']:
+            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'Bmin/wl', 'B1', 'B2', 'B3']:
                 if not oi['OI_T3'][k][l] is None:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
                 else:
@@ -2154,7 +2155,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         if k in oi:
             res[k] = oi[k]
 
-    res['param'] = computeLambdaParams(param)
+    res['param'] = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
 
     t0 = time.time()
     if 'fit' in res and 'spec res pix' in res['fit']:
@@ -2280,7 +2281,10 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         #print('done in %.3fs'%(time.time()-t0))
     return res
 
-def computeLambdaParams(params):
+def computeLambdaParams(params, MJD=0):
+    """
+    if MJD==None, will not evaluate MJDs, MJD==0 throws an error if any '$MJD' are present
+    """
     if params is None:
         return None
     paramsI = params.copy()
@@ -2290,6 +2294,7 @@ def computeLambdaParams(params):
     s = '$' # special character to identify keywords
     while loop and nloop<10:
         loop = False
+        # -- for each keyword
         for k in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
             if type(paramsI[k])==str:
                 # -- allow parameter to be expression of others
@@ -2305,6 +2310,10 @@ def computeLambdaParams(params):
                         if not s in tmp:
                             # -- no more replacement
                             compute = True
+                        elif s+'MJD' in tmp and not s in tmp.replace(s+'MJD', ''):
+                            # -- no more replacement
+                            compute = True
+
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
                     if s+_k in tmp:
@@ -2312,10 +2321,13 @@ def computeLambdaParams(params):
                         loop = True
                         paramsI[k] = tmp
                 if compute and not loop and tmp!='orbit':
-                    try:
-                        paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
-                    except:
-                        print('!', k, tmp)
+                    if s+'MJD' in tmp and not ( k in ['x', 'y'] or any([t in k for t in [',x', ',y']])):
+                        #print('MJD!')
+                        if MJD==0:
+                            raise Exception('MJD= not defined!')
+                        else:
+                            tmp = tmp.replace('$MJD', str(MJD))
+                    paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
                 else:
                     paramsR[k] = tmp
             else:
@@ -2336,7 +2348,7 @@ def computeLambdaParams(params):
 def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     visamp=True):
     if not param is None:
-        _param = computeLambdaParams(param)
+        _param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
     else:
         _param = None
     if type(oi)==list:
@@ -2551,7 +2563,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
 
 def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     if not param is None:
-        _param = computeLambdaParams(param)
+        _param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
     else:
         _param = None
 
@@ -2564,7 +2576,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
 
     if 'param' in oi.keys() and param is None:
         _param = oi['param'].copy()
-        _param = computeLambdaParams(_param)
+        _param = computeLambdaParams(_param, MJD=np.mean(oi['MJD']))
 
     # -- user defined wavelength range
     w = oi['WL']>0
@@ -3124,14 +3136,14 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         wh.extend(['<0?'])
     if 'fit' in oi and 'prior' in oi['fit']:
         # -- add priors as additional residuals.
-        tmp = computePriorL(computeLambdaParams(param), oi['fit']['prior'])
+        tmp = computePriorL(computeLambdaParams(param, MJD=np.mean(oi['MJD'])), oi['fit']['prior'])
         # -- approximate equal weight as rest of data
         res = np.append(res, tmp*np.sqrt(len(res)))
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
 
     if 'additional residuals' in param:
-        res = np.append(res, param['additional residuals'](computeLambdaParams(param)))
+        res = np.append(res, param['additional residuals'](computeLambdaParams(param, MJD=np.mean(oi['MJD']))))
 
     if what:
         return res, wh
@@ -4592,6 +4604,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             fig = 0
         allWLc = [] # -- continuum -> absolute flux
         allWLs = [] # -- with spectral lines -> normalized flux
+        allMJD = []
         if obs is None and allInOne:
             obs = []
             for o in oi:
@@ -4640,10 +4653,12 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         allWLc.extend(list(m['WL'][m['WL mask']]))
                     else:
                         allWLc.extend(list(m['WL']))
+            allMJD.extend(list(o['MJD']))
             models.append(m)
 
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
+        allMJD = np.array(sorted(list(set(allMJD))))
 
         if showIm and not imFov is None:
             fluxes = {}
@@ -4651,7 +4666,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             im = 1
             if len(allWLc):
                 allWL = {'WL':allWLc,
-                         'fit':{'obs':[]}} # minimum required
+                         'fit':{'obs':[]},
+                         'MJD':allMJD} # minimum required
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                               imWl0=imWl0, imMax=imMax, logS=logS,
@@ -4664,8 +4680,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 m['fluxes WL'] = allWLc
             if len(allWLs):
                 allWL = {'WL':allWLs, # minimum required
-                         'fit':{'obs':['NFLUX']} # force computation of continuum
-                          }
+                         'fit':{'obs':['NFLUX']}, # force computation of continuum
+                         'MJD': allMJD }
+
                 tmp = showModel(allWL, param, fig=f+im, imPow=imPow, cmap=cmap,
                               imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                               imWl0=imWl0, imMax=imMax, logS=logS,
@@ -4785,11 +4802,11 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     if 'DPHI' in obs or 'N|V|' in obs:
         if debug:
             print(' (re-)compute DiffPhi in data')
-        oi = computeDiffPhiOI(oi, computeLambdaParams(param))
+        oi = computeDiffPhiOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
     if 'NFLUX' in obs:
         if debug:
             print(' (re-)compute NormFlux in data')
-        oi = computeNormFluxOI(oi, computeLambdaParams(param))
+        oi = computeNormFluxOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
 
     if wlMin is None:
         wlMin = min(oi['WL'][oi['WL mask']])
@@ -5101,6 +5118,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         #print('  ploting', l, i_col, ncol)
         # -- actually plot things:
         for i,k in enumerate(keys):
+            if debug:
+                print(k, end=',')
             # -- for each telescope / baseline / triangle
             X = lambda r, j: r['WL']
             Xlabel = r'wavelength ($\mu$m)'
@@ -5538,6 +5557,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             if (allInOne or l=='T3PHI') and showLegend:
                 ax.legend(fontsize=4, ncol=4)
         i_col += 1
+        if debug:
+            print()
 
     plt.subplots_adjust(hspace=0, wspace=0.2, left=0.06, right=0.98)
     if 'filename' in oi.keys() and not allInOne:
@@ -5568,7 +5589,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
               cmap='bone', imMax=None, logS=False, showSED=True, legend=True,
               cColors={}, cMarkers={}, imPlx=None, bckgGrid=True):
     """
-    oi: result from loadOI for mergeOI,
+    oi: result from loadOI or mergeOI,
         or a wavelength vector in um (must be a np.ndarray)
     param: parameter dictionnary, describing the model
     m: result from Vmodel, if none given, computed from 'oi' and 'param'
@@ -5589,8 +5610,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
     else:
         imScale = 1./imPlx
 
-
-    param = computeLambdaParams(param)
+    param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
     # -- catch case were OI is just a wavelength vector:
     if type(oi)==np.ndarray:
         oi = {'WL':oi, # minimum required
@@ -5945,20 +5965,21 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         #res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
-        param = computeLambdaParams(param)
+        param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
 
     if comp is None:
         C = filter(lambda x: x.endswith(',profile'), param.keys())
         return {c.split(',')[0]:halfLightRadiusFromParam(param, c.split(',')[0]) for c in C}
     diamin = 0
-    if comp+',diam' in param:
-        diamout = param[comp+',diam']
+    if comp+',diam' in param and comp+',thick' in param:
+        diamin  = param[comp+',diam']*(1-param[comp+',thick']/2)
+        diamout = param[comp+',diam']*(1+param[comp+',thick']/2)
+
+
     if comp+',diamout' in param:
         diamout = param[comp+',diamout']
     if comp+',diamin' in param:
         diamin = param[comp+',diamin']
-    if comp+',thick' in param:
-        diamin = diamout*(1-param[comp+',thick'])
 
     _r = np.linspace(diamin/2, diamout/2, 100)
     _d = np.linspace(diamin, diamout, 100)
@@ -6000,7 +6021,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     x0, y0: keys to the center of rim (optional, wil assume 0,0 otherwise)
     """
     # -- interpret parameters
-    param = pmoired.oimodels.computeLambdaParams(oi._model['MODEL']['param'])
+    param = pmoired.oimodels.computeLambdaParams(oi._model['MODEL']['param'], MJD=np.mean(oi['MJD']))
     incl = param[incl]
     projang = param[projang]
     if not x0 is None:

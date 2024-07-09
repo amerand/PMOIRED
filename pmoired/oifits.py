@@ -968,7 +968,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                                        -res['OI_T3'][k]['v2'][i])/
                                                        res['WL']]), axis=0)
                         res[_key][t[2]]['PA'] = np.angle(res[_key][t[2]]['v/wl']+
-                                                     1j*res[_key][t[2]]['u/wl'], deg=True)
+                                                         1j*res[_key][t[2]]['u/wl'], deg=True)
 
                         res[_key][t[2]]['B/wl'] = np.append(res[_key][t[2]]['B/wl'],
                                                      np.array([np.sqrt((res['OI_T3'][k]['u1'][i]+res['OI_T3'][k]['u2'][i])**2+
@@ -1099,6 +1099,88 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if verbose:
             print('WARNING: error while reading ESO pipelines parameters')
     return res
+
+def splitOIbyMJD(oi, dMJD=0):
+    """
+    ois: list of oi results from loadOI
+    dMJD: step in MJD for grouping
+
+    will return a list of OIs which data are within dMJD (in day).
+    This function will only split OIs, and not merge them.
+    function mergeOI should be run first!
+    """
+    MJDs = sorted(set(list(oi['MJD'])))
+    #print('all MJDs:', MJDs)
+    if len(MJDs)==1:
+        return [oi]
+
+    # -- group MJDs
+    gMJDs=[]
+    tmp = []
+    for mjd in MJDs:
+        if len(tmp)==0 or mjd<tmp[0]+dMJD:
+            tmp.append(mjd)
+        else:
+            gMJDs.append(tmp)
+            tmp = [mjd]
+    gMJDs.append(tmp.copy())
+    #print('groups (%d: %s):'%(len(gMJDs), ','.join([str(len(x)) for x in gMJDs])), gMJDs)
+    # -- need to implement the actual split!
+    res = []
+    for mjds in gMJDs:
+        #print('**FOR MJDS:**', mjds)
+        tmp = copy.deepcopy(oi)
+        E = [e for e in ['OI_VIS', 'OI_CVIS', 'OI_CF', 'OI_VIS2', 'OI_FLUX', 'OI_T3'] if e in tmp]
+        for e in E:
+            for k in tmp[e]:
+                if 'MJD' in tmp[e][k]:
+                    w = np.array([x in mjds for x in tmp[e][k]['MJD']])
+                    _mjd = True
+                    if e=='OI_VIS':
+                        ivis = list(np.arange(len(w))[w])
+                else:
+                    _mjd = False
+                if 'MJD2' in tmp[e][k]:
+                    w2 = np.array([ [x in mjds for x in X] for X in tmp[e][k]['MJD2'] ])
+                    _mjd2 = True
+                else:
+                    _mjd2 = False
+                for l in tmp[e][k]:
+                    if type(tmp[e][k][l])==np.ndarray:
+                        if _mjd and w.shape==tmp[e][k][l].shape:
+                            #print('  ',l, '-> MJD')
+                            tmp[e][k][l] = tmp[e][k][l][w]
+                            pass
+                        elif _mjd2 and w2.shape==tmp[e][k][l].shape:
+                            #print('  ',l, '-> MJD2')
+                            tmp[e][k][l] = tmp[e][k][l][w2]
+                            pass
+                        else:
+                            print('WARNING!!!',e,k,l, tmp[e][k][l].shape, w.shape, w2.shape)
+                    elif l=='formula':
+                        #print('formula', tmp[e][k][l])
+                        s0, s1, s2 = tmp[e][k][l][0][0], tmp[e][k][l][0][1], tmp[e][k][l][0][2]
+                        t0, t1, t2 = tmp[e][k][l][1]
+                        i0, i1, i2 = np.array(tmp[e][k][l][2]), \
+                                     np.array(tmp[e][k][l][3]), \
+                                     np.array(tmp[e][k][l][4])
+
+                        i0 = [ivis.index(x) for x in i0[w]]
+                        i1 = [ivis.index(x) for x in i1[w]]
+                        i2 = [ivis.index(x) for x in i2[w]]
+                        try:
+                            tmp[e][k][l] = [(s0[w], s1[w], s2[w]), (t0, t1, t2), i0, i1, i2]
+                        except:
+                            tmp[e][k][l] = [(s0, s1, s2), (t0, t1, t2), i0, i1, i2]
+                    else:
+                        print('WARNING!!!', e,k,l,)
+        tmp['configurations per MJD'] = {k:tmp['configurations per MJD'][k]
+                                         for k in tmp['configurations per MJD'] if k in mjds}
+        tmp['MJD'] = [x for x in tmp['MJD'] if x in mjds]
+        res.append(tmp)
+
+    return res
+
 
 def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
     # -- make sure there is a 1-to-1 correspondance between VIS and CF:
@@ -1342,7 +1424,7 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
                 y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
     return y
 
-def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
+def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=None):
     """
     takes OI, a list of oifits files readouts (from loadOI), and merge them into
     a smaller number of entities based with same spectral coverage
@@ -1450,14 +1532,14 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                         ext1 = ['MJD']
                         ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX']
                     elif l=='OI_VIS2':
-                        ext1 = ['u', 'v', 'MJD', 'PA']
-                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD']
+                        ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2', 'PA']
                     elif l=='OI_VIS':
-                        ext1 = ['u', 'v', 'MJD', 'PA']
-                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD']
+                        ext2 = ['|V|', 'E|V|', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2', 'PA']
                     elif l=='OI_CF':
-                        ext1 = ['u', 'v', 'MJD', 'PA']
-                        ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2']
+                        ext1 = ['u', 'v', 'MJD']
+                        ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2', 'PA']
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
                         ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
@@ -1466,6 +1548,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                         print(l, k, res[i0][l][k].keys())
                     for t in ext1:
                         # -- append len(MJDs) data
+                        if t in res[i0][l][k]:
                             res[i0][l][k][t] = np.append(res[i0][l][k][t], oi[l][k][t])
                     for t in ext2:
                         # -- append (len(MJDs),len(WL)) data
@@ -1484,7 +1567,10 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
                         else:
                             tmp = oi[l][k][t]
                         res[i0][l][k][t] = np.append(res[i0][l][k][t], tmp)
-                        res[i0][l][k][t] = res[i0][l][k][t].reshape(s1[0]+s2[0], s1[1])
+                        try:
+                            res[i0][l][k][t] = res[i0][l][k][t].reshape(s1[0]+s2[0], s1[1])
+                        except:
+                            print('!!!', i0, l, k, t, s1 ,s2, res[i0][l][k]['u/wl'])
 
     for r in res:
         for k in ['telescopes', 'baselines', 'triangles']:
@@ -1657,7 +1743,13 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False):
         if 'configurations per MJD' in r:
             r['MJD'] = np.array(sorted(set(r['configurations per MJD'].keys())))
 
-    return res
+    if not dMJD is None:
+        tmp = []
+        for r in res:
+            tmp.extend(splitOIbyMJD(r, dMJD=dMJD))
+        return tmp
+    else:
+        return res
 
 def _filtErr(t, ext, filt, debug=False):
     """
