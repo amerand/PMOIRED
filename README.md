@@ -21,17 +21,22 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
+### install with pip
+
 `PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
 
 ```
 pip3 install pmoired
 ```
+### install with git
 
-To install from the github repository, run the following command in the 'PMOIRED' directory of the sources :
+To install from the github repository:
 ```
-pip3 install .
+pip3 install git+https://github.com/amerand/PMOIRED
 ```
+you can also clone the repository and install with `pip3 install .` within the PMOIRED directory
 
+### uninstall
 To uninstall (works for both PyPI and github versions):
 ```
 pip3 uninstall pmoired
