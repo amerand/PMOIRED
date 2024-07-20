@@ -262,8 +262,8 @@ def _campbell2ti(c):
             'G':-c['a']*(np.sin(c['omega'])*np.sin(c['OMEGA']) - np.cos(c['omega'])*np.cos(c['OMEGA'])*np.cos(c['incl'])),
            }
 
-
-def _orbit(t, P, Vrad=False, verbose=False):
+newOrbitalParameters = False
+def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
     """
     position or Vrad for binary:  𝑉𝑟(𝑡)=𝐾[cos(𝜔+𝜈(𝑡))+𝑒cos𝜔]+𝛾
     # K1 ≡ radial velocity semi ‐ amplitude of host star = 2pi a_1*sin(i)/(P*sqrt(1−e**2))
@@ -344,19 +344,31 @@ def _orbit(t, P, Vrad=False, verbose=False):
     # separation
     if 'a' in P:
         r = P['a']*(1-np.abs(P['e'])**2)/(1+np.abs(P['e'])*np.cos(nu))
-        x, y, z = r*np.cos(nu), r*np.sin(nu), 0
-        # -- omega
-        x, y, z = x*np.cos((-P['omega'])*np.pi/180) + y*np.sin((-P['omega'])*np.pi/180), \
-                 -x*np.sin((-P['omega'])*np.pi/180) + y*np.cos((-P['omega'])*np.pi/180), \
-                  z
-        # -- inclination
-        x, y, z = x,\
-                  y*np.cos((P['incl']+180)*np.pi/180) + z*np.sin((P['incl']+180)*np.pi/180), \
-                 -y*np.sin((P['incl']+180)*np.pi/180) + z*np.cos((P['incl']+180)*np.pi/180)
-        # -- OMEGA
-        x, y, z = x*np.cos((P['OMEGA']-90)*np.pi/180) + y*np.sin((P['OMEGA']-90)*np.pi/180), \
-                 -x*np.sin((P['OMEGA']-90)*np.pi/180) + y*np.cos((P['OMEGA']-90)*np.pi/180), \
-                  z
+        _o, _O, _i = P['omega']*np.pi/180, P['OMEGA']*np.pi/180, P['incl']*np.pi/180
+
+        if newOrbitalParameters:
+            # -- Householder & Weiss, 2023
+            # -- https://arxiv.org/pdf/2212.06966 eq. 3
+            # -- DOES NOT SEEM TO WORK...
+            x = r*(np.cos(_O)*np.cos(nu+_o) - np.sin(_O)*np.sin(nu+_o)*np.cos(_i) )
+            y = r*(np.sin(_O)*np.cos(nu+_o) + np.cos(_O)*np.sin(nu+_o)*np.cos(_i) )
+            z = r*np.sin(nu+_o)*np.sin(_i)
+        else:
+            # -- Antoine's implementation, same as Alex...
+            x, y, z = r*np.cos(nu), r*np.sin(nu), 0
+            # -- omega: argument of peri-passage, "-" because x to y is counter clockwise on sky
+            x, y, z = x*np.cos(-_o) + y*np.sin(-_o), \
+                     -x*np.sin(-_o) + y*np.cos(-_o), \
+                      z
+            # -- inclination
+            x, y, z = x, \
+                      y*np.cos(_i+np.pi) + z*np.sin(_i+np.pi), \
+                     -y*np.sin(_i+np.pi) + z*np.cos(_i+np.pi)
+            # -- OMEGA: longitude of ascending node (z <0 -> >0), ref is North==y, not x!
+            x, y, z = x*np.cos(_O-np.pi/2) + y*np.sin(_O-np.pi/2), \
+                     -x*np.sin(_O-np.pi/2) + y*np.cos(_O-np.pi/2), \
+                      z
+
     if 'Ka' in P and 'Kb' in P:
         VA =  P['Ka']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
         VB = -P['Kb']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
@@ -375,7 +387,7 @@ def _orbit(t, P, Vrad=False, verbose=False):
         VBVA = VB-VA
     if 'K' in P:
         # -- "Va-Vb"
-        VBVA = P['K']*(np.cos((-P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((-P['omega'])*np.pi/180))
+        VBVA = P['K']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
 
     if not Vrad is False:
         if Vrad is True:
@@ -389,7 +401,10 @@ def _orbit(t, P, Vrad=False, verbose=False):
         if type(Vrad) == str and Vrad=='a-b':
             return -VBVA
     else:
-        return (x,y)
+        if withZ:
+            return (x,y,z)
+        else:
+            return (x,y)
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD=None,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
@@ -2327,7 +2342,11 @@ def computeLambdaParams(params, MJD=0):
                             raise Exception('MJD= not defined!')
                         else:
                             tmp = tmp.replace('$MJD', str(MJD))
-                    paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
+                    if s+'MJD' in tmp and ( k in ['x', 'y'] or any([t in k for t in [',x', ',y']])):
+                        paramsR[k]=tmp
+                    else:
+                        #print(k, tmp)
+                        paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
                 else:
                     paramsR[k] = tmp
             else:
