@@ -19,6 +19,8 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 - The values of parameters can be explored using grid and or random search.
 - Synthetic data for VLTI array observations can be generated from data cubes.
 
+![diagramme](banner/diagramme/Slide1.png)
+
 ## Install
 
 ### install with pip
