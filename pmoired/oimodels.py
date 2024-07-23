@@ -263,6 +263,9 @@ def _campbell2ti(c):
            }
 
 newOrbitalParameters = False
+
+#vSign = -1 # checked against orbitize! on Jul23 2024
+
 def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
     """
     position or Vrad for binary:  𝑉𝑟(𝑡)=𝐾[cos(𝜔+𝜈(𝑡))+𝑒cos𝜔]+𝛾
@@ -275,6 +278,8 @@ def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
                 e, P, MJD0, A, B, G, F (4 Thiele-Innes parameters, dates in days)
 
     alternatively, if M (Msun) and plx (mas) are given, a is computed from Kepler third law.
+
+    omega, the argument of periastron, is the one of secondary wrt to primary! (checked definition against orbitize!)
 
     t = array of MJDs
 
@@ -368,10 +373,14 @@ def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
             x, y, z = x*np.cos(_O-np.pi/2) + y*np.sin(_O-np.pi/2), \
                      -x*np.sin(_O-np.pi/2) + y*np.cos(_O-np.pi/2), \
                       z
-
+    VBVA = None
     if 'Ka' in P and 'Kb' in P:
-        VA =  P['Ka']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
-        VB = -P['Kb']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+        #VA =  vSign*P['Ka']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+        #VB = -vSign*P['Kb']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+
+        # -- sign calibrated assuming omega secondary wrt to primary (same as orbitize!)
+        VA = -P['Ka']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
+        VB =  P['Kb']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
         if 'gamma' in P:
             VA += P['gamma']
             VB += P['gamma']
@@ -383,10 +392,9 @@ def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
             except:
                 VA += (np.array(t)-P['MJD0'])*P['gamma/d']
                 VB += (np.array(t)-P['MJD0'])*P['gamma/d']
-
         VBVA = VB-VA
-    if 'K' in P:
-        # -- "Va-Vb"
+    if 'K' in P and VBVA is None:
+        # -- "Vb-Va"
         VBVA = P['K']*(np.cos((P['omega'])*np.pi/180+nu) + np.abs(P['e'])*np.cos((P['omega'])*np.pi/180))
 
     if not Vrad is False:
@@ -3887,8 +3895,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
         # -- make sure the progress bar finishes
         progress(finish=True)
         res = [r for r in res if r!={}]
-
-    print() # clear progress bar
+    if verbose:
+        print() # clear progress bar
 
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
@@ -4011,7 +4019,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
 
         for j in np.array(keep)[w]:
             keep.remove(j)
-    if len(res)>1000:
+    if len(res)>1000 and verbose:
         # -- make sure the progress bar finishes
         progress(finish=True)
         print()
