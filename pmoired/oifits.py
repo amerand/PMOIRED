@@ -581,14 +581,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             sta2 += list(res[k].keys())
             if debug:
                 print('baselines for:', k, sorted(res[k].keys()))
-
-    if debug:
-        print('-'*60)
-    res = match_VIS_VIS2_CF(res, debug=debug, ignoreCF=ignoreCF)
-    if debug:
-        print('-'*60)
-
     sta2 = list(set(sta2))
+
+    res = match_VIS_VIS2_CF(res, debug=debug, ignoreCF=ignoreCF)
 
     if debug:
         print('checking for missing baselines for OI_T3')
