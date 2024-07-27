@@ -356,8 +356,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 print('DEBUG: loading OI_VIS2', set(sta2))
             for k in set(sta2):
                 w = (np.array(sta2)==k)*wTarg(hdu, targname, targets)
-                if debug:
-                   print(' | ', k, w)
                 if k in res['OI_VIS2'] and any(w):
                     for k1, k2 in [('V2', 'VIS2DATA'), ('EV2', 'VIS2ERR'), ('FLAG', 'FLAG')]:
                         res['OI_VIS2'][k][k1] = np.append(res['OI_VIS2'][k][k1],
@@ -572,12 +570,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #    print('DEBUG: skipping HDU')
 
     if res['OI_CF'] == {}:
+        if debug:
+            print('no correlated flux found')
         res.pop('OI_CF')
 
-    if debug:
-        for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
-            if k in res:
-                print('DEBUG:', k, sorted(res[k].keys()))
+    # -- recollect baselines, in case multiple HDUs were read
+    sta2 = []
+    for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
+        if k in res:
+            sta2 += list(res[k].keys())
+            if debug:
+                print('baselines for:', k, sorted(res[k].keys()))
 
     if debug:
         print('-'*60)
@@ -587,6 +590,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     sta2 = list(set(sta2))
 
+    if debug:
+        print('checking for missing baselines for OI_T3')
+        print('known baselines are', sta2)
     M = [] # missing baselines in T3
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_T3' and\
@@ -668,10 +674,12 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                    ('MJD', 'MJD')]:
                         res['OI_T3'][k][k1] = np.append(res['OI_T3'][k][k1],
                                                          hdu.data[k2][w])
-                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                            ~np.isfinite(res['OI_T3'][k]['T3AMP']))
-                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                            ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
+                    # -- commented for MATISSE, otherwise things get screwed
+
+                    # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                    #                                         ~np.isfinite(res['OI_T3'][k]['T3AMP']))
+                    # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                    #                                         ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
                     res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
 
                 elif any(w):
@@ -707,10 +715,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_T3'][k]['Bmin/wl'] = bmax[:,None]/res['WL'][None,:]
                     res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
 
-                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                            ~np.isfinite(res['OI_T3'][k]['T3AMP']))
-                    res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
-                                                            ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
+                    # -- commented for MATISSE, otherwise things get screwed
+                    # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                    #                                        ~np.isfinite(res['OI_T3'][k]['T3AMP']))
+                    # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
+                    #                                         ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
                     if not binning is None:
                         _w = ~res['OI_T3'][k]['FLAG']
                         res['OI_T3'][k]['T3AMP'], flag = \
@@ -760,8 +769,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             key = 'OI_CF'
     if 'OI_CF' in res and (res['OI_CF']=={} or ignoreCF):
         res.pop('OI_CF')
-    if debug:
-        print('DEBUG: OI_CF?', 'OI_CF' in res)
+
     if res['OI_FLUX']=={}:
         res.pop('OI_FLUX')
 
@@ -1053,12 +1061,13 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     # -- mean barycentric correction for the dataset
     if 'ORIGIN' in h[0].header and h[0].header['ORIGIN']=='ESO-PARANAL':
         Paranal = EarthLocation.of_site('Paranal')
-        sc = SkyCoord(ra=h[0].header['RA']*aU.deg,
-                      dec=h[0].header['DEC']*aU.deg)
-        # -- correction in m/s
-        barycorr = sc.radial_velocity_correction(location=Paranal,
-                    obstime=Time(h[0].header['DATE-OBS']))
-        res['barycorr_km/s'] = barycorr.value/1000
+        if 'RA' in h[0].header and 'DEC'  in h[0].header:
+            sc = SkyCoord(ra=h[0].header['RA']*aU.deg,
+                        dec=h[0].header['DEC']*aU.deg)
+            # -- correction in m/s
+            barycorr = sc.radial_velocity_correction(location=Paranal,
+                        obstime=Time(h[0].header['DATE-OBS']))
+            res['barycorr_km/s'] = barycorr.value/1000
 
     if verbose:
         mjd = []
@@ -1183,9 +1192,15 @@ def splitOIbyMJD(oi, dMJD=0):
 
 
 def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
-    # -- make sure there is a 1-to-1 correspondance between VIS and CF:
-    # (this is purely due to a limitation of PMOIRED)
+    """
+    make sure there is a 1-to-1 correspondance between VIS and CF:
+    (this is purely due to a limitation of PMOIRED)
+    """
+    if debug:
+        print('** match_VIS_VIS2_CF **')
     if (not ignoreCF) and 'OI_VIS' in res and 'OI_CF' in res:
+        if debug:
+            print('checking OI_CF <-> OI_VIS')
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_CF'].keys())))
         for k in kz:
             if not k in res['OI_VIS']:
@@ -1272,6 +1287,9 @@ def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
     # -- make sure there is a 1-to-1 correspondance between VIS and VIS2:
     # (this is purely due to a limitation of PMOIRED)
     if 'OI_VIS' in res and 'OI_VIS2' in res:
+        if debug:
+            print('checking OI_VIS <-> OI_VIS2')
+
         kz = list(set(list(res['OI_VIS'].keys())+list(res['OI_VIS2'].keys())))
         for k in kz:
             if not k in res['OI_VIS']:
@@ -1351,13 +1369,10 @@ def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
                     tmp[wv2,:] = res['OI_VIS2'][k][x].copy()
                     res['OI_VIS2'][k][x] = tmp
                 # -- make sure it worked
-                #print(' VIS :',  res['OI_VIS'][k]['MJD'])
-                #print(' VIS2:',  res['OI_VIS2'][k]['MJD'])
+                if debug:
+                    print(' MJD in  VIS[%s]:'%k,  res['OI_VIS'][k]['MJD'])
+                    print(' MJD in VIS2[%s]:'%k,  res['OI_VIS2'][k]['MJD'])
 
-    if debug:
-        for k in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
-            if k in res:
-                print('DEBUG:', k, sorted(res[k].keys()))
     return res
 
 def wTarg(hdu, targname, targets):
