@@ -201,21 +201,24 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
     if 'GRAVITY' in insname:
-        # -- VLTI GRAVITY 4T specific
-        OPL = {}
-        for i in range(4):
-            Tel = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
-            opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
-                       h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
-            opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
-            OPL[Tel] = opl
-        res['OPL'] = OPL
-        T = np.mean([h[0].header['ESO ISS TEMP TUN%d'%i] for i in [1,2,3,4]]) # T in C
-        P = h[0].header['ESO ISS AMBI PRES'] # pressure in mbar
-        H = h[0].header['ESO ISS AMBI RHUM'] # relative humidity: TODO outside == inside probably no ;(
-        #print('T(C), P(mbar), H(%)', T, P, H)
-        res['n_lab'] = n_JHK(res['WL'].astype(np.float64), 273.15+T, P, H)
-
+        try:
+            # -- VLTI GRAVITY 4T specific
+            OPL = {}
+            for i in range(4):
+                Tel = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
+                opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
+                        h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
+                opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
+                OPL[Tel] = opl
+            res['OPL'] = OPL
+            T = np.mean([h[0].header['ESO ISS TEMP TUN%d'%i] for i in [1,2,3,4]]) # T in C
+            P = h[0].header['ESO ISS AMBI PRES'] # pressure in mbar
+            H = h[0].header['ESO ISS AMBI RHUM'] # relative humidity: TODO outside == inside probably no ;(
+            #print('T(C), P(mbar), H(%)', T, P, H)
+            res['n_lab'] = n_JHK(res['WL'].astype(np.float64), 273.15+T, P, H)
+        except:
+            #print('warning: could not read DL positions')
+            pass
 
     oiarrays = {}
     # -- build OI_ARRAY dictionnary to name the baselines
@@ -224,15 +227,14 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             arrname = hdu.header['ARRNAME'].strip()
             oiarrays[arrname] = dict(zip(hdu.data['STA_INDEX'],
                                          np.char.strip(hdu.data['STA_NAME'])))
-    if oiarrays=={}:
-        if 'TELESCOP' in h[0].header and h[0].header['TELESCOP']=='VLTI':
-            print('  > \033[33mWarning: no OI_ARRAY extension, guessing from header (VLTI)\033[0m')
-            tmp = {}
-            for i in range(8):
-                k = 'ESO ISS CONF STATION%d'%(i+1)
-                if k in h[0].header:
-                    tmp[i+1] = h[0].header[k].strip()
-            oiarrays['VLTI'] = tmp
+    if oiarrays=={} and 'TELESCOP' in h[0].header and h[0].header['TELESCOP']=='VLTI':
+        print('  > \033[33mWarning: no OI_ARRAY extension, guessing from header (VLTI)\033[0m')
+        tmp = {}
+        for i in range(8):
+            k = 'ESO ISS CONF STATION%d'%(i+1)
+            if k in h[0].header:
+                tmp[i+1] = h[0].header[k].strip()
+        oiarrays['VLTI'] = tmp
 
     if oiarrays=={}:
         print('  > \033[33mWarning: no OI_ARRAY extension, telescopes will have default names\033[0m')
