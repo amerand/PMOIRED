@@ -1337,7 +1337,8 @@ class OI:
                           'MJD':[60000.]}]
         if model=='best' and type(self.bestfit) is dict and \
                     'best' in self.bestfit:
-            model = self.bestfit['best']
+            #model = self.bestfit['best']
+            model = oimodels.computeLambdaParams(self.bestfit['best'])
 
         # -- this is actually not needed
         #model = oimodels.computeLambdaParams(model,)

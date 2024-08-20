@@ -414,6 +414,11 @@ def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
         else:
             return (x,y)
 
+# def showOrbit(mjds, P, fig=0):
+#     """
+#     """
+#     pass
+
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD=None,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
     """
