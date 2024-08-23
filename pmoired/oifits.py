@@ -1390,13 +1390,13 @@ def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False):
     for i in range(T.shape[0]):
         w = ~F[i,:]
         # -- half of the points in the bin are valid
-        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>0.5)
+        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float64(F[i,:]))>0.5)
 
         # -- 2/3 of the points in the bin are valid
-        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float_(F[i,:]))>2/3)
+        #flag[i,:] = np.bool_(_binVec(_wl, WL, np.float64(F[i,:]))>2/3)
 
         # -- at least one point in the bin is valid
-        flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float_(~F[i,:]), phase=phase)>0)
+        flag[i,:] = ~np.bool_(_binVec(_wl, WL, np.float64(~F[i,:]), phase=phase)>0)
         if E is None:
             res[i,:] = _binVec(_wl, WL[w], T[i,:][w], medFilt=medFilt, phase=phase)
         else:
