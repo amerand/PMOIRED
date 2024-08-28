@@ -1478,7 +1478,7 @@ class OI:
                 if imPow==0.5:
                     #title = r'$\sqrt{\mathrm{I}} at $'
                     cb.set_label(r'$\sqrt{Flux}$')
-                elif np.abs(imPow-1/int(1/imPow))<1e-3 and int(1/imPow)<6:
+                elif imPow<=1 and np.abs(imPow-1/int(1/imPow))<1e-3 and int(1/imPow)<6:
                     #title = 'Image$^{1/%d}$ '%int(1/imPow)
                     #title = r'$\sqrt[%d]{\mathrm{I}}$ at '%int(1/imPow)
                     cb.set_label(r'$\sqrt[%d]{Flux}$'%int(1/imPow))
