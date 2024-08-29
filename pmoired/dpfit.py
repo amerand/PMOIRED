@@ -432,7 +432,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             if not type(cov)==np.ndarray:
                 cov = 2.*cov.todense()/(len(y)-len(pfit)+1)
             else:
-                cov = np.float_(cov)*2./(len(y)-len(pfit)+1)
+                cov = np.float64(cov)*2./(len(y)-len(pfit)+1)
             # except:
             #     # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
             #     # Do Moore-Penrose inverse discarding zero singular values.

@@ -837,12 +837,12 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         if not I is None:
             # -- outer disk
             R2 = (_X - _offXo)**2 + (_Y - _offYo)**2
-            I = np.float_(R2<=(_crout**2/4))
+            I = np.float64(R2<=(_crout**2/4))
             # -- remove inner disk
             R2 = (_X - _offXi)**2 + (_Y - _offYi)**2
             I -= (R2<=(_crin**2/4))
             if np.sum(I)==0:
-                I = np.float_(np.abs(R2-_crin**2/4)<=imPix)
+                I = np.float64(np.abs(R2-_crin**2/4)<=imPix)
         if 'surf bri' in _param:
             # -- use this to compute flux, can be function of wavelength
             flux = np.pi*(_crout**2 - _crin**2)/4*_ffrac

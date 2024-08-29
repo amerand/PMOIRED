@@ -209,8 +209,8 @@ def nTelescopes(T, target, lst, ip=None, DLconstraints=None,
         #target = [s[0]['RA.h'], s[0]['DEC.d']]
         s = Simbad.query_object(target)
         try:
-            ra = np.sum(np.float_(s['RA'][0].split())*np.array([1, 1/60., 1/3600.]))
-            dec = np.float_(s['DEC'][0].split())*np.array([1, 1/60., 1/3600.])
+            ra = np.sum(np.float64(s['RA'][0].split())*np.array([1, 1/60., 1/3600.]))
+            dec = np.float64(s['DEC'][0].split())*np.array([1, 1/60., 1/3600.])
             dec = np.sum(np.abs(dec))*np.sign(dec[0])
         except:
             ra, dec = 0,0
@@ -577,8 +577,8 @@ def projBaseline(T1, T2, target, lst, ip1=1, ip2=3, DL1=None, DL2=None,
         #radec = [s['RA.h'], s['DEC.d']]
         # --
         s = Simbad.query_object(target)
-        ra = np.sum(np.float_(s['RA'][0].split())*np.array([1, 1/60., 1/3600.]))
-        dec = np.float_(s['DEC'][0].split())*np.array([1, 1/60., 1/3600.])
+        ra = np.sum(np.float64(s['RA'][0].split())*np.array([1, 1/60., 1/3600.]))
+        dec = np.float64(s['DEC'][0].split())*np.array([1, 1/60., 1/3600.])
         dec = np.sum(np.abs(dec))*np.sign(dec[0])
         radec = ra, dec
 
