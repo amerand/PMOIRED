@@ -573,7 +573,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     if res['OI_CF'] == {}:
         if debug:
-            print('no correlated flux found')
+            print('no sed flux found')
         res.pop('OI_CF')
 
     # -- recollect baselines, in case multiple HDUs were read

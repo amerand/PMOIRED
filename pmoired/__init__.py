@@ -1,4 +1,4 @@
-from pmoired import oimodels, oifits, oifake #, oicandid
+from pmoired import oimodels, oifits, oifake, oicorr
 
 import multiprocessing
 try:
@@ -463,7 +463,7 @@ class OI:
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto',
               verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
-              prior=None, autoPrior=True, factor=100):
+              prior=None, autoPrior=True, factor=100, correlations=False):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -505,10 +505,18 @@ class OI:
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
+        if correlations:
+            tmp = oimodels.residualsOI(self._merged, {'ud':0}, fullOutput=True, what=True)
+            print('len(tmp)', len(tmp))
+            self.correlations = oicorr.corrSpectra(tmp)
+        else:
+            self.correlations = None
+
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
-                                      follow=follow, factor=factor, prior=prior)
+                                      follow=follow, factor=factor, prior=prior,
+                                      correlations=self.correlations)
         if verbose:
             if len(self.bestfit['not significant']):
                 print('\033[31mWARNING: thiese parameters do not change the chi2!:', end=' ')

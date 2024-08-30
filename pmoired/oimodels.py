@@ -2971,32 +2971,57 @@ def computePriorL(param, prior):
             print('WARNING: could not compute prior "'+resi+'"')
     return np.array(res)
 
-def residualsOI(oi, param, timeit=False, what=False, debug=False):
+def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=False,
+                correlations=None, ignore=None, _i0=0):
     """
     assumes dict OI has a key "fit" which list observable to fit:
 
     OI['fit']['obs'] is a list containing '|V|', 'PHI', 'DPHI', 'V2', 'T3AMP', 'T3PHI'
     OI['fit'] can have key "wl ranges" to limit fit to [(wlmin1, wlmax1), (), ...]
 
+    correlations is the optional correlation dict
     """
     tt = time.time()
     res = np.array([])
+
+    if not correlations is None:
+        fullOutput = True
+
+    if fullOutput:
+        allwl = np.array([])
+        alldata = np.array([])
+        allerr = np.array([])
+        allmodel = np.array([])
+        what = True
+
     if what:
         wh = []
 
     if type(oi)==list:
         for i,o in enumerate(oi):
             if what:
-                tmp = residualsOI(o, param, timeit=timeit, what=True)
+                tmp = residualsOI(o, param, timeit=timeit, what=True,
+                                  fullOutput=fullOutput, ignore=ignore,
+                                  correlations=correlations)
                 res = np.append(res, tmp[0])
                 wh += tmp[1]
+                if fullOutput:
+                    allwl    = np.append(allwl,    tmp[2])
+                    alldata  = np.append(alldata,  tmp[3])
+                    allerr   = np.append(allerr,   tmp[4])
+                    allmodel = np.append(allmodel, tmp[5])
+
             else:
                 res = np.append(res, residualsOI(o, param,
                                                 timeit=timeit,
                                                 what=what,
-                                                debug=debug))
-        if what:
-           return res, wh
+                                                debug=debug,
+                                                ignore=ignore,
+                                                _i0=len(res)))
+        if fullOutput:
+            return res, wh, allwl, alldata, allerr, allmodel
+        elif what:
+            return res, wh
         else:
             return res
 
@@ -3064,6 +3089,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
 
     w = np.bool_(w)
     t0 = time.time()
+    i = _i0
     for f in fit['obs']:
         # -- for each observable:
         if f in sorted(ext.keys()):
@@ -3071,9 +3097,8 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                 rf = lambda x: ((x + 180)%360 - 180)
             else:
                 rf = lambda x: x
-            # -- for each telescope / baseline / triangle
-            #print(f, end=' ')
-            for k in sorted(oi[ext[f]].keys()):
+
+            for k in sorted(oi[ext[f]].keys()): # -- for each telescope / baseline / triangle
                 test = testTelescopes(k, ignoreTelescope) or testBaselines(k, ignoreBaseline)
                 if not test:
                     mask = np.logical_and(w[None,:], ~oi[ext[f]][k]['FLAG'])
@@ -3100,51 +3125,68 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
                                          np.abs(oi[ext[f]][k][f]), err)
 
                     if ext[f] in oi and ext[f] in m:
-                        # -- sometimes computation of DPHI fails :(
-                        try:
-                            tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])/err[mask]
-                            tmp = tmp.flatten()
-                            res = np.append(res, tmp)
-                        except:
-                            print('!! residualsOI !!', ext[f], k, f, oi[ext[f]][k][f].shape,
-                                 m[ext[f]][k][f].shape, mask.shape, err.shape)
+                        tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])
+                        if not ignore is None:
+                            _i = i+np.arange(len(tmp))
+                            tmp /= (err[mask]*(1-ignore[_i]) + ignore[_i])
+                            #print('test', i, len(res), len(tmp))
+                            i += len(tmp)
+                        else:
+                            tmp /= err[mask]
+
+                        res = np.append(res, tmp.flatten())
+
+                        if fullOutput:
+                            for _m in mask:
+                                allwl = np.append(allwl, oi['WL'][_m])
+                            alldata  = np.append(alldata, oi[ext[f]][k][f][mask])
+                            allerr   = np.append(allerr, err[mask])
+                            allmodel = np.append(allmodel, m[ext[f]][k][f][mask])
+
+
+                            # print('!! residualsOI !!', ext[f], k, f, oi[ext[f]][k][f].shape,
+                            #      m[ext[f]][k][f].shape, mask.shape, err.shape)
 
                         if what:
                             #wh.extend([f+':'+k]*len(tmp))
                             if f=='T3PHI':
                                 if k!='all':
-                                    kk=''.join(['%s%s'%('+' if m[ext[f]][k]['formula'][0][ii]==1 else '-',
+                                    kk='|'.join(['%s%s'%('+' if m[ext[f]][k]['formula'][0][ii]==1 else '-',
                                                         m[ext[f]][k]['formula'][1][ii]) for ii in range(3)])
                                 else:
                                     kk = []
                                     for j in range(len(m[ext[f]][k]['formula'][0][0])):
-                                        s = ''
+                                        ss = []
                                         for ii in range(3):
                                             if m[ext[f]][k]['formula'][0][ii][j]==1:
-                                                s+='+'
+                                                s='+'
                                             else:
-                                                s+='-'
+                                                s='-'
                                             s+= m['OI_VIS']['all']['NAME'][m[ext[f]][k]['formula'][2+ii][j]]
-                                        if mask[j]:
-                                            kk.append(s)
+                                            ss.append(s)
+
+                                        for _m in mask[j]:
+                                            if _m:
+                                                kk.append('|'.join(ss))
                             else:
-                                kk = k
+                                #kk = k
+                                if k!='all':
+                                    kk = k
+                                else:
+                                    kk = []
+                                    for _j,_n in enumerate(oi[ext[f]][k]['NAME']):
+                                        kk.extend([_n]*sum(mask[_j,:]))
+
                             if not type(kk) is list:
-                                wh += [f+':'+kk+';MJD:%.4f'%x for x in oi[ext[f]][k]['MJD2'][mask].flatten()]
+                                wh += [f+':'+kk+';MJD:%.6f'%x for x in oi[ext[f]][k]['MJD2'][mask].flatten()]
                             else:
                                 for j,_k in enumerate(kk):
-                                    wh.append(f+':'+_k+';MJD:%.4f'%oi[ext[f]][k]['MJD2'][mask].flatten()[j])
+                                    wh.append(f+':'+_k+';MJD:%.6f'%oi[ext[f]][k]['MJD2'][mask].flatten()[j])
                     else:
                         res = np.append(res, (err[mask]*0+1).flatten())
                         if what:
                             wh.extend(['?']*len(err[mask].flatten()))
 
-                    # else:
-                    #     print('cannot compute residuals', f, ext[f], k, f,
-                    #             'data:', oi[ext[f]][k][f].shape,
-                    #             'errors:', err.shape,
-                    #             'model:', m[ext[f]][k][f].shape,
-                    #             )
                 else:
                     print('ignoring', ext[f], k)
                     pass
@@ -3161,8 +3203,19 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
             pass
         else:
             res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+            if fullOutput:
+                allwl    = np.append(allwl,    0.0*m['MODEL']['negativity'])
+                alldata  = np.append(alldata,  0.0*m['MODEL']['negativity'])
+                allerr   = np.append(allerr,   0.0*m['MODEL']['negativity']+1)
+                allmodel = np.append(allmodel, 0.0*m['MODEL']['negativity'])
+
     else:
         res = np.append(res, m['MODEL']['negativity']*np.sqrt(len(res)))
+        if fullOutput:
+            allwl    = np.append(allwl,    0.0*m['MODEL']['negativity'])
+            alldata  = np.append(alldata,  0.0*m['MODEL']['negativity'])
+            allerr   = np.append(allerr,   0.0*m['MODEL']['negativity']+1)
+            allmodel = np.append(allmodel, 0.0*m['MODEL']['negativity'])
 
     if what:
         wh.extend(['<0?'])
@@ -3171,13 +3224,33 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False):
         tmp = computePriorL(computeLambdaParams(param, MJD=np.mean(oi['MJD'])), oi['fit']['prior'])
         # -- approximate equal weight as rest of data
         res = np.append(res, tmp*np.sqrt(len(res)))
+        if fullOutput:
+            allwl    = np.append(allwl,    0.0*tmp)
+            alldata  = np.append(alldata,  0.0*tmp)
+            allerr   = np.append(allerr,   0.0*tmp+1)
+            allmodel = np.append(allmodel, 0.0*tmp)
+
         if what:
             wh.extend(['prior']*len(oi['fit']['prior']))
 
     if 'additional residuals' in param:
-        res = np.append(res, param['additional residuals'](computeLambdaParams(param, MJD=np.mean(oi['MJD']))))
+        tmp = param['additional residuals'](computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
+        res = np.append(res, tmp)
+        if fullOutput:
+            allwl    = np.append(allwl,    0.0*tmp)
+            alldata  = np.append(alldata,  0.0*tmp)
+            allerr   = np.append(allerr,   0.0*tmp+1)
+            allmodel = np.append(allmodel, 0.0*tmp)
 
-    if what:
+    # -- do not apply errors in case of correlations
+    if not correlations is None:
+        for k in correlations['rho']:
+            w = np.array(wh)==k
+            res[w] *= allerr[w]
+
+    if fullOutput:
+        return res, wh, allwl, alldata, allerr, allmodel
+    elif what:
         return res, wh
     else:
         return res
@@ -3417,7 +3490,8 @@ def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
-          onlyMJD=None, lowmemory=False, additionalRandomise=None):
+          onlyMJD=None, lowmemory=False, additionalRandomise=None,
+          correlations=None):
     """
     oi: a dict of list of dicts returned by oifits.loadOI
 
@@ -3495,10 +3569,24 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
 
+    if not correlations is None:
+        resi = residualsOI(tmp, {'ud':0}, fullOutput=True)
+        ignore = np.zeros(len(resi[0]))
+        for k in correlations['rho']:
+            w = np.where(np.array(resi[1])==k)
+            ignore[w] = 1
+        addKwargs = {'ignore':ignore}
+        #print(addKwargs)
+
+    else:
+        addKwargs = {}
+
+    #addKwargs = {}
     fit = dpfit.leastsqFit(residualsOI, tmp, firstGuess, z,
-                           verbose=bool(verbose),
+                           verbose=bool(verbose), correlations=correlations,
                            maxfev=maxfev, ftol=ftol, fitOnly=fitOnly,
-                           doNotFit=doNotFit, follow=follow, epsfcn=epsfcn)
+                           doNotFit=doNotFit, follow=follow, epsfcn=epsfcn,
+                           addKwargs=addKwargs)
 
     fit['prior'] = prior
     # -- fix az projangles and inclinations
