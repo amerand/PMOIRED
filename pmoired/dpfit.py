@@ -275,7 +275,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                verbose=False, doNotFit=[], epsfcn=1e-7,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
                follow=None, maxfev=5000, bounds={}, factor=100,
-               correlations=None):
+               correlations=None, addKwargs={}):
     """
     - params is a Dict containing the first guess.
 
@@ -325,7 +325,6 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         'invcov':{catg1:invcov1, catg2:invcov2, ...}
         }
 
-
     returns dictionary with:
     'best': bestparam,
     'uncer': uncertainties,
@@ -334,7 +333,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     'cov': covariance matrix (normalized if normalizedUncer)
     'fitOnly': names of the columns of 'cov'
     """
-    global Ncalls, pfitKeys, pfix, _func, trackP
+    global Ncalls, pfitKeys, pfix, _func, trackP, _addKwargs
     # -- fit all parameters by default
     if fitOnly is None:
         if len(doNotFit)>0:
@@ -378,6 +377,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             print('[dpfit] using scipy.optimize.curve_fit')
         # -- assumes err matrix is co-covariance
         _func = func
+        _addKwargs = addKwargs
         pfitKeys = fitOnly
         plsq, cov = scipy.optimize.curve_fit(_fitFunc2, x, y, pfit,
                         sigma=err, epsfcn=epsfcn, ftol=ftol)
@@ -389,16 +389,14 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                 print('[dpfit] using scipy.optimize.leastsq')
             plsq, cov, info, mesg, ier = \
                       scipy.optimize.leastsq(_fitFunc, pfit,
-                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,),
+                            args=(fitOnly,x,y,err,func,pfix,verbose,follow),
                             full_output=True, epsfcn=epsfcn, ftol=ftol,
                             maxfev=maxfev, factor=factor)
             info['exec time'] = time.time() - t0
             mesg = mesg.replace('\n', '')
         else:
-            method = 'L-BFGS-B'
-            #method = 'SLSQP'
-            #method = 'TNC'
-            #method = 'trust-constr'
+            #method = 'L-BFGS-B'
+            method = 'BFGS'
             if verbose:
                 print('[dpfit] using scipy.optimize.minimize (%s)'%method)
             Bounds = []
@@ -419,32 +417,41 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                             correlations['invcov'][c] = invCOVconstRho(_n, correlations['rho'][c])
                             correlations['invcov'][c] /= correlations['err'][c]**2
                         else:
-                            print('warning: cannot compute covariance for "'+str(c)+'"')
-                            correlations['err'][c] = err[correlations['catg']==c]
+                            #print('warning: cannot compute covariance for "'+str(c)+'"')
+                            #correlations['err'][c] = np.mean(err[correlations['catg']==c])
+                            pass
+
             result = scipy.optimize.minimize(_fitFuncMin, pfit,
                             tol=ftol, options={'maxiter':maxfev},
                             #bounds = Bounds, method=method,
-                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations)
+                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations, addKwargs)
                             )
             plsq = result.x
-            #try:
+
             cov = result.hess_inv
-            if not type(cov)==np.ndarray:
-                cov = 2.*cov.todense()/(len(y)-len(pfit)+1)
-            else:
-                cov = np.float64(cov)*2./(len(y)-len(pfit)+1)
-            # except:
-            #     # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
-            #     # Do Moore-Penrose inverse discarding zero singular values.
-            #     _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
-            #     threshold = np.finfo(float).eps * max(result.jac.shape) * s[0]
-            #     if verbose:
-            #         print('[dpfit] zeros in cov?', any(s<=threshold))
-            #     s = s[s > threshold]
-            #     VT = VT[:s.size]
-            #     cov = np.dot(VT.T / s**2, VT)
+
+            # # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
+            # # Do Moore-Penrose inverse discarding zero singular values.
+            # _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
+            # threshold = np.finfo(float).eps * max(result.jac.shape) * s[0]
+            # if verbose:
+            #     print('[dpfit] zeros in cov?', any(s<=threshold))
+            # s = s[s > threshold]
+            # VT = VT[:s.size]
+            # cov = np.dot(VT.T / s**2, VT)
             info = {'nfev':result.nfev, 'exec time':time.time()-t0}
             mesg, ier = result.message, None
+
+    # -- best fit -> agregate to pfix
+    for i,k in enumerate(fitOnly):
+        pfix[k] = plsq[i]
+    model = func(x,pfix)
+
+    if not correlations is None:
+        if not type(cov)==np.ndarray:
+            cov = 2.*cov.todense()/(len(model)-len(pfit)+1)
+        else:
+            cov = 2*cov/(len(model)-len(pfit)+1)
 
     if verbose:
         print('[dpfit]', mesg)
@@ -478,22 +485,16 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                 notsig.append(k)
         cov = np.zeros((len(fitOnly), len(fitOnly)))
 
-    # -- best fit -> agregate to pfix
-    for i,k in enumerate(fitOnly):
-        pfix[k] = plsq[i]
-
-    # -- reduced chi2
-    model = func(x,pfix)
     # -- residuals
     if not correlations is None:
-        ndof = len(y)-len(pfit)+1
-        chi2 = result.fun*ndof
-        reducedChi2 = chi2/ndof
+        ndof = len(model)-len(pfit)+1
+        reducedChi2 = result.fun
+        chi2 = reducedChi2*ndof
     elif np.iterable(err) and len(np.array(err).shape)==2:
         # -- assumes err matrix is co-covariance
         r = y - model
         chi2 = np.dot(np.dot(np.transpose(r), np.linalg.inv(err)), r)
-        ndof = len(y)-len(pfit)+1
+        ndof = len(x)-len(pfit)+1
         reducedChi2 = chi2/ndof
     else:
         tmp = _fitFunc(plsq, fitOnly, x, y, err, func, pfix)
@@ -503,17 +504,20 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             chi2=0.0
             for x in tmp:
                 chi2+=np.sum(x**2)
-
-        ndof = np.sum([1 if np.isscalar(i) else len(i) for i in tmp])-len(pfit)+1
+        try:
+            ndof = len(model)-len(pfit)+1
+        except:
+            ndof = np.sum([1 if np.isscalar(i) else len(i) for i in tmp])-len(pfit)+1
         reducedChi2 = chi2/ndof
         if not np.isscalar(reducedChi2):
             reducedChi2 = np.mean(reducedChi2)
 
     if normalizedUncer:
         try:
+            #print('\033[42m[normalising uncertainties]\033[0m')
             cov *= reducedChi2
         except:
-            pass
+            print('\033[41m[failed to normalise uncertainties]\033[0m')
 
     # -- uncertainties:
     uncer = {}
@@ -861,7 +865,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
     return res
 
 def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False,
-                follow=None, correlations=None):
+                follow=None, correlations=None, addKwargs={}):
     """
     interface  scipy.optimize.minimize:
     - x,y,err are the data to fit: f(x) = y +- err
@@ -886,6 +890,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         }
 
     """
+    #print('_fitFuncMin', type(err))
     global verboseTime, Ncalls, trackP
     Ncalls+=1
 
@@ -900,17 +905,21 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         err = np.ones(np.array(y).shape)
 
     # -- compute residuals
-    if type(y)==np.ndarray and type(err)==np.ndarray:
-        model = func(x,params)
-        res= ((np.array(y)-model)/err).flatten()
+    if (type(y)==np.ndarray and type(err)==np.ndarray) or \
+        np.isscalar(y):
+        model = func(x, params, **addKwargs)
+        if not err is None:
+            res = ((np.array(y)-model)/err).flatten()
+        else:
+            res = (np.array(y)-model).flatten()
+
     else:
         # much slower: this time assumes y (and the result from func) is
         # a list of things, each convertible in np.array
         res = []
-        tmp = func(x,params)
+        tmp = func(x, params, **addKwargs)
         if np.isscalar(err):
-            err = 0*y + err
-        #print 'DEBUG:', tmp.shape, y.shape, err.shape
+            err = 0*res + err
 
         for k in range(len(y)):
             df = (np.array(tmp[k])-np.array(y[k]))/np.array(err[k])
@@ -943,6 +952,7 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         # -- take into correlations using "correlations" dict
         chi2 = 0
         res = np.array(res)
+        err = None
         for c in set(correlations['catg']):
             w = np.array(correlations['catg'])==c
             if c in correlations['invcov']:
@@ -950,7 +960,10 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
             elif c in correlations['err']:
                 chi2 += np.sum(res[w]**2/correlations['err'][c]**2)
             else:
-                chi2 += np.sum(res[w]**2/err[w]**2)
+                if err is None:
+                    chi2 += np.sum(res[w]**2)
+                else:
+                    chi2 += np.sum(res[w]**2/err[w]**2)
         # -- reduced chi2
         chi2 /= float(len(res)-len(pfit)+1)
 
@@ -963,6 +976,15 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         else:
             _follow = list(filter(lambda x: x in params.keys(), follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
+    for i,k in enumerate(pfitKeys):
+        if not k in trackP:
+            trackP[k] = [pfit[i]]
+        else:
+            trackP[k].append(pfit[i])
+    if not 'reduced chi2' in trackP:
+        trackP['reduced chi2'] = [chi2]
+    else:
+        trackP['reduced chi2'].append(chi2)
     return chi2
 
 
@@ -1091,7 +1113,11 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
             formatS = pre+formatS
         if uncer[k]>0:
             if uncerp is None:
-                ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+                if uncer[k]>0 and np.isfinite(uncer[k]):
+                    ndigit = max(-int(np.log10(uncer[k]))+2, 0)
+                else:
+                    ndigit = 1
+
                 if asDict:
                     fmt = '%.'+str(ndigit)+'f, # +/- %.'+str(ndigit)+'f'
                 else:

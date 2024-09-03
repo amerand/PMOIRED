@@ -1,4 +1,4 @@
-from pmoired import oimodels, oifits, oifake, oicorr
+from pmoired import oimodels, oifits, oifake, oicorr, chi2map
 
 import multiprocessing
 try:
@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.2.8'
+__version__= '1.2.9'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -114,6 +114,7 @@ class OI:
         self._model = []
         self.data = []
         self.dMJD = dMJD
+        self._correlations = None
         if type(filenames)==str and filenames.endswith('.pmrd'):
             print('loading session saved in', filenames)
             self.load(filenames)
@@ -463,7 +464,7 @@ class OI:
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto',
               verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
-              prior=None, autoPrior=True, factor=100, correlations=False):
+              prior=None, autoPrior=True, factor=100):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -483,6 +484,12 @@ class OI:
         """
         if not all(['fit' in d for d in self.data]):
             raise Exception('define fit context with "setupFit" first!')
+
+        # -- warning: "correlations"" is global (i.e. applies to all data)!
+        if any(['fit' in d and 'correlations' in d['fit'] and d['fit']['correlations'] for d in self.data]):
+            correlations = True
+        else:
+            correlations = False
 
         if not prior is None:
             #assert _checkPrior(prior), 'ill formed "prior"'
@@ -506,17 +513,27 @@ class OI:
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
         if correlations:
-            tmp = oimodels.residualsOI(self._merged, {'ud':0}, fullOutput=True, what=True)
-            print('len(tmp)', len(tmp))
-            self.correlations = oicorr.corrSpectra(tmp)
+            # -- this is going to be very slow for bootstrapping :(
+            _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
+            #print('len(tmp)', len(tmp))
+            self._correlations = oicorr.corrSpectra(_tmp)
+            # -- test
+            # print('\033[41mDEBUG: setting all correlations to 0\033[0m')
+            # for k in self._correlations['rho']:
+            #    self._correlations['rho'][k] = 0.0
+            #
+            #rhomax = 0.99
+            #print('\033[41mDEBUG: rho limited to %f\033[0m'%rhomax)
+            #for k in self._correlations['rho']:
+            #   self._correlations['rho'][k] = min(self._correlations['rho'][k], rhomax)
         else:
-            self.correlations = None
+            self._correlations = None
 
         self.bestfit = oimodels.fitOI(self._merged, model, fitOnly=fitOnly,
                                       doNotFit=doNotFit, verbose=verbose,
                                       maxfev=maxfev, ftol=ftol, epsfcn=epsfcn,
                                       follow=follow, factor=factor, prior=prior,
-                                      correlations=self.correlations)
+                                      correlations=self._correlations)
         if verbose:
             if len(self.bestfit['not significant']):
                 print('\033[31mWARNING: thiese parameters do not change the chi2!:', end=' ')
@@ -980,7 +997,8 @@ class OI:
                                             keepFlux=keepFlux, verbose=verbose,
                                             strongMJD=strongMJD, randomiseParam=randomiseParam,
                                             additionalRandomise=additionalRandomise,
-                                            sigmaClipping=None)
+                                            sigmaClipping=None,
+                                            correlations=self._correlations)
         if not additionalRandomise is None:
             additionalRandomise(False)
         return
@@ -2080,7 +2098,9 @@ def _checkSetupFit(fit):
             'prior':list,
             'DPHI order':int,
             'N|V| order':int,
-            'NFLUX order': int}
+            'NFLUX order': int,
+            'correlations':bool,
+    }
     ok = True
     if not 'obs' in fit:
         raise Exception('list of observables should be defined (see method setupFit)')

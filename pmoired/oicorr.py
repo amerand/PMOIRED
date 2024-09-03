@@ -2,7 +2,7 @@ from pmoired import oimodels, dpfit
 import numpy as np
 import matplotlib.pyplot as plt
 
-def varVsErr(y, e, x=None, n=2, verbose=0, fig=None, normalised=True):
+def varVsErr(y, e, x=None, n=2, verbose=0, fig=None, normalised=False):
     """
     compare the variance in a data vector 'y' (as function of optional 'x') with error 'e':
     perform a polynomial fit of order 'n' (default 2) and compare the variance of the residuals
@@ -93,7 +93,7 @@ def corrSpectra(res):
         #print(T, tags)
         for t in tags:
             w = np.where(_wh==t)
-            tmp = varVsErr(data[w], err[w], wl[w], normalised=True)
+            tmp = varVsErr(data[w], err[w], wl[w], normalised=False)
             corr['rho'][t] = float(tmp['rho'])
             corr['err'][t] = float(tmp['err'])
 

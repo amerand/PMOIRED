@@ -2972,7 +2972,7 @@ def computePriorL(param, prior):
     return np.array(res)
 
 def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=False,
-                correlations=None, ignore=None, _i0=0):
+                correlations=None, ignoreErr=None, _i0=0):
     """
     assumes dict OI has a key "fit" which list observable to fit:
 
@@ -2988,11 +2988,11 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
         fullOutput = True
 
     if fullOutput:
-        allwl = np.array([])
-        alldata = np.array([])
-        allerr = np.array([])
+        allwl    = np.array([])
+        alldata  = np.array([])
+        allerr   = np.array([])
         allmodel = np.array([])
-        what = True
+        what     = True
 
     if what:
         wh = []
@@ -3001,7 +3001,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
         for i,o in enumerate(oi):
             if what:
                 tmp = residualsOI(o, param, timeit=timeit, what=True,
-                                  fullOutput=fullOutput, ignore=ignore,
+                                  fullOutput=fullOutput, ignoreErr=ignoreErr,
                                   correlations=correlations)
                 res = np.append(res, tmp[0])
                 wh += tmp[1]
@@ -3016,7 +3016,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                                                 timeit=timeit,
                                                 what=what,
                                                 debug=debug,
-                                                ignore=ignore,
+                                                ignoreErr=ignoreErr,
                                                 _i0=len(res)))
         if fullOutput:
             return res, wh, allwl, alldata, allerr, allmodel
@@ -3126,9 +3126,9 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
 
                     if ext[f] in oi and ext[f] in m:
                         tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])
-                        if not ignore is None:
+                        if not ignoreErr is None:
                             _i = i+np.arange(len(tmp))
-                            tmp /= (err[mask]*(1-ignore[_i]) + ignore[_i])
+                            tmp /= (err[mask]*(1-ignoreErr[_i]) + ignoreErr[_i])
                             #print('test', i, len(res), len(tmp))
                             i += len(tmp)
                         else:
@@ -3242,7 +3242,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
             allerr   = np.append(allerr,   0.0*tmp+1)
             allmodel = np.append(allmodel, 0.0*tmp)
 
-    # -- do not apply errors in case of correlations
+    # -- do not apply errors in case of correlations, will use ignoreErr later!
     if not correlations is None:
         for k in correlations['rho']:
             w = np.array(wh)==k
@@ -3560,24 +3560,25 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
             for o in oi: # for each datasets
                 MJD.extend(o['MJD'])
             MJD = set(MJD)
-            onlyMJD = random.sample(MJD, len(MJD)//2)
+            onlyMJD = sorted(random.sample(MJD, len(MJD)//2))
         else:
             onlyMJD = None
         tmp = randomiseData2(oi, verbose=False, keepFlux=keepFlux,
                              onlyMJD=onlyMJD)
+        # -- TODO: track the resampling and apply it to the correlation "catg"
+        # not sure how to do it, maybe have randomiseData2 returns a resampling vector?
     z = 0.0
     if fitOnly is None and doNotFit is None:
         fitOnly = list(firstGuess.keys())
 
     if not correlations is None:
-        resi = residualsOI(tmp, {'ud':0}, fullOutput=True)
-        ignore = np.zeros(len(resi[0]))
+        # -- need to ignore errors
+        resi = residualsOI(tmp, firstGuess, fullOutput=True, )
+        ignoreErr = np.zeros(len(resi[0]))
         for k in correlations['rho']:
             w = np.where(np.array(resi[1])==k)
-            ignore[w] = 1
-        addKwargs = {'ignore':ignore}
-        #print(addKwargs)
-
+            ignoreErr[w] = 1.0
+        addKwargs = {'ignoreErr':ignoreErr}
     else:
         addKwargs = {}
 
@@ -4336,7 +4337,8 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
 
 def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, chi2MaxClipping=None,
                     multi=True, prior=None, keepFlux=False, verbose=2,
-                    strongMJD=False, randomiseParam=True, additionalRandomise=None):
+                    strongMJD=False, randomiseParam=True, additionalRandomise=None,
+                    correlations=None):
     """
     randomised draw data and perform N fits. Some parameters of the fitting engine can be changed,
     but overall the fitting context is the same as the last fit which was run.
@@ -4393,7 +4395,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
               'randomise':True, 'prior':prior, 'iter':-1,
               'keepFlux':keepFlux, 'onlyMJD':strongMJD, 'lowmemory':True,
-              'additionalRandomise': additionalRandomise}
+              'additionalRandomise': additionalRandomise,
+              'correlations':correlations}
     res = []
     t = time.time()
     if multi:
