@@ -2,7 +2,7 @@ from pmoired import oimodels, dpfit
 import numpy as np
 import matplotlib.pyplot as plt
 
-def varVsErr(y, e, x=None, n=2, verbose=0, fig=None, normalised=False):
+def varVsErr(y, e, x=None, n='auto', verbose=0, fig=None, normalised=False):
     """
     compare the variance in a data vector 'y' (as function of optional 'x') with error 'e':
     perform a polynomial fit of order 'n' (default 2) and compare the variance of the residuals
@@ -16,10 +16,26 @@ def varVsErr(y, e, x=None, n=2, verbose=0, fig=None, normalised=False):
     """
     if x is None:
         x = np.linspace(-1, 1, len(y))
-    p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/np.ptp(x)**i for i in range(n+1)}
-    p['A0'] = np.mean(y)
 
-    fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
+    if type(n)==int:
+        p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/np.ptp(x)**i for i in range(n+1)}
+        p['A0'] = np.mean(y)
+        fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
+    elif n=='auto':
+        j=1
+        test = True
+        chi2 = 0
+        while test:
+            p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/np.ptp(x)**i for i in range(j+1)}
+            p['A0'] = np.mean(y)
+            fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
+            if chi2==0:
+                chi2 = fit['chi2']
+            else:
+                test = (chi2-fit['chi2'])/chi2 > 0.05 and j<(len(y)//3)
+                chi2 = fit['chi2']
+            j+=1
+
     rho = 1 - np.std(y-fit['model'])**2/np.median(e)**2
     rho = min(rho,1)
     if rho<0:
@@ -88,7 +104,7 @@ def corrSpectra(res):
     resi, wh, wl, data, err, models = res
     _wh = np.array(wh)
     corr = {'catg':_wh, 'rho':{}, 'err':{}}
-    for T in ['V2', '|V|']:
+    for T in ['V2', '|V|', 'T3PHI']:
         tags = set(filter(lambda x: x.startswith(T), wh))
         #print(T, tags)
         for t in tags:
@@ -96,5 +112,6 @@ def corrSpectra(res):
             tmp = varVsErr(data[w], err[w], wl[w], normalised=False)
             corr['rho'][t] = float(tmp['rho'])
             corr['err'][t] = float(tmp['err'])
+
 
     return corr
