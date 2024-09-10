@@ -16,9 +16,11 @@ def varVsErr(y, e, x=None, n='auto', verbose=0, fig=None, normalised=False):
     """
     if x is None:
         x = np.linspace(-1, 1, len(y))
-
+    ptpx = np.ptp(x)
+    if ptpx==0:
+        ptpx = 1
     if type(n)==int:
-        p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/np.ptp(x)**i for i in range(n+1)}
+        p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/ptpx**i for i in range(n+1)}
         p['A0'] = np.mean(y)
         fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
     elif n=='auto':
@@ -26,28 +28,35 @@ def varVsErr(y, e, x=None, n='auto', verbose=0, fig=None, normalised=False):
         test = True
         chi2 = 0
         while test:
-            p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/np.ptp(x)**i for i in range(j+1)}
+            p = {'A%d'%i:0.1*np.ptp(y)*np.random.rand()/ptpx**i for i in range(j+1)}
             p['A0'] = np.mean(y)
             fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
             if chi2==0:
                 chi2 = fit['chi2']
             else:
-                test = (chi2-fit['chi2'])/chi2 > 0.05 and j<(len(y)//3)
+                test = (chi2-fit['chi2'])/chi2 > 0.01 and j<(len(y)//2)
                 chi2 = fit['chi2']
             j+=1
+        n = j-1
 
+    # -- how to justify this? was done numerically...
     rho = 1 - np.std(y-fit['model'])**2/np.median(e)**2
     rho = min(rho,1)
-    if rho<0:
+
+    if rho<=0: # -> means data variance is same as uncertainty
         if normalised:
-            res = {'rho':0, 'err': np.std(y-fit['model'])/np.median(e)}
+            res = {'rho':0, 'err':np.std(y-fit['model'])/np.median(e),
+                   'poly':fit['best'], 'x0':np.mean(x)}
         else:
-            res = {'rho':0, 'err': np.std(y-fit['model'])}
+            res = {'rho':0, 'err':np.std(y-fit['model']),
+                   'poly':fit['best'], 'x0':np.mean(x)}
     else:
         if normalised:
-            res = {'rho':rho, 'err':1}
+            res = {'rho':rho, 'err':1,
+                   'poly':fit['best'], 'x0':np.mean(x)}
         else:
-            res = {'rho':rho, 'err':np.median(e)}
+            res = {'rho':rho, 'err': np.median(e),
+                   'poly':fit['best'], 'x0':np.mean(x)}
 
     # -- check
     if not fig is None:
@@ -55,7 +64,7 @@ def varVsErr(y, e, x=None, n='auto', verbose=0, fig=None, normalised=False):
     if verbose:
         corr = {'catg':np.ones(len(y)),
                 'rho':{1:res['rho']},
-                'err':{1:res['err']}
+                'err':{1:res['err']},
                }
         fitc = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0,
                                         correlations=corr)
@@ -101,17 +110,18 @@ def corrSpectra(res):
 
     return a
     """
-    resi, wh, wl, data, err, models = res
+    resi, wh, wl, data, err, models, ins = res
     _wh = np.array(wh)
-    corr = {'catg':_wh, 'rho':{}, 'err':{}}
+    corr = {'catg':_wh, 'rho':{}, 'err':{}, 'poly':{}, 'x0':{}}
     for T in ['V2', '|V|', 'T3PHI']:
         tags = set(filter(lambda x: x.startswith(T), wh))
         #print(T, tags)
         for t in tags:
             w = np.where(_wh==t)
             tmp = varVsErr(data[w], err[w], wl[w], normalised=False)
-            corr['rho'][t] = float(tmp['rho'])
-            corr['err'][t] = float(tmp['err'])
-
-
+            if tmp['rho']>0:
+                corr['rho'][t] = float(tmp['rho'])
+                corr['err'][t] = float(tmp['err'])
+                corr['poly'][t] = tmp['poly']
+                corr['x0'][t] = tmp['x0']
     return corr

@@ -378,6 +378,9 @@ class OI:
 
         'ignore negative flux':bool. Default is False
 
+        'correlations':True takes into account spectral correlations, can be a dict
+            with correlations per observables
+
         example: oi.setupFit({'obs':['V2', 'T3PHI'], 'max error':{'T3PHI':10}})
           to fit V2 and T3PHI data, reject data with errors in T3PHI>10 degrees
         """
@@ -464,7 +467,8 @@ class OI:
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto',
               verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
-              prior=None, autoPrior=True, factor=100):
+              prior=None, autoPrior=True, factor=100, _zeroCorrelations=False,
+              _maxRho=1):
         """
         model: a dictionnary describing the model
         fitOnly: list of parameters to fit (default: all)
@@ -486,7 +490,10 @@ class OI:
             raise Exception('define fit context with "setupFit" first!')
 
         # -- warning: "correlations"" is global (i.e. applies to all data)!
-        if any(['fit' in d and 'correlations' in d['fit'] and d['fit']['correlations'] for d in self.data]):
+        if any(['fit' in d and 'correlations' in d['fit'] and
+            ((type(d['fit']['correlations'])==bool and d['fit']['correlations']) or
+            (type(d['fit']['correlations'])==dict and d['fit']['correlations']!={})) for d in self.data]):
+            print('\033[41musing correlations\033[0m')
             correlations = True
         else:
             correlations = False
@@ -501,7 +508,7 @@ class OI:
                 model = self.bestfit['best']
                 if doNotFit=='auto':
                     doNotFit = self.bestfit['doNotFit']
-                    fitOnly = self.bestfit['fitOnly']
+                    fitOnly =  self.bestfit['fitOnly']
             except:
                 #assert True, ' first guess as "model={...}" should be provided'
                 raise Exception(' first guess as "model={...}" should be provided')
@@ -515,17 +522,30 @@ class OI:
         if correlations:
             # -- this is going to be very slow for bootstrapping :(
             _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
-            #print('len(tmp)', len(tmp))
             self._correlations = oicorr.corrSpectra(_tmp)
-            # -- test
-            # print('\033[41mDEBUG: setting all correlations to 0\033[0m')
-            # for k in self._correlations['rho']:
-            #    self._correlations['rho'][k] = 0.0
-            #
-            #rhomax = 0.99
-            #print('\033[41mDEBUG: rho limited to %f\033[0m'%rhomax)
-            #for k in self._correlations['rho']:
-            #   self._correlations['rho'][k] = min(self._correlations['rho'][k], rhomax)
+
+            # -- check if correlations levels were given by user
+            for _m in self._merged:
+                if 'correlations' in _m['fit'] and type(_m['fit']['correlations'])==dict:
+                    for k in _m['fit']['correlations']:
+                        _w = np.where((_tmp[6]==_m['insname'])*np.array([x.startswith(k) for x in _tmp[1]]))
+                        for o in set(np.array(_tmp[1])[_w]):
+                            if o in self._correlations['rho']:
+                                self._correlations['rho'][o] = _m['fit']['correlations'][k]
+                            if o in self._correlations['poly']:
+                                self._correlations['poly'][o] = None
+
+
+            if _zeroCorrelations:
+                # force to use the minimizing algo from correlations, without correlations
+                # should give the same results as no correlations!
+                print('\033[41mDEBUG: setting all correlations to 0\033[0m')
+                for k in list(self._correlations['rho'].keys()):
+                   self._correlations['rho'].pop(k)
+                   self._correlations['err'].pop(k)
+
+            for k in self._correlations['rho']:
+                self._correlations['rho'][k] = min(self._correlations['rho'][k], _maxRho)
         else:
             self._correlations = None
 
@@ -826,6 +846,15 @@ class OI:
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
 
+        # -- warning: "correlations"" is global (i.e. applies to all data)!
+        if any(['fit' in d and 'correlations' in d['fit'] and
+            ((type(d['fit']['correlations'])==bool and d['fit']['correlations']) or
+            (d['fit']['correlations']!={})) for d in self.data]):
+
+            correlations = True
+        else:
+            correlations = False
+
         if model is None and not self.bestfit=={}:
             model = self.bestfit['best']
             if doNotFit is None:
@@ -853,11 +882,21 @@ class OI:
 
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
+        if correlations:
+            # -- this is going to be very slow for bootstrapping :(
+            _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
+            #print('len(tmp)', len(tmp))
+            self._correlations = oicorr.corrSpectra(_tmp)
+
+        else:
+            self._correlations = None
+
         self.grid = oimodels.gridFitOI(self._merged, model, expl, Nfits,
                                        fitOnly=fitOnly, doNotFit=doNotFit,
                                        maxfev=maxfev, ftol=ftol, multi=multi,
                                        epsfcn=epsfcn, constrain=constrain,
-                                       prior=prior, verbose=verbose)
+                                       prior=prior, verbose=verbose,
+                                       correlations=self._correlations)
         self._expl = expl
         self.grid = oimodels.analyseGrid(self.grid, self._expl, verbose=verbose,
                                          deltaChi2=deltaChi2)
@@ -2099,7 +2138,8 @@ def _checkSetupFit(fit):
             'DPHI order':int,
             'N|V| order':int,
             'NFLUX order': int,
-            'correlations':bool,
+            'correlations': (bool, dict),
+
     }
     ok = True
     if not 'obs' in fit:
@@ -2113,6 +2153,10 @@ def _checkSetupFit(fit):
         if not k in keys.keys():
             print('!WARNING! unknown fit setup "'+k+'"')
             ok = False
+        elif type(keys[k]) == tuple:
+            if not type(fit[k]) in keys[k]:
+                print('!WARNING! fit setup "'+k+'" should be one of types', keys[k])
+                ok = False
         elif type(fit[k]) != keys[k]:
             print('!WARNING! fit setup "'+k+'" should be of type', keys[k])
             ok = False
@@ -2140,7 +2184,9 @@ def _checkPrior(prior):
 
 def _recsizeof(s):
     """
-    recursive size of s (useful for debugging!)
+    recursive size (in Bytes) of s (useful for debugging!)
+
+    divide by 1024**2 for megabytes
     """
     if type(s)==dict:
         tmp = sys.getsizeof(s)

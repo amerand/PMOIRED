@@ -2511,11 +2511,9 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 err = None
             if np.sum(mask)>order:
                 if not err is None:
-                    c = np.polyfit(oi['WL'][mask], phi[mask],
-                                    order, w=1/err[mask])
+                    c = np.polyfit(oi['WL'][mask], phi[mask], order, w=1/err[mask])
                 else:
-                    c = np.polyfit(oi['WL'][mask], phi[mask],
-                                    order)
+                    c = np.polyfit(oi['WL'][mask], phi[mask]. order)
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
                 # -- not polynomial fit, use median
@@ -2992,6 +2990,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
         alldata  = np.array([])
         allerr   = np.array([])
         allmodel = np.array([])
+        allins   = np.array([])
         what     = True
 
     if what:
@@ -3010,6 +3009,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                     alldata  = np.append(alldata,  tmp[3])
                     allerr   = np.append(allerr,   tmp[4])
                     allmodel = np.append(allmodel, tmp[5])
+                    allins   = np.append(allins,   tmp[6])
 
             else:
                 res = np.append(res, residualsOI(o, param,
@@ -3019,7 +3019,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                                                 ignoreErr=ignoreErr,
                                                 _i0=len(res)))
         if fullOutput:
-            return res, wh, allwl, alldata, allerr, allmodel
+            return res, wh, allwl, alldata, allerr, allmodel, allins
         elif what:
             return res, wh
         else:
@@ -3194,6 +3194,14 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
             #print('')
         else:
             print('WARNING: unknown observable:', f)
+
+    # -- do not apply errors in case of correlations, will use ignoreErr later!
+    if not correlations is None:
+        for k in correlations['rho']:
+            if correlations['rho'][k]>0:
+                w = np.array(wh)==k
+                res[w] *= allerr[w]
+
     if timeit:
         print('residualsOI > "res": %.3fms'%(1000*(time.time()-t0)))
         print('residualsOI > total: %.3fms'%(1000*(time.time()-tt)))
@@ -3241,15 +3249,11 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
             alldata  = np.append(alldata,  0.0*tmp)
             allerr   = np.append(allerr,   0.0*tmp+1)
             allmodel = np.append(allmodel, 0.0*tmp)
-
-    # -- do not apply errors in case of correlations, will use ignoreErr later!
-    if not correlations is None:
-        for k in correlations['rho']:
-            w = np.array(wh)==k
-            res[w] *= allerr[w]
+        if what:
+            wh.extend(['add. res.']*len(tmp))
 
     if fullOutput:
-        return res, wh, allwl, alldata, allerr, allmodel
+        return res, wh, allwl, alldata, allerr, allmodel, np.array([oi['insname']]*len(res))
     elif what:
         return res, wh
     else:
@@ -3478,14 +3482,16 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
           randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
-          onlyMJD=None, lowmemory=False, additionalRandomise=None):
-    try:
+          onlyMJD=None, lowmemory=False, additionalRandomise=None,
+          correlations=None):
+    #try:
         return fitOI(oi, firstGuess, fitOnly, doNotFit, verbose,
               maxfev, ftol, follow, prior, factor,
               randomise, iter, obs, epsfcn, keepFlux,
-              onlyMJD, lowmemory, additionalRandomise)
-    except:
-        return {}
+              onlyMJD, lowmemory, additionalRandomise,
+              correlations=correlations)
+    #except:
+    #    return {}
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
@@ -3573,11 +3579,12 @@ def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
 
     if not correlations is None:
         # -- need to ignore errors
-        resi = residualsOI(tmp, firstGuess, fullOutput=True, )
+        resi = residualsOI(tmp, firstGuess, fullOutput=True)
         ignoreErr = np.zeros(len(resi[0]))
         for k in correlations['rho']:
-            w = np.where(np.array(resi[1])==k)
-            ignoreErr[w] = 1.0
+            if correlations['rho'][k]>0:
+                w = np.where(np.array(resi[1])==k)
+                ignoreErr[w] = 1.0
         addKwargs = {'ignoreErr':ignoreErr}
     else:
         addKwargs = {}
@@ -3847,7 +3854,7 @@ def progress(results=None, finish=False):
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
               maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
               dLimParam=None, dLimSigma=3, debug=False, constrain=None,
-              prior=None, verbose=2):
+              prior=None, verbose=2, correlations=None):
     """
     perform "N" fit on "oi", starting from "param", with grid / randomised
     parameters. N can be determined from "expl" if
@@ -3931,7 +3938,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     # -- run all fits
     kwargs = {'maxfev':maxfev, 'ftol':ftol, 'verbose':False,
               'fitOnly':fitOnly, 'doNotFit':doNotFit, 'epsfcn':epsfcn,
-              'iter':-1, 'prior':prior, 'lowmemory':True}
+              'iter':-1, 'prior':prior, 'lowmemory':True,
+              'correlations':correlations}
     res = []
     _prog_N = 1
     _prog_Nmax = N
