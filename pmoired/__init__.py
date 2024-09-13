@@ -466,7 +466,7 @@ class OI:
         return prior
 
     def doFit(self, model=None, fitOnly=None, doNotFit='auto',
-              verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-8, follow=None,
+              verbose=2, maxfev=10000, ftol=1e-5, epsfcn=1e-6, follow=None,
               prior=None, autoPrior=True, factor=100, _zeroCorrelations=False,
               _maxRho=1):
         """
@@ -493,7 +493,7 @@ class OI:
         if any(['fit' in d and 'correlations' in d['fit'] and
             ((type(d['fit']['correlations'])==bool and d['fit']['correlations']) or
             (type(d['fit']['correlations'])==dict and d['fit']['correlations']!={})) for d in self.data]):
-            print('\033[41musing correlations\033[0m')
+            #print('\033[41musing correlations\033[0m')
             correlations = True
         else:
             correlations = False
@@ -534,7 +534,6 @@ class OI:
                                 self._correlations['rho'][o] = _m['fit']['correlations'][k]
                             if o in self._correlations['poly']:
                                 self._correlations['poly'][o] = None
-
 
             if _zeroCorrelations:
                 # force to use the minimizing algo from correlations, without correlations
@@ -586,6 +585,9 @@ class OI:
 
     def _chi2FromModel(self, model=None, prior=None, autoPrior=True, reduced=True,
                        ndof=None, nfit=None, debug=False):
+        """
+        WARNING: does not take into correlations!
+        """
         if not prior is None:
             #assert _checkPrior(prior), 'ill formed "prior"'
             if not _checkPrior(prior):
@@ -604,12 +606,44 @@ class OI:
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
+
+        # -- warning: "correlations"" is global (i.e. applies to all data)!
+        if any(['fit' in d and 'correlations' in d['fit'] and
+            ((type(d['fit']['correlations'])==bool and d['fit']['correlations']) or
+            (type(d['fit']['correlations'])==dict and d['fit']['correlations']!={})) for d in self.data]):
+            #print('\033[41musing correlations\033[0m')
+            correlations = True
+        else:
+            correlations = False
+
+        if correlations:
+            # -- this is going to be very slow for bootstrapping :(
+            _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
+            self._correlations = oicorr.corrSpectra(_tmp)
+
+            # -- check if correlations levels were given by user
+            for _m in self._merged:
+                if 'correlations' in _m['fit'] and type(_m['fit']['correlations'])==dict:
+                    for k in _m['fit']['correlations']:
+                        _w = np.where((_tmp[6]==_m['insname'])*np.array([x.startswith(k) for x in _tmp[1]]))
+                        for o in set(np.array(_tmp[1])[_w]):
+                            if o in self._correlations['rho']:
+                                self._correlations['rho'][o] = _m['fit']['correlations'][k]
+                            if o in self._correlations['poly']:
+                                self._correlations['poly'][o] = None
+
+        else:
+            self._correlations = None
+
         for m in self._merged:
             if 'fit' in m:
                 m['fit']['prior'] = prior
             else:
                 m['fit'] = {'prior':prior}
-        tmp = oimodels.residualsOI(self._merged, model, debug=debug)
+        tmp = oimodels.residualsOI(self._merged, model, debug=debug,
+                                   #correlations=self._correlations
+                                   )
+        #print('type(tmp)', type(tmp), len(tmp))
         #return np.sum(tmp**2)/(len(tmp)-len(model)+1)
         if reduced:
             if ndof is None and not nfit is None:
@@ -874,7 +908,7 @@ class OI:
         if ftol is None:
             ftol=1e-5
         if epsfcn is None:
-            epsfcn=1e-8
+            epsfcn=1e-6
 
         #assert not model is None, 'first guess should be provided: model={...}'
         if model is None:
@@ -888,6 +922,16 @@ class OI:
             #print('len(tmp)', len(tmp))
             self._correlations = oicorr.corrSpectra(_tmp)
 
+            # -- check if correlations levels were given by user
+            for _m in self._merged:
+                if 'correlations' in _m['fit'] and type(_m['fit']['correlations'])==dict:
+                    for k in _m['fit']['correlations']:
+                        _w = np.where((_tmp[6]==_m['insname'])*np.array([x.startswith(k) for x in _tmp[1]]))
+                        for o in set(np.array(_tmp[1])[_w]):
+                            if o in self._correlations['rho']:
+                                self._correlations['rho'][o] = _m['fit']['correlations'][k]
+                            if o in self._correlations['poly']:
+                                self._correlations['poly'][o] = None
         else:
             self._correlations = None
 
@@ -1663,7 +1707,7 @@ class OI:
 
     def sparseFitFluxes(self, firstGuess, N={}, initFlux={}, refFlux=None,
                     significance=3.5, fitOnly=None, doNotFit=None,
-                    maxfev=5000, ftol=1e-3, epsfcn=1e-8, prior=[]):
+                    maxfev=5000, ftol=1e-5, epsfcn=1e-6, prior=[]):
         """
         Sparse Discrete Wavelet Transform to model spectrum of components.
 

@@ -249,7 +249,6 @@ def _ti2campbell(ti, c=None, deg=True):
     else:
         return {'a':a, 'omega':omega, 'OMEGA':OMEGA, 'incl':incl}
 
-
 def _campbell2ti(c):
     """
     Campbell {'incl':,'omega':,'OMEGA':,'a':} to Thiele-Innes parameters {'A':,'B':,'G':,'F':}
@@ -2341,6 +2340,13 @@ def computeLambdaParams(params, MJD=0):
                         elif s+'MJD' in tmp and not s in tmp.replace(s+'MJD', ''):
                             # -- no more replacement
                             compute = True
+                    for kp in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
+                        if kp in tmp and not s+kp in tmp:
+                            raise Exception('missing '+s+' for '+kp+' in {'+
+                                "'"+_k+'": "'+paramsI[k]+'"}?')
+                    #if s in tmp:
+                    #    raise Exception('unknow parameters definition in {'+
+                    #        "'"+_k+'": "'+paramsI[k]+'"}?')
 
                 # -- are there still un-computed parameters?
                 for _k in paramsI.keys():
@@ -2356,9 +2362,8 @@ def computeLambdaParams(params, MJD=0):
                         else:
                             tmp = tmp.replace('$MJD', str(MJD))
                     if s+'MJD' in tmp and ( k in ['x', 'y'] or any([t in k for t in [',x', ',y']])):
-                        paramsR[k]=tmp
+                        paramsR[k] = tmp
                     else:
-                        #print(k, tmp)
                         paramsR[k] = eval(tmp.replace('(nan)', '(np.nan)'))
                 else:
                     paramsR[k] = tmp
@@ -2513,7 +2518,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 if not err is None:
                     c = np.polyfit(oi['WL'][mask], phi[mask], order, w=1/err[mask])
                 else:
-                    c = np.polyfit(oi['WL'][mask], phi[mask]. order)
+                    c = np.polyfit(oi['WL'][mask], phi[mask], order)
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
                 # -- not polynomial fit, use median
@@ -3143,7 +3148,6 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                             allerr   = np.append(allerr, err[mask])
                             allmodel = np.append(allmodel, m[ext[f]][k][f][mask])
 
-
                             # print('!! residualsOI !!', ext[f], k, f, oi[ext[f]][k][f].shape,
                             #      m[ext[f]][k][f].shape, mask.shape, err.shape)
 
@@ -3278,7 +3282,7 @@ def computeCorrelationsOI(oi, param, dt_s=60):
     pass
 
 def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
-                doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-8,
+                doNotFit=None, maxfev=5000, ftol=1e-6, follow=None, epsfcn=1e-6,
                 verbose=False, prior=[]):
     """
     sparse=[] list of parameters to sparse fit. Should also be fitted according
@@ -3338,7 +3342,7 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
 
 def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
                 significance=4, fitOnly=None, doNotFit=None,
-                maxfev=5000, ftol=1e-3, epsfcn=1e-8, prior=[]):
+                maxfev=5000, ftol=1e-6, epsfcn=1e-6, prior=[]):
     """
     use discrete wavelets (WVL) to model spectra of different components.
 
@@ -3481,7 +3485,7 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 
 def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
-          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
+          randomise=False, iter=-1, obs=None, epsfcn=1e-6, keepFlux=False,
           onlyMJD=None, lowmemory=False, additionalRandomise=None,
           correlations=None):
     #try:
@@ -3495,7 +3499,7 @@ def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
 
 def fitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
           maxfev=5000, ftol=1e-6, follow=None, prior=None, factor=100,
-          randomise=False, iter=-1, obs=None, epsfcn=1e-8, keepFlux=False,
+          randomise=False, iter=-1, obs=None, epsfcn=1e-5, keepFlux=False,
           onlyMJD=None, lowmemory=False, additionalRandomise=None,
           correlations=None):
     """
@@ -3852,7 +3856,7 @@ def progress(results=None, finish=False):
     _prog_N+=1
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
-              maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-7,
+              maxfev=5000, ftol=1e-6, multi=True, epsfcn=1e-6,
               dLimParam=None, dLimSigma=3, debug=False, constrain=None,
               prior=None, verbose=2, correlations=None):
     """
@@ -6105,7 +6109,6 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
     if comp+',diam' in param and comp+',thick' in param:
         diamin  = param[comp+',diam']*(1-param[comp+',thick']/2)
         diamout = param[comp+',diam']*(1+param[comp+',thick']/2)
-
 
     if comp+',diamout' in param:
         diamout = param[comp+',diamout']

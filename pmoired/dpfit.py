@@ -1,3 +1,4 @@
+from astropy.utils.misc import coffee
 import scipy.optimize
 import numpy as np
 from numpy import linalg
@@ -272,7 +273,7 @@ Tcalls=0
 trackP={}
 
 def leastsqFit(func, x, params, y, err=None, fitOnly=None,
-               verbose=False, doNotFit=[], epsfcn=1e-7,
+               verbose=False, doNotFit=[], epsfcn=1e-6,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
                follow=None, maxfev=5000, bounds={}, factor=100,
                correlations=None, addKwargs={}):
@@ -340,8 +341,7 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             fitOnly = filter(lambda x: x not in doNotFit, params.keys())
         else:
             fitOnly = params.keys()
-        fitOnly = list(fitOnly)
-        fitOnly.sort() # makes some display nicer
+        fitOnly = sorted(list(fitOnly)) # makes some display nicer
 
     # -- check that all parameters are numbers
     NaNs = []
@@ -397,6 +397,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         else:
             #method = 'L-BFGS-B'
             method = 'BFGS'
+            #method = 'Nelder-Mead'
+            #method = 'Newton-CG'
+            #method = 'dogleg'
             if verbose:
                 print('[dpfit] using scipy.optimize.minimize (%s)'%method)
             Bounds = []
@@ -420,9 +423,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
                             #print('warning: cannot compute covariance for "'+str(c)+'"')
                             #correlations['err'][c] = np.mean(err[correlations['catg']==c])
                             pass
-
             result = scipy.optimize.minimize(_fitFuncMin, pfit,
-                            tol=ftol, options={'maxiter':maxfev},
+                            tol=ftol, options={'maxiter':maxfev, 'eps':epsfcn},
                             #bounds = Bounds, method=method,
                             args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations, addKwargs)
                             )
@@ -441,17 +443,15 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             # cov = np.dot(VT.T / s**2, VT)
             info = {'nfev':result.nfev, 'exec time':time.time()-t0}
             mesg, ier = result.message, None
-
     # -- best fit -> agregate to pfix
     for i,k in enumerate(fitOnly):
         pfix[k] = plsq[i]
     model = func(x,pfix)
 
     if not correlations is None:
-        if not type(cov)==np.ndarray:
-            cov = 2.*cov.todense()/(len(model)-len(pfit)+1)
-        else:
-            cov = 2*cov/(len(model)-len(pfit)+1)
+        cov = 2*cov/(len(model)-len(pfit)+1)
+
+    #print('cov', cov)
 
     if verbose:
         print('[dpfit]', mesg)
@@ -487,8 +487,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
 
     # -- residuals
     if not correlations is None:
-        ndof = len(model)-len(pfit)+1
         reducedChi2 = result.fun
+        ndof = len(model)-len(pfit)+1
         chi2 = reducedChi2*ndof
     elif np.iterable(err) and len(np.array(err).shape)==2:
         # -- assumes err matrix is co-covariance
@@ -624,7 +624,7 @@ def randomParam(fit, N=None, x='auto'):
 randomParam = randomParam # legacy
 
 def bootstrap(func, x, params, y, err=None, fitOnly=None,
-               verbose=False, doNotFit=[], epsfcn=1e-7,
+               verbose=False, doNotFit=[], epsfcn=1e-6,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
                follow=None, Nboot=None):
     """
@@ -748,7 +748,7 @@ def _callbackAxesBoot(ax):
 
 
 def randomize(func, x, params, y, err=None, fitOnly=None,
-               verbose=False, doNotFit=[], epsfcn=1e-7,
+               verbose=False, doNotFit=[], epsfcn=1e-6,
                ftol=1e-5, fullOutput=True, normalizedUncer=True,
                follow=None, Nboot=None):
     """
@@ -901,18 +901,27 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
     # -- complete with the non fitted parameters:
     for k in pfix:
         params[k]=pfix[k]
-    if err is None or not correlations is None:
-        err = np.ones(np.array(y).shape)
+    if err is None:
+        #print('err is None')
+        if not correlations is None:
+            err = np.ones(len(correlations['catg']))
+        else:
+            err = np.ones(np.array(y).shape)
 
     # -- compute residuals
     if (type(y)==np.ndarray and type(err)==np.ndarray) or \
         np.isscalar(y):
         model = func(x, params, **addKwargs)
         if not err is None:
+            # -- residuals
             res = ((np.array(y)-model)/err).flatten()
+            # -- errors will be handled by the covariance (bellow)
+            if not correlations is None and type(err)==np.ndarray and type(y)==np.ndarray:
+                for k in correlations['err']:
+                    w = np.where(correlations['catg']==k)
+                    res[w] *= err[w]
         else:
             res = (np.array(y)-model).flatten()
-
     else:
         # much slower: this time assumes y (and the result from func) is
         # a list of things, each convertible in np.array
@@ -952,18 +961,17 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         # -- take into correlations using "correlations" dict
         chi2 = 0
         res = np.array(res)
-        err = None
         for c in set(correlations['catg']):
             w = np.array(correlations['catg'])==c
             if c in correlations['invcov']:
+                #print('invcov')
                 chi2 += np.dot(np.dot(np.transpose(res[w]), correlations['invcov'][c]), res[w])
             elif c in correlations['err']:
+                #print("correlations['err']")
                 chi2 += np.sum(res[w]**2/correlations['err'][c]**2)
             else:
-                if err is None:
-                    chi2 += np.sum(res[w]**2)
-                else:
-                    chi2 += np.sum(res[w]**2/err[w]**2)
+                # -- already in the residuals computation!
+                chi2 += np.sum(res[w]**2)
         # -- reduced chi2
         chi2 /= float(len(res)-len(pfit)+1)
 
@@ -1208,12 +1216,12 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False, maxlen=140):
 
     if not asStr:
         print(pre+'Correlations (%) ', end=' ')
-        print('\033[45m>=90\033[0m', end=' ')
-        print('\033[41m>=80\033[0m', end=' ')
-        print('\033[43m>=70\033[0m', end=' ')
-        print('\033[46m>=50\033[0m', end=' ')
-        print('\033[0m>=20\033[0m', end=' ')
-        print('\033[37m<20%\033[0m')
+        print('\033[45m>=95\033[0m', end=' ')
+        print('\033[41m>=90\033[0m', end=' ')
+        print('\033[43m>=80\033[0m', end=' ')
+        print('\033[46m>=60\033[0m', end=' ')
+        #print('\033[0m>=20\033[0m', end=' ')
+        print('\033[37m<60%\033[0m')
         print(pre+' '*(3+nmax), end=' ')
         for i in range(len(fit['fitOnly'])):
             #print('%2d'%i+' '*(ndigit-1), end=' ')
@@ -1257,19 +1265,19 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False, maxlen=140):
                 c = '\033[0m'
             hcol = '#FFFFFF'
             if i!=j:
-                if abs(x)>=0.9:
+                if abs(x)>=0.95:
                     col = '\033[45m'
                     hcol= '#FF66FF'
-                elif abs(x)>=0.8:
+                elif abs(x)>=0.9:
                     col = '\033[41m'
                     hcol = '#FF6666'
-                elif abs(x)>=0.7:
+                elif abs(x)>=0.8:
                     col = '\033[43m'
                     hcol = '#FFEE66'
-                elif abs(x)>=0.5:
+                elif abs(x)>=0.6:
                     col = '\033[46m'
                     hcol = '#CCCCCC'
-                elif abs(x)<0.2:
+                elif abs(x)<0.6:
                     col = '\033[37m'
                     hcol = '#FFFFFF'
                 else:
