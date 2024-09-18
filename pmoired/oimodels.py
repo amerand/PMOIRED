@@ -1152,7 +1152,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2']:
+            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2',
+                'B1', 'B2', 'B3']:
                 if '/wl' in l and cwl!=1:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l]/cwl
                 else:
@@ -1851,13 +1852,13 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
     observed V2 = smeared(V**2) != (smeared(V))**2
     """
-    D = {'|V|':('OI_VIS', 'B/wl'),
-         'N|V|':('OI_VIS', 'B/wl'),
-         'DPHI':('OI_VIS', 'B/wl'),
-         'V2':('OI_VIS2', 'B/wl'),
+    D = {'|V|'  :('OI_VIS', 'B/wl'),
+         'N|V|' :('OI_VIS', 'B/wl'),
+         'DPHI' :('OI_VIS', 'B/wl'),
+         'V2'   :('OI_VIS2', 'B/wl'),
          'T3PHI':('OI_T3', 'Bmax/wl'),
          'T3AMP':('OI_T3', 'Bmax/wl'),
-         'CF':('OI_CF', 'B/wl'),
+         'CF'   :('OI_CF', 'B/wl'),
         }
     assert 'fit' in oi, "'fit' should be defined!"
     # -- in m/um
@@ -2125,15 +2126,19 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             print(' '*indent+'VmodelOI > fluxes %.3fms'%(1000*(time.time()-t0)))
 
     t0 = time.time()
+
     if 'OI_T3' in oi.keys():
         res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
             res['OI_T3'][k] = {}
-            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'Bmin/wl', 'B1', 'B2', 'B3']:
+            for l in ['MJD', 'u1', 'u2', 'v1', 'v2', 'formula', 'FLAG', 'Bmax/wl', 'Bavg/wl', 'Bmin/wl',
+                        'B1', 'B2', 'B3']:
                 if not oi['OI_T3'][k][l] is None:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l].copy()
                 else:
+                    print('!!', l, 'not in OI_T3[%s]'%k)
                     res['OI_T3'][k][l] = None
+
         # if debug:
         #     for k in res['OI_T3']:
         #         wwl = np.abs(res['WL']-2.1667)<0.005
@@ -2147,6 +2152,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             print('VmodelOI: computing T3')
 
         res = computeT3fromVisOI(res)
+
         # if debug:
         #     for k in res['OI_T3']:
         #         s,t,w0,w1,w2=res['OI_T3'][k]['formula']
@@ -2306,6 +2312,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res['OI_VIS2'][b]['V2'] = V2tot[b]
 
         #print('done in %.3fs'%(time.time()-t0))
+
+
     return res
 
 def computeLambdaParams(params, MJD=0):
@@ -2834,6 +2842,10 @@ def computeT3fromVisOI(oi):
                                'Bmax/wl':oi['OI_T3'][k]['Bmax/wl'],
                                'Bavg/wl':oi['OI_T3'][k]['Bavg/wl'],
                                'Bmin/wl':oi['OI_T3'][k]['Bmin/wl'],
+                               'B1':oi['OI_T3'][k]['B1'],
+                               'B2':oi['OI_T3'][k]['B2'],
+                               'B3':oi['OI_T3'][k]['B3'],
+
                                }
             s, t, w0, w1, w2 = oi['OI_T3'][k]['formula']
             if np.isscalar(s[0]):
