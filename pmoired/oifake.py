@@ -1105,7 +1105,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                             list(range(len(tmp['MJD']))),
                             list(range(len(tmp['MJD']))),]
                 }
-
+            #print(''.join(tri), sorted(OIT3[''.join(tri)].keys()))
             for m in tmp['MJD']:
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
@@ -1114,6 +1114,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         param = model
         res['fit'] = {'obs':['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
         res = oimodels.VmodelOI(res, param, fullOutput=True)
+
         # --
         for k in ['PA']:
             for b in res['OI_VIS']:
@@ -1145,7 +1146,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         for k in res['OI_T3'].keys():
             res['OI_T3'][k]['ET3AMP'] = noise['T3AMP']*np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])
             res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*(thres['T3AMP']/np.sqrt(thres['T3AMP']**2+
-                            np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
+                                 np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
             addnoise('OI_T3', k, 'T3AMP')
             addnoise('OI_T3', k, 'T3PHI')
 

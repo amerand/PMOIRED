@@ -13,8 +13,9 @@ try:
 except ImportError:
    from importlib import resources
 
-
+import pmoired
 import pmoired.dpfit as dpfit
+
 
 this_dir, this_filename = os.path.split(__file__)   # TODO clean this up
 bin_file = 'transir_gravity.pckl'
@@ -129,7 +130,7 @@ def Ftran(l, param, retWL=False, retS=False):
     X = sorted(filter(lambda x: x.startswith('xS'), param.keys()))
     Y = sorted(filter(lambda x: x.startswith('yS'), param.keys()))
     if len(X)==len(Y) and len(X):
-        tmpS = scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y], 
+        tmpS = scipy.interpolate.interp1d([param[x] for x in X], [param[y] for y in Y],
                                         kind='cubic', fill_value='extrapolate')(tmpL)
         tmpT *= tmpS
         if retS:
@@ -165,7 +166,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('use "force=True" to recompute')
         f.close()
         return
-    
+
     if 'MED' in f[0].header['ESO INS SPEC RES']:
         MR = True
     elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
@@ -236,23 +237,23 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     # -- FIT TELLURIC MODEL -------------------------------------------
     if MR:
-        p = {'dl0':0.000, 'wl0':2.22, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0, 
-             #'kern':1e-3, 
-             'kern_min':3e-3, 'kern_max':5e-3, 
+        p = {'dl0':0.000, 'wl0':2.22, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
+             #'kern':1e-3,
+             'kern_min':3e-3, 'kern_max':5e-3,
              #'kernp':1.0,
              'kernp_min':0.8, 'kernp_max':1.0,
              'pwv':2.0, 'pow':1.0, #'p_2.3717':0.8
              }
     else:
-        p = {'dl0':0.0, 'wl0':2., 'dl1':1.0, 'dl2':0.0, 'dl3':0.0, 
-             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7, 
+        p = {'dl0':0.0, 'wl0':2., 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
+             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':1.7, 'kernp_max':1.7,
              'pwv':2.0, 'pow':1,
-             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0, 
+             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
              }
 
     # -- spectrum model using spline nodes
     Nn =  12 if MR else 35
-    
+
     for i,x in enumerate(np.linspace(wl[w].min(), wl[w].max(), Nn)):
         test = True
         # -- makes sure the node is not in an avoidance zone:
@@ -293,8 +294,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
         if not quiet:
             print('> fit all but spectral resolution (kernel)')
-        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=0, 
-                                doNotFit=doNotFit, maxfev=8000, 
+        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=0,
+                                doNotFit=doNotFit, maxfev=8000,
                                 follow=['pwv', 'pow', 'kern', 'kern_min', 'kern_max', 'kernp'])
         if not quiet:
             print('> fit everything')
@@ -312,7 +313,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             doNotFit.remove('pwv')
             doNotFit.remove('pow')
 
-        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=verbose, 
+        fit = dpfit.leastsqFit(Ftran, wl[w], fit['best'], sp[w], verbose=verbose,
                                doNotFit=doNotFit, maxfev=8000,
                                follow=['pwv', 'pow', 'kern', 'kern_min', 'kern_max', 'kernp', 'kernp_min', 'kernp_max'])
 
@@ -348,7 +349,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     plt.plot(wl[~w], sp[~w], '.', color='orange', alpha=0.5, label='ignored')
 
     #plt.plot(wl[w], fit['model'], '-k', alpha=0.2, linewidth=1, label='model')
-    plt.plot(wl, Ftran(wl, fit['best']), '-k', alpha=0.2, linewidth=1, 
+    plt.plot(wl, Ftran(wl, fit['best']), '-k', alpha=0.2, linewidth=1,
         label='model PWV=%.2fmm'%fit['best']['pwv'])
 
     plt.plot(wl, sp/Ftran(wl, p)+np.median(sp)/8, '-b', label='telluric corrected + offset')
@@ -385,10 +386,11 @@ def showTellurics(filename, fig=99):
     h = fits.open(filename)
     if not 'TELLURICS' in h:
         print('no tellurics model found')
-        return 
+        return
     if not fig is None:
         plt.close(fig)
-        plt.figure(fig, figsize=(9,6))
+        plt.figure(fig, figsize=(pmoired.FIG_MAX_WIDTH,
+                                  0.4*pmoired.FIG_MAX_WIDTH))
 
     ax1 = plt.subplot(211)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
@@ -401,8 +403,8 @@ def showTellurics(filename, fig=99):
              h['TELLURICS'].data['RAW_SPEC']/h['TELLURICS'].data['TELL_TRANS'],
              '-k', label='corrected spectrum', lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
-             h['TELLURICS'].data['TELL_TRANS']*h['TELLURICS'].data['CORR_CONT'], 
-             '-b', label='telluric*continuum (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
+             h['TELLURICS'].data['TELL_TRANS']*h['TELLURICS'].data['CORR_CONT'],
+             '-b', label='telluric*continuum (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'],
              alpha=0.5, lw=1)
 
     plt.legend()
@@ -414,7 +416,7 @@ def showTellurics(filename, fig=99):
           '-', alpha=0.5, label='raw normalised spectrum', color='orange', lw=2)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['TELL_TRANS'],
-             '-b', label='telluric model (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'], 
+             '-b', label='telluric model (PWV=%.2fmm)'%h['TELLURICS'].header['PWV'],
              alpha=0.5, lw=1)
     plt.plot(h['TELLURICS'].data['EFF_WAVE']*1e6,
              h['TELLURICS'].data['RAW_SPEC']/
@@ -422,7 +424,7 @@ def showTellurics(filename, fig=99):
              '-k', label='corrected spectrum', lw=1)
     plt.legend()
     plt.ylabel("normalised flux")
-    plt.xlabel('wavelength ($\mu$m)')
+    plt.xlabel(r'wavelength ($\mu$m)')
     plt.suptitle(os.path.basename(filename), fontsize=8)
 
     plt.tight_layout()
