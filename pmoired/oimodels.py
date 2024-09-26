@@ -6230,6 +6230,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
         plt.tight_layout()
     return rh
 
+
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                   combParam=None, sigmaClipping=None, showChi2=False,
                   alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
@@ -6240,6 +6241,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     """
     symUncer = False
     global _AX, _AY
+    global _bootAxes
     #t0 = time.time()
     boot = copy.deepcopy(b)
     #print('deep copy', time.time()-t0, 's')
@@ -6295,11 +6297,13 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     offs = {}
     amps = {}
     t0 = time.time()
+    _bootAxes = {}
     for i1, k1 in enumerate(showP):
         # -- create histogram plot
         _AX[i1] = plt.subplot(len(showP),
                               len(showP),
                               1+i1*len(showP)+i1)
+        _bootAxes[k1] = _AX[i1]
         if k1=='chi2':
             # -- assumes bins is already defined (chi2 cannot be first!)
             # -- show histogram: line and area
@@ -6442,7 +6446,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
                             1+i2*len(showP)+i1,
                             #sharex=_AX[i1],
                             sharey=_AY[i2])
-
+            _bootAxes[(k1, k2)] = ax
             #if k1=='chi2' or k2=='chi2':
             #    continue
             #print(k1, k2)

@@ -1,4 +1,4 @@
-from pmoired import oimodels, oifits, oifake, oicorr, chi2map
+from pmoired import oimodels, oifits, oifake, oicorr #, chi2map
 
 import multiprocessing
 try:
