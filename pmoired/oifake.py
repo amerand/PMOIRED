@@ -1,3 +1,4 @@
+from astropy.units.format.fits import Fits
 import numpy as np
 from astroquery.simbad import Simbad
 from matplotlib import pyplot as plt
@@ -850,12 +851,69 @@ def fluxCube(cube, wl):
     """
     cube:  {'image':, 'scale': 'WL':}
         image: Nx x Ny spatial pixels (x Nwl optional )
-        scale: "scale", in mas (ignoired)
+        scale: "scale", in mas (ignored)
         wl: wavelength vector in um (ignored if cube is 2D)
     wl: wavelength (vector, in um)
     """
     tmp = np.sum(cube['image'], axis=(1,2))
     return np.interp(wl, cube['WL'], tmp)
+
+def checkCubeShapes(cube, name='cube'):
+    err = '\033[41mERROR\033[0m: '
+    if type(cube)!= dict:
+        print(err+'"%s" should be dictionnary'%name)
+        return False
+
+    K = ['X', 'Y', 'image']
+    if not all([k in cube for k in K]):
+        print(err+'"%s" should at least contain "X", "Y" and "image"'%name)
+        return False
+
+    if type(cube['image'])!=np.ndarray:
+        print(err+'%s["image"] should be of type "np.ndarray"'%(name))
+        return False
+
+    if len(cube['image'].shape)==2:
+        L = {'X':2, 'Y':2, 'image':2}
+    else:
+        L = {'WL':1, 'X':2, 'Y':2, 'image':3}
+
+    if not all([type(cube[k])==np.ndarray  for k in L]):
+        print(err+'%s should be of type "np.ndarray"'%(', '.join(['"%s"'%k for k in L])))
+        for k in L:
+            if type(cube[k])!=np.ndarray:
+                print('  ', k, type(cube[k]), type(cube[k])==np.ndarray)
+        return False
+
+    if not all([len(cube[k].shape)==L[k] for k in L]):
+        print(err+'wrong shapes!')
+        for k in L:
+            if L[k]!=len(cube[k].shape):
+                print('  len(%s[%s].shape)=%d -> should be %d'%(name, k, L[k],
+                                                                len(cube[k].shape)))
+        return False
+
+    if cube['X'].shape != cube['Y'].shape :
+        print(err+'"X" and "Y" should have same shapes!')
+        print('  %s["X"].shape=%s != %s["Y"].shape=%s'%(name, str(cube['X'].shape),
+                                                        name, str(cube['Y'].shape)))
+        return False
+
+    if L['image']==2:
+        if cube['X'].shape != cube['image'].shape:
+            print(err+'"image" has wrong dimensions!')
+            print('  %s["X"].shape=%s != %s["image"].shape=%s'%(name, str(cube['X'].shape),
+                                                                name, str(cube['image'].shape)))
+            return False
+    else:
+        _tup = tuple(list(cube['WL'].shape)+list(cube['X'].shape))
+        if cube['image'].shape != _tup:
+            print(err+'"image" has wrong dimensions!')
+            print('  %s["image"].shape = %s, should be %s'%(name, str(cube['image'].shape),
+                str(_tup)))
+            return False
+
+    return True
 
 __mjd0 = 57000
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
@@ -939,6 +997,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     fflux = lambda l: np.ones((len(lst), len(l)))
 
     if not cube is None:
+        if not checkCubeShapes(cube):
+            raise Exception('data cube is ill formed')
         if len(cube['image'].shape)==2:
             fvis = lambda u,v,l: visImage(cube['image'], cube['scale'], u, v, l)
             fflux = lambda l: np.ones((len(lst), len(l)))
