@@ -304,7 +304,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'MJD':hdu.data['MJD'][w],
                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          }
-
                 except:
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUXDATA'][w].reshape(w.sum(), -1),
                                         'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
@@ -312,7 +311,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                         'MJD':hdu.data['MJD'][w],
                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          }
-
                 if any(w):
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['FLUX']))
@@ -1823,6 +1821,7 @@ def _filtFlag(ext, filt, debug=False):
                 if debug:
                     print('flag: max', k, filt['max error'])
                 flag += ext['E'+k]>=filt['max error'][k]
+
     if 'max relative error' in filt:
         for k in filt['max relative error']:
             if k in filt['max relative error'] and 'E'+k in ext:

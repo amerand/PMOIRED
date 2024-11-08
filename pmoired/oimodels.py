@@ -494,6 +494,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     'line_i_lorentzian': width for Lorentzian (warning: in nm, not um!)
     """
     t0 = time.time()
+    modErr = 1 # set to 0 so errs are 0's
 
     # -- compute self-referenced parameters
     _param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
@@ -1099,8 +1100,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                     tmp[l] = oi[key][k][l].copy()/cwl
                 else:
                     tmp[l] = oi[key][k][l].copy()
-            tmp['E|V|'] = np.zeros(tmp['|V|'].shape)
-            tmp['EPHI'] = np.zeros(tmp['PHI'].shape)
+            tmp['E|V|'] = np.zeros(tmp['|V|'].shape) + modErr
+            tmp['EPHI'] = np.zeros(tmp['PHI'].shape) + modErr
         res['OI_VIS'][k] = tmp
 
         if 'OI_VIS2' in oi.keys():
@@ -1122,7 +1123,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                         tmp[l] = oi['OI_VIS2'][k][l]/cwl
                     else:
                         tmp[l] = oi['OI_VIS2'][k][l].copy()
-                tmp['EV2'] = np.zeros(tmp['V2'].shape)
+                tmp['EV2'] = np.zeros(tmp['V2'].shape) + modErr
             res['OI_VIS2'][k] = tmp
         if 'OI_CF' in oi.keys() and k in oi['OI_CF']:
             tmp = {}
@@ -1142,7 +1143,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                         tmp[l] = oi['OI_CF'][k][l]/cwl
                     else:
                         tmp[l] = oi['OI_CF'][k][l].copy()
-                tmp['ECF'] = np.zeros(tmp['CF'].shape)
+                tmp['ECF'] = np.zeros(tmp['CF'].shape) + modErr
             res['OI_CF'][k] = tmp
 
     if timeit:
@@ -1813,6 +1814,7 @@ def VfromImageOI(oi):
 SMEA = 7
 def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, indent=0,
              v2smear=True, fullOutput=False, debug=False):
+    modErr = 1
     global SMEA
     #display(param)
     if type(oi) == list:
@@ -1978,7 +1980,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                                            res['MODEL']['totalflux'][:,None,None]
                 res['MODEL']['image'] *= np.mean(res['MODEL']['totalflux'])
 
-
             # -- for this component:
             res['MODEL'][c+',flux'] = res['MODEL']['totalflux'].copy()
             if 'totalflux(MJD)' in res['MODEL']:
@@ -2118,7 +2119,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
             res['OI_FLUX'][k] = {'FLUX':  totalflux,
                                  'RFLUX': totalflux,
-                                 'EFLUX': oi['OI_FLUX'][k]['FLUX']*0,
+                                 'EFLUX': oi['OI_FLUX'][k]['FLUX']*0 + modErr,
                                  'FLAG':  oi['OI_FLUX'][k]['FLAG'],
                                  'MJD':   oi['OI_FLUX'][k]['MJD'],
             }
@@ -2138,6 +2139,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                 else:
                     print('!!', l, 'not in OI_T3[%s]'%k)
                     res['OI_T3'][k][l] = None
+            if 'NAME' in oi['OI_T3'][k]:
+                res['OI_T3'][k]['NAME'] = oi['OI_T3'][k]['NAME'].copy()
 
         # if debug:
         #     for k in res['OI_T3']:
@@ -2313,6 +2316,58 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
         #print('done in %.3fs'%(time.time()-t0))
 
+    # == single target self-calibration -> assumes tel name have no '-'!!!
+    # "#TF_|V|_U1U2_*" -> overall coefficient
+    # "#TF_|V|_U1U2_+" -> overall coefficient
+    if any(['#TF' in k for k in res['param'].keys()]):
+        _debug = False
+        if _debug:
+            print('computing TF')
+        # -- organise the TF coefficient
+        TF = {}
+        for k in res['param']:
+            if k.startswith('#TF'):
+                obs = k.split('_')[1]
+                if not obs in TF:
+                    TF[obs] = {}
+                b = k.split('_')[2]
+                if not b in TF[obs]:
+                    TF[obs][b] = {}
+                TF[obs][b][k.split('_')[3]] = res['param'][k]
+        if _debug:
+            print('TF:', TF)
+
+        O = {'V2'   : 'OI_VIS2',
+             '|V|'  : 'OI_VIS',
+             'T3PHI': 'OI_T3'
+            }
+        for o in TF:
+            if _debug:
+                print(' -> applying TF to', o)
+            for b in TF[o]:
+                if not O[o] in res:
+                    continue
+                if 'all' in res[O[o]]:
+                    w = res[O[o]]['all']['NAME']==b
+                    if '+' in TF[o][b]:
+                        res[O[o]]['all'][o][w] += TF[o][b]['+']
+                    if '*' in TF[o][b]:
+                        res[O[o]]['all'][o][w] *= TF[o][b]['*']
+                    if 's' in TF[o][b]:
+                        res[O[o]]['all'][o][w] *= 1 + (res['WL']-np.mean(res['WL']))[None,:]*TF[o][b]['s']
+                    if 'wl0' in TF[o][b] and 'wl2' in TF[o][b]:
+                        res[O[o]]['all'][o][w] *= 1 + (res['WL']-TF[o][b]['wl0'])[None,:]*TF[o][b]['wl2']
+
+
+                else:
+                    if '+' in TF[o][b] and b in res[O[o]]:
+                        res[O[o]][b][o] += TF[o][b]['+']
+                    if '*' in TF[o][b] and b in res[O[o]]:
+                        res[O[o]][b][o] *= TF[o][b]['*']
+                    if 's' in TF[o][b] and b in res[O[o]]:
+                        res[O[o]][b][o] *= 1 + (res['WL']-np.mean(res['WL']))[None,:]*TF[o][b]['s']
+                    if 'wl0' in TF[o][b] and 'wl2' in TF[o][b] and b in res[O[o]]:
+                        res[O[o]][b][o] *= 1 + (res['WL']-TF[o][b]['wl0'])[None,:]*TF[o][b]['wl2']
 
     return res
 
@@ -2447,9 +2502,14 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
+                    if kv.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
                 else:
                     kv = 'Vin'
                     fv = 1.5
+                    if 'incl' in _param:
+                        fv *= np.sin(_param['incl']*np.pi/180)
+
                 if not kv in _param:
                     kv +='_Mm/s'
                     fv = 1000.
@@ -2472,7 +2532,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                             (oi['WL']>_param[k]-dwl/8))
 
     if np.sum(w)==0:
-        #print('WARNING: no continuum!?')
+        print('computeDiffPhiOI: no continuum!, use all band')
         w = oi['WL']>0
 
     oi['WL cont'] = np.bool_(w)
@@ -2495,12 +2555,17 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         return oi
 
     oi['DVIS'] = {}
+    if np.sum(w)==0:
+        print('w == 0 !!!')
     for k in oi['OI_VIS'].keys():
         data = []
         for i,phi in enumerate(oi['OI_VIS'][k]['PHI']):
-            mask = w*~oi['OI_VIS'][k]['FLAG'][i,:]
+            mask = w * ~oi['OI_VIS'][k]['FLAG'][i,:]
+            if np.sum(mask)==0:
+                print(k, 'mask==0 -> w=%.0f, flag=%.0f'%(np.sum(w), np.sum(~oi['OI_VIS'][k]['FLAG'][i,:])), end=' ')
+
             if 'EPHI' in oi['OI_VIS'][k]:
-                err = oi['OI_VIS'][k]['EPHI'][i,:]
+                err = oi['OI_VIS'][k]['EPHI'][i,:].copy()
                 if 'max error' in oi['fit'] and 'DPHI' in oi['fit']['max error']:
                     # -- ignore data with large error bars
                     mask *= (err<=oi['fit']['max error']['DPHI'])
@@ -2522,20 +2587,23 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 mask *= err>0
             else:
                 err = None
+
             if np.sum(mask)>order:
                 if not err is None:
                     c = np.polyfit(oi['WL'][mask], phi[mask], order, w=1/err[mask])
                 else:
                     c = np.polyfit(oi['WL'][mask], phi[mask], order)
+                #print('debug:', np.mean(phi[mask]-np.polyval(c, oi['WL'][mask])))
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
+                print('computeDiffPhiOI: removing median')
                 # -- not polynomial fit, use median
                 data.append(phi-np.median(phi))
         if visamp:
             vdata = []
             edata = []
             for i,vis in enumerate(oi['OI_VIS'][k]['|V|']):
-                vmask = w*~oi['OI_VIS'][k]['FLAG'][i,:]
+                vmask = w * ~oi['OI_VIS'][k]['FLAG'][i,:]
                 if 'E|V|' in oi['OI_VIS'][k]:
                     verr = oi['OI_VIS'][k]['E|V|'][i,:]
                     if 'max error' in oi['fit'] and 'N|V|' in oi['fit']['max error']:
@@ -2573,7 +2641,6 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                     else:
                         vdata.append(np.ones(len(vis)))
                 edata.append(np.std(vdata[-1][vmask]))
-
         # -- end visamp
 
         oi['DVIS'][k] = {'DPHI':np.array(data),
@@ -2657,9 +2724,20 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
+                    if kv.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
                 else:
                     kv = 'Vin'
                     fv = 1.5
+                    if 'incl' in _param:
+                        fv *= np.sin(_param['incl']*np.pi/180)
+
+                # if ',' in k:
+                #     kv = k.split(',')[0]+','+'Vin'
+                #     fv = 1.0
+                # else:
+                #     kv = 'Vin'
+                #     fv = 1.0
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000.0
@@ -2833,6 +2911,7 @@ def computeT3fromVisOI(oi):
                                       np.abs(oi['OI_VIS'][t[1]]['|V|'][w1,:])*\
                                       np.abs(oi['OI_VIS'][t[2]]['|V|'][w2,:])
             #oi['OI_T3'][k]['ET3AMP'] = np.zeros(oi['OI_T3'][k]['T3AMP'].shape)
+
     if 'IM_VIS' in oi.keys():
         oi['IM_T3'] = {}
         for k in oi['OI_T3'].keys():
@@ -2845,7 +2924,6 @@ def computeT3fromVisOI(oi):
                                'B1':oi['OI_T3'][k]['B1'],
                                'B2':oi['OI_T3'][k]['B2'],
                                'B3':oi['OI_T3'][k]['B3'],
-
                                }
             s, t, w0, w1, w2 = oi['OI_T3'][k]['formula']
             if np.isscalar(s[0]):
@@ -4628,9 +4706,21 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
+                    if kv.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
+
                 else:
                     kv = 'Vin'
                     fv = 1.5
+                    if 'incl' in _param:
+                        fv *= np.sin(_param['incl']*np.pi/180)
+
+                # if ',' in k:
+                #     kv = k.split(',')[0]+','+'Vin'
+                #     fv = 1.0
+                # else:
+                #     kv = 'Vin'
+                #     fv = 1.0
                 if not kv in _param:
                     kv+='_Mm/s'
                     fv = 1000
@@ -5141,7 +5231,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 label=k if showLabel else '',
                                 linestyle='none', markersize=5)
                         ax.plot(-oi[e][k]['u'][w], -oi[e][k]['v'][w],
-                                color=col, marker=mark,
+                                color=col, marker=mark, alpha=0.1,
                                 linestyle='none', markersize=5)
                         label = ''
                         showLabel=False

@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.2.10'
+__version__= '1.2.11'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -2031,9 +2031,9 @@ def _computeSpectra(model, data, models):
         ...
 
     """
-    allWLc = [] # -- continuum -> absolute flux
-    allWLs = [] # -- with spectral lines -> normalized flux
-    allMJD = []
+    allWLc  = [] # -- continuum -> absolute flux
+    allWLs  = [] # -- with spectral lines -> normalized flux
+    allMJD  = []
     allCont = []
     Nr = None
     for i,o in enumerate(data):
