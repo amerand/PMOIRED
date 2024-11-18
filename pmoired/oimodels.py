@@ -2498,12 +2498,12 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 if k.replace('_wl0', '_lorentzian') in _param.keys():
                     dwl = 3*_param[k.replace('wl0', 'lorentzian')]/1000.
 
-                vel = 0.0 # vlocity, in km/s
+                vel = 0.0 # velocity, in km/s
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
-                    if kv.replace('Vin', 'incl') in _param:
-                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
+                    if k.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[k.replace('Vin', 'incl')]*np.pi/180)
                 else:
                     kv = 'Vin'
                     fv = 1.5
@@ -2555,14 +2555,16 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         return oi
 
     oi['DVIS'] = {}
-    if np.sum(w)==0:
-        print('w == 0 !!!')
+    _checkEmpty = True
+    if _checkEmpty and np.sum(w)==0:
+        print('empty mask (before flags)')
+
     for k in oi['OI_VIS'].keys():
         data = []
         for i,phi in enumerate(oi['OI_VIS'][k]['PHI']):
             mask = w * ~oi['OI_VIS'][k]['FLAG'][i,:]
-            if np.sum(mask)==0:
-                print(k, 'mask==0 -> w=%.0f, flag=%.0f'%(np.sum(w), np.sum(~oi['OI_VIS'][k]['FLAG'][i,:])), end=' ')
+            if _checkEmpty and np.sum(mask)==0:
+                print(k, 'empty mask! -> w=%.0f, flag=%.0f'%(np.sum(w), np.sum(~oi['OI_VIS'][k]['FLAG'][i,:])), end=' ')
 
             if 'EPHI' in oi['OI_VIS'][k]:
                 err = oi['OI_VIS'][k]['EPHI'][i,:].copy()
@@ -2596,7 +2598,8 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                 #print('debug:', np.mean(phi[mask]-np.polyval(c, oi['WL'][mask])))
                 data.append(phi-np.polyval(c, oi['WL']))
             else:
-                print('computeDiffPhiOI: removing median')
+                if _checkEmpty:
+                    print('computeDiffPhiOI: removing median')
                 # -- not polynomial fit, use median
                 data.append(phi-np.median(phi))
         if visamp:
@@ -2724,8 +2727,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
-                    if kv.replace('Vin', 'incl') in _param:
-                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
+                    if k.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[k.replace('Vin', 'incl')]*np.pi/180)
                 else:
                     kv = 'Vin'
                     fv = 1.5
@@ -3160,7 +3163,7 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
             'V2':'OI_VIS2',
             'T3AMP':'OI_T3',
             'T3PHI':'OI_T3',
-            'NFLUX':'NFLUX', # flux normalized to continuum
+            'NFLUX':'NFLUX', # flux normalised to continuum
             'FLUX':'OI_FLUX', # flux, corrected from tellurics
             'CF':'OI_CF', # correlated flux
             }
@@ -4458,7 +4461,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
                 'V2':'OI_VIS2',
                 'T3AMP':'OI_T3',
                 'T3PHI':'OI_T3',
-                'NFLUX':'NFLUX', # flux normalized to continuum
+                'NFLUX':'NFLUX', # flux normalised to continuum
                 'FLUX':'OI_FLUX' # flux corrected from tellurics
                 }
         if type(oi)==dict:
@@ -4706,8 +4709,8 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
-                    if kv.replace('Vin', 'incl') in _param:
-                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
+                    if k.replace('Vin', 'incl') in _param:
+                        fv *= np.sin(_param[k.replace('Vin', 'incl')]*np.pi/180)
 
                 else:
                     kv = 'Vin'
@@ -4840,7 +4843,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         if fig is None:
             fig = 0
         allWLc = [] # -- continuum -> absolute flux
-        allWLs = [] # -- with spectral lines -> normalized flux
+        allWLs = [] # -- with spectral lines -> normalised flux
         allMJD = []
         if obs is None and allInOne:
             obs = []
@@ -5093,7 +5096,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     c = 1 # column
     ax0 = None
     data = {'FLUX':{'ext':'OI_FLUX', 'var':'FLUX', 'unit':'detector counts'},
-            'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalized'},
+            'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalised'},
             'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
             'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
             #'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
@@ -5106,7 +5109,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             'CF':{'ext':'OI_CF', 'var':'CF', 'X':'B/wl', 'C':'PA'},
             }
     imdata = {'FLUX':{'ext':'IM_FLUX', 'var':'FLUX', 'unit':'detector counts'},
-             'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalized'},
+             'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalised'},
              'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
              'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
              #'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
@@ -5311,7 +5314,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         else:
             keys = sorted(keys)
 
-        # -- average normalized flux -> is this thing still needed?!
+        # -- average normalised flux -> is this thing still needed?!
         if False and l=='NFLUX' and 'UV' in obs and l in obsfit:
             if debug:
                 print('>>> NFLUX?!')
@@ -5661,7 +5664,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                              imoi[data[l]['ext']][k][data[l]['var']][j,mask]+yoffset*i,
                             '--g', alpha=0.5, linewidth=2, where='mid')
 
-                # -- show continuum for differetial PHI and normalized FLUX
+                # -- show continuum for differetial PHI and normalised FLUX
                 if (l=='DPHI' or l=='NFLUX' or l=='N|V|') and 'WL cont' in oi:
                     maskc = ~oi[data[l]['ext']][k]['FLAG'][j,:]*\
                                     oi['WL cont']*oi['WL mask']
@@ -6063,7 +6066,7 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
 
     if 'totalnflux' in m['MODEL']:
         key = 'nflux'
-        plt.title('spectra, normalized\nto total continuum', fontsize=8)
+        plt.title('spectra, normalised\nto total continuum', fontsize=8)
     else:
         key = 'flux'
         if logS:

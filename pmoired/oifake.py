@@ -1130,7 +1130,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             #print('debug:', i, tri, form)
 
             # -- KLUDGE -> account for T3 amplitude
-            ncp = np.maximum(1, (thres['T3AMP']/np.abs(T3))**(1/3))
+            ncp = 1#np.maximum(1, (thres['T3AMP']/np.abs(T3))**(1/3))
             #ncp = np.maximum(1, thres['T3AMP']/minV)
             if debug:
                 print(tri, 'NCP:', ncp.min(), ncp.max(), 'noise T3PHI:', noise['T3PHI'])
@@ -1196,8 +1196,9 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
 
         for k in res['OI_VIS'].keys():
             res['OI_VIS'][k]['E|V|'] = noise['|V|']*np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])
-            res['OI_VIS'][k]['EPHI'] = noise['PHI']*(thres['|V|']/np.sqrt(thres['|V|']**2 +
-                                           np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])**2))
+            # res['OI_VIS'][k]['EPHI'] = noise['PHI']*(thres['|V|']/np.sqrt(thres['|V|']**2 +
+            #                                np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])**2))
+            res['OI_VIS'][k]['EPHI'] = noise['PHI']*np.ones(res['OI_VIS'][k]['PHI'].shape)
             res['OI_VIS2'][k]['EV2'] = noise['V2']*np.maximum(res['OI_VIS2'][k]['V2'], thres['V2'])
             addnoise('OI_VIS', k, '|V|')
             addnoise('OI_VIS', k, 'PHI')
@@ -1205,8 +1206,10 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
 
         for k in res['OI_T3'].keys():
             res['OI_T3'][k]['ET3AMP'] = noise['T3AMP']*np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])
-            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*(thres['T3AMP']/np.sqrt(thres['T3AMP']**2+
-                                 np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
+            #res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*(thres['T3AMP']/np.sqrt(thres['T3AMP']**2+
+            #                     np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
+            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*np.ones(res['OI_T3'][k]['T3PHI'].shape)
+
             addnoise('OI_T3', k, 'T3AMP')
             addnoise('OI_T3', k, 'T3PHI')
 

@@ -333,7 +333,7 @@ class OI:
 
         'obs': list of observables in
             'FLUX': Flux
-            'NFLUX': Flux normalized to continuum
+            'NFLUX': Flux normalised to continuum
             'V2': sqared Visibility
             '|V|': visibility modulus
             'DPHI': differential phase (wrt continuum)
@@ -2032,7 +2032,7 @@ def _computeSpectra(model, data, models):
 
     """
     allWLc  = [] # -- continuum -> absolute flux
-    allWLs  = [] # -- with spectral lines -> normalized flux
+    allWLs  = [] # -- with spectral lines -> normalised flux
     allMJD  = []
     allCont = []
     Nr = None
