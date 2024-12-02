@@ -2555,7 +2555,7 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
         return oi
 
     oi['DVIS'] = {}
-    _checkEmpty = True
+    _checkEmpty = False
     if _checkEmpty and np.sum(w)==0:
         print('empty mask (before flags)')
 
@@ -2650,9 +2650,12 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
                          'FLAG':oi['OI_VIS'][k]['FLAG'],
                          'B/wl':oi['OI_VIS'][k]['B/wl'],
                          }
-
+        if 'NAME' in oi['OI_VIS'][k]:
+            oi['DVIS'][k]['NAME'] = oi['OI_VIS'][k]['NAME']
         if 'MJD' in oi['OI_VIS'][k]:
             oi['DVIS'][k]['MJD'] = oi['OI_VIS'][k]['MJD']
+        if 'MJD2' in oi['OI_VIS'][k]:
+            oi['DVIS'][k]['MJD2'] = oi['OI_VIS'][k]['MJD2']
         if 'EPHI' in oi['OI_VIS'][k]:
             oi['DVIS'][k]['EDPHI'] = oi['OI_VIS'][k]['EPHI']
         if visamp:
@@ -3266,11 +3269,12 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                                             if _m:
                                                 kk.append('|'.join(ss))
                             else:
-                                #kk = k
                                 if k!='all':
                                     kk = k
                                 else:
                                     kk = []
+                                    if not 'NAME' in oi[ext[f]][k]:
+                                        print('!', f, ext[f], k)
                                     for _j,_n in enumerate(oi[ext[f]][k]['NAME']):
                                         kk.extend([_n]*sum(mask[_j,:]))
 
@@ -3482,7 +3486,10 @@ def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
     for c in N.keys():
         for i in range(N[c]):
             k = c+',fwvl_%04d'%i
-            param[k] = (i==0)*1.0
+            if c in initFlux:
+                param[k] = (i==0)*initFlux[c]
+            else:
+                param[k] = (i==0)*1.0
             if k in fitOnly:
                 sparse.append(k)
 
@@ -6324,7 +6331,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     return rh
 
 
-def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
+def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
                   combParam=None, sigmaClipping=None, showChi2=False,
                   alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
     """
@@ -6377,11 +6384,13 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False,
     colorC2 = (0, 0.4, 0.2) # chi2
     colorComb = (0.3, 0.4, 0.1) # combined parameters
 
-    # -- for each fitted parameters, show histogram
+    if ignore is None:
+        ignore = []
 
-    showP = sorted(filter(lambda k: k not in combParam.keys(), boot['fitOnly']),
+    # -- for each fitted parameters, show histogram
+    showP  = sorted(filter(lambda k: k not in combParam.keys() and k not in ignore, boot['fitOnly']),
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
-    showP += sorted(filter(lambda k: k in combParam.keys(), boot['fitOnly']),
+    showP += sorted(filter(lambda k: k in combParam.keys() and k not in ignore, boot['fitOnly']),
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
 
     if showChi2:
