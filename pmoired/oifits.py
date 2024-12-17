@@ -163,7 +163,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     else:
         res['pipeline'] = ''
 
-
     if 'LST' in h[0].header:
         res['LST'] = h[0].header['LST']/3600.
     else:
@@ -1074,10 +1073,19 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         #print('  > MJD:', sorted(set(mjd)))
         print('  > MJD:', mjd.shape, '[', min(mjd), '..', max(mjd), ']')
         print('  >', '-'.join(res['telescopes']), end=' | ')
+        _R = np.mean(res['WL']/res['dWL'])
+        _Rp = np.abs(np.mean(res['WL']/np.gradient(res['WL'])))
+       # _Rp=101.2
+        # -- resolution very different from spectral chanel pitch
+        if np.abs((_Rp-_R)/_R)>0.5:
+            _cr = '\033[31m'
+        else:
+            _cr = '\033[0m'
+
         print('WL:', res['WL'].shape, '[', round(np.min(res['WL']), 3), '..',
               round(np.max(res['WL']), 3),
-              '] um (R~%.0f)'%(np.mean(res['WL']/res['dWL'])),
-              end=' ')
+              '] um (R~%.0f %sP~%.0f\033[0m)'%(_R, _cr, _Rp),end=' ')
+
         if not binning is None:
             print('(binx%d)'%binning, end=' ')
         #print(sorted(list(filter(lambda x: x.startswith('OI_'), res.keys()))),
