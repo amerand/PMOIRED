@@ -1075,7 +1075,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         print('  >', '-'.join(res['telescopes']), end=' | ')
         _R = np.mean(res['WL']/res['dWL'])
         _Rp = np.abs(np.mean(res['WL']/np.gradient(res['WL'])))
-       # _Rp=101.2
         # -- resolution very different from spectral chanel pitch
         if np.abs((_Rp-_R)/_R)>0.5:
             _cr = '\033[31m'
