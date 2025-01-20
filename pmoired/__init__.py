@@ -28,6 +28,12 @@ __version__= '1.2.11'
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
 MAX_THREADS = multiprocessing.cpu_count()
+US_SPELLING = True
+oimodels.US_SPELLING = US_SPELLING
+
+def setUSspelling(b):
+    US_SPELLING = b
+    oimodels.US_SPELLING = US_SPELLING
 
 #print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
 #print('https://github.com/amerand/PMOIRED')
@@ -592,20 +598,24 @@ class OI:
             #assert _checkPrior(prior), 'ill formed "prior"'
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
-
+        fitOnly = []
         if model is None:
             try:
                 model = self.bestfit['best']
                 doNotFit = self.bestfit['doNotFit']
                 fitOnly = self.bestfit['fitOnly']
                 ndof = self.bestfit['ndof']
+                prior = self.bestfit['prior']
+                ndof += len(prior) # this should not be the case!?
             except:
                 #assert True, ' first guess as "model={...}" should be provided'
                 raise Exception(' first guess as "model={...}" should be provided')
+        if prior is None:
+            prior = []
 
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
-        prior = self._setPrior(model, prior, autoPrior)
+        prior += self._setPrior(model, prior, autoPrior)
 
         # -- warning: "correlations"" is global (i.e. applies to all data)!
         if any(['fit' in d and 'correlations' in d['fit'] and
@@ -620,6 +630,11 @@ class OI:
             # -- this is going to be very slow for bootstrapping :(
             _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
             self._correlations = oicorr.corrSpectra(_tmp)
+            ignoreErr = np.zeros(len(_tmp[0]))
+            for k in self._correlations['rho']:
+                if self._correlations['rho'][k]>0:
+                    w = np.where(np.array(_tmp[1])==k)
+                    ignoreErr[w] = 1.0
 
             # -- check if correlations levels were given by user
             for _m in self._merged:
@@ -631,27 +646,48 @@ class OI:
                                 self._correlations['rho'][o] = _m['fit']['correlations'][k]
                             if o in self._correlations['poly']:
                                 self._correlations['poly'][o] = None
-
+            C = set(self._correlations['catg'])
+            if not 'invcov' in self._correlations:
+                self._correlations['invcov'] = {}
+            for c in C:
+                if not c in self._correlations['invcov'] and not c is None:
+                    if c in self._correlations['rho'] and c in self._correlations['err']:
+                        _n = np.sum(np.array(self._correlations['catg'])==c)
+                        self._correlations['invcov'][c] = dpfit.invCOVconstRho(_n, self._correlations['rho'][c])
+                        self._correlations['invcov'][c] /= self._correlations['err'][c]**2
+                    else:
+                        #print('warning: cannot compute covariance for "'+str(c)+'"')
+                        #correlations['err'][c] = np.mean(err[correlations['catg']==c])
+                        pass
         else:
             self._correlations = None
+            ignoreErr = None
 
         for m in self._merged:
             if 'fit' in m:
                 m['fit']['prior'] = prior
             else:
                 m['fit'] = {'prior':prior}
-        tmp = oimodels.residualsOI(self._merged, model, debug=debug,
-                                   #correlations=self._correlations
-                                   )
-        #print('type(tmp)', type(tmp), len(tmp))
-        #return np.sum(tmp**2)/(len(tmp)-len(model)+1)
+
+        tmp = oimodels.residualsOI(self._merged, model, debug=debug)
+        if not self._correlations is None:
+            pfit = [model[k] for k in fitOnly]
+            pfix = {k:model[k] for k in model if not k in fitOnly}
+
+            return dpfit._fitFuncMin(pfit, fitOnly, self._merged, 0.0,
+                    func=oimodels.residualsOI, doTrackP=False,
+                    pfix=pfix, correlations=self._correlations,
+                    addKwargs={'ignoreErr':ignoreErr})
+
         if reduced:
             if ndof is None and not nfit is None:
                 ndof = len(tmp)-nfit+1
 
             if ndof is None:
+                #print("warning: can't figure out ndof")
                 return np.mean(tmp**2)
             else:
+                #print("ndof:", ndof)
                 return np.sum(tmp**2)/ndof
         else:
             return np.sum(tmp**2)
@@ -1087,7 +1123,8 @@ class OI:
         return
 
     def showBootstrap(self, sigmaClipping=None, combParam={}, showChi2=False, fig=None,
-                      alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
+                      alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None,
+                      ignore=None):
         """
         example:
         combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
@@ -1111,7 +1148,8 @@ class OI:
         oimodels.showBootstrap(self.boot, showRejected=0, fig=self.fig, showChi2=showChi2,
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                alternateParameterNames=alternateParameterNames,
-                               showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping)
+                               showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping,
+                               ignore=ignore)
         return
 
     def showTellurics(self, fig=None):
@@ -1678,7 +1716,10 @@ class OI:
             if key=='flux ':
                 plt.title('SED', fontsize=9)
             else:
-                plt.title('normalised spectra', fontsize=9)
+                if US_SPELLING:
+                    plt.title('normalized spectra', fontsize=9)
+                else:
+                    plt.title('normalised spectra', fontsize=9)
                 # -- show continuum
                 #w = self.spectra[key+'CMASK']
                 #plt.plt.plot(self.spectra[key+'WL'][w],
@@ -2183,8 +2224,8 @@ def _checkSetupFit(fit):
             'N|V| order':int,
             'NFLUX order': int,
             'correlations': (bool, dict),
+            }
 
-    }
     ok = True
     if not 'obs' in fit:
         raise Exception('list of observables should be defined (see method setupFit)')
