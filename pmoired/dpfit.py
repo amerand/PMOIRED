@@ -488,13 +488,13 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
     # -- residuals
     if not correlations is None:
         reducedChi2 = result.fun
-        ndof = len(model)-len(pfit)+1
+        ndof = max(len(model)-len(pfit)+1, 1)
         chi2 = reducedChi2*ndof
     elif np.iterable(err) and len(np.array(err).shape)==2:
         # -- assumes err matrix is co-covariance
         r = y - model
         chi2 = np.dot(np.dot(np.transpose(r), np.linalg.inv(err)), r)
-        ndof = len(x)-len(pfit)+1
+        ndof = max(len(x)-len(pfit)+1, 1)
         reducedChi2 = chi2/ndof
     else:
         tmp = _fitFunc(plsq, fitOnly, x, y, err, func, pfix)
@@ -505,9 +505,9 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             for x in tmp:
                 chi2+=np.sum(x**2)
         try:
-            ndof = len(model)-len(pfit)+1
+            ndof = max(len(model)-len(pfit)+1, 1)
         except:
-            ndof = np.sum([1 if np.isscalar(i) else len(i) for i in tmp])-len(pfit)+1
+            ndof = max(np.sum([1 if np.isscalar(i) else len(i) for i in tmp])-len(pfit)+1, 1)
         reducedChi2 = chi2/ndof
         if not np.isscalar(reducedChi2):
             reducedChi2 = np.mean(reducedChi2)
@@ -825,7 +825,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
                 res.append(df)
 
     try:
-        chi2=(res**2).sum/(len(res)-len(pfit)+1.0)
+        chi2= np.sum(res**2)/max(len(res)-len(pfit)+1.0, 1)
     except:
         # list of elements
         chi2 = 0
@@ -840,7 +840,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
                 chi2 += np.sum(np.array(r)**2)
                 N+=len(r)
                 #res2.extend(list(r))
-        chi2 /= N-len(pfit)+1.0
+        chi2 /= max(N-len(pfit)+1.0, 1)
 
     if verbose and time.time()>(verboseTime+10):
         verboseTime = time.time()
@@ -865,7 +865,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
     return res
 
 def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False,
-                follow=None, correlations=None, addKwargs={}):
+                follow=None, correlations=None, addKwargs={}, doTrackP=True):
     """
     interface  scipy.optimize.minimize:
     - x,y,err are the data to fit: f(x) = y +- err
@@ -984,17 +984,17 @@ def _fitFuncMin(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=Fa
         else:
             _follow = list(filter(lambda x: x in params.keys(), follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
-    for i,k in enumerate(pfitKeys):
-        if not k in trackP:
-            trackP[k] = [pfit[i]]
+    if doTrackP:
+        for i,k in enumerate(pfitKeys):
+            if not k in trackP:
+                trackP[k] = [pfit[i]]
+            else:
+                trackP[k].append(pfit[i])
+        if not 'reduced chi2' in trackP:
+            trackP['reduced chi2'] = [chi2]
         else:
-            trackP[k].append(pfit[i])
-    if not 'reduced chi2' in trackP:
-        trackP['reduced chi2'] = [chi2]
-    else:
-        trackP['reduced chi2'].append(chi2)
+            trackP['reduced chi2'].append(chi2)
     return chi2
-
 
 def _fitFunc2(x, *pfit, verbose=True, follow=[], errs=None):
     """
