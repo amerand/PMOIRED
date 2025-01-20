@@ -31,6 +31,7 @@ _c = np.pi**2/180/3600/1000*1e6
 
 # -- default max number of processes
 MAX_THREADS = multiprocessing.cpu_count()
+US_SPELLING = False
 
 def Ssingle(oi, param, noLambda=False):
     """
@@ -3045,7 +3046,7 @@ def computePriorD(param, prior):
         res.append(eval(resi))
     return np.array(res)
 
-def computePriorL(param, prior):
+def computePriorL(param, prior, weight=1.0):
     res = []
     for p in prior:
         form = p[0]
@@ -3060,7 +3061,8 @@ def computePriorL(param, prior):
         if len(p)==3:
             resi = '('+form+'-'+str(val)+')'
         elif len(p)==4:
-            resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
+            # -- ignore weight
+            resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')/%f'%(2*weight)
         if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
             resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
         try:
@@ -3068,7 +3070,7 @@ def computePriorL(param, prior):
         except:
             res.append(0.0)
             print('WARNING: could not compute prior "'+resi+'"')
-    return np.array(res)
+    return np.array(res)*weight
 
 def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=False,
                 correlations=None, ignoreErr=None, _i0=0):
@@ -3330,9 +3332,14 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
         wh.extend(['<0?'])
     if 'fit' in oi and 'prior' in oi['fit']:
         # -- add priors as additional residuals.
-        tmp = computePriorL(computeLambdaParams(param, MJD=np.mean(oi['MJD'])), oi['fit']['prior'])
         # -- approximate equal weight as rest of data
-        res = np.append(res, tmp*np.sqrt(len(res)))
+        # if not correlations is None:
+        #     tmp = computePriorL(computeLambdaParams(param, MJD=np.mean(oi['MJD'])),
+        #                     oi['fit']['prior'], weight=1/np.sqrt(len(res)))
+        # else:
+        tmp = computePriorL(computeLambdaParams(param, MJD=np.mean(oi['MJD'])),
+                            oi['fit']['prior'], weight=np.sqrt(len(res)))
+        res = np.append(res, tmp)
         if fullOutput:
             allwl    = np.append(allwl,    0.0*tmp)
             alldata  = np.append(alldata,  0.0*tmp)
@@ -3531,20 +3538,25 @@ def _nSigmas(chi2r_TEST, chi2r_TRUE, NDOF):
     """
     - chi2r_TEST is the hypothesis we test
     - chi2r_TRUE is what we think is what described best the data
-    - NDOF: numer of degres of freedom
+    - NDOF: number of degres of freedom
 
     chi2r_TRUE <= chi2r_TEST
 
     returns the nSigma detection
     """
-    q = scipy.stats.chi2.cdf(NDOF*chi2r_TEST/chi2r_TRUE, NDOF)
-    p = 1.0-q
-    nsigma = np.sqrt(scipy.stats.chi2.ppf(1-p, 1))
-    if isinstance(nsigma, np.ndarray):
-        nsigma[p<1e-15] = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
-    elif p<1e-15:
-        nsigma = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
+    # -- better version by Alex, not limited to 8sigma:
+    p = scipy.stats.chi2.sf(NDOF*chi2r_TEST/chi2r_TRUE, NDOF)
+    nsigma = np.sqrt(scipy.special.chdtri(1, p))
     return nsigma
+
+    # q = scipy.stats.chi2.cdf(NDOF*chi2r_TEST/chi2r_TRUE, NDOF)
+    # p = 1.0-q
+    # nsigma = np.sqrt(scipy.stats.chi2.ppf(1-p, 1))
+    # if isinstance(nsigma, np.ndarray):
+    #     nsigma[p<1e-15] = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
+    # elif p<1e-15:
+    #     nsigma = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
+    # return nsigma
 
 
 def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
@@ -4836,7 +4848,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         imX: center of FoV (in mas, default:0.0)
         imY: center of FoV (in mas, default:0.0)
     """
-    global ai1ax, ai1mcB, ai1mcT, ai1i
+    global ai1ax, ai1mcB, ai1mcT, ai1i, US_SPELLING
 
     if type(oi)==list:
         # -- multiple data sets -> recursive call
@@ -5128,6 +5140,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
              'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
              'CF':{'ext':'IM_VIS', 'var':'CF', 'X':'B/wl', 'C':'PA'},
              }
+    if US_SPELLING:
+        data['NFLUX']['unit'] = 'normalized'
+        imdata['NFLUX']['unit'] = 'normalized'
+
     if t3B in ['max', 'avg', 'min']:
         data['T3PHI']['X'] = 'B%s/wl'%t3B
         imdata['T3PHI']['X'] = 'B%s/wl'%t3B
@@ -6073,7 +6089,10 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
 
     if 'totalnflux' in m['MODEL']:
         key = 'nflux'
-        plt.title('spectra, normalised\nto total continuum', fontsize=8)
+        if US_SPELLING:
+            plt.title('spectra, normalized\nto total continuum', fontsize=8)
+        else:
+            plt.title('spectra, normalised\nto total continuum', fontsize=8)
     else:
         key = 'flux'
         if logS:
