@@ -739,7 +739,7 @@ class OI:
 
     def showLimGrid(self, px=None, py=None, aspect=None, logV=False,
                     vmin=None, vmax=None, mag=False, cmap='inferno',
-                    x0=None, y0=None):
+                    x0=None, y0=None, radProfile=True):
         """
         show the results from `detectionLimit` as 2D coloured map.
 
@@ -779,7 +779,7 @@ class OI:
 
         self.fig+=1
         plt.close(self.fig)
-        if xy:
+        if xy and radProfile:
             plt.figure(self.fig, figsize=(FIG_MAX_WIDTH,FIG_MAX_WIDTH/3))
             ax1 = plt.subplot(131, aspect=aspect)
         else:
@@ -826,7 +826,7 @@ class OI:
         plt.xlabel(px)
         plt.ylabel(py)
 
-        if xy:
+        if xy and radProfile:
             plt.subplot(132)
         else:
             plt.subplot(122)
@@ -834,7 +834,7 @@ class OI:
         plt.hist(c, bins=max(int(np.sqrt(len(self.limgrid))), 5))
         plt.xlabel(self._limexpl['param']+' '+_unit)
 
-        if xy:
+        if xy  and radProfile:
             # -- radial detection limit
             ax3 = plt.subplot(133)
             if x0 is None:
@@ -1197,15 +1197,17 @@ class OI:
             fitted observables will be shown.
         - logV, logB: show visibilities, baselines in log scale (boolean)
         - showFlagged: show data flagged in the file (boolean)
-        - showUV: show u,v coordinated (boolean)
+        - showUV: show u,v coordinated (default=True)
+        - bckgGrid: shows background grid (default=True)
         - spectro: force spectroscopic mode
-        - vWl0: show sepctroscopic data with velocity scale,
-            around this central wavelength (in microns)
+        - vWl0: show spectroscopic data with velocity scale,around this central
+            wavelength (in microns)
         - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
         - allInOne: all data in a single figure
         - barycentric: use barycentric velocities, if possible
+        - autoLimV: automatic limits for visibility (|V|, V2) plots (default=False).
 
-        show image and spectrum of model: set imFov to a value to show image
+        show image(s) and spectrum of model: set imFov to a value to show image
         - imFov: field of view in mas
         - imPix: imPixel size in mas
         - imMax: cutoff for image display (0..1) or in percentile ('0'..'100')
@@ -1214,13 +1216,14 @@ class OI:
         - imX, imY: center of image (in mas)
         - imWl0: list of wavelength (um) to show the image default (min, max)
         - imPlx: parallax in mas, to show secondary scales in AU
-        - imTight: force image to be limited to FoV
+        - imTight: force image to be limited to given FoV
+        - imLegend: show names and position of components (default=True)
         - cmap: color map (default 'inferno')
         - checkImVis: compute visibility from image to check (can be wrong if
             fov is too small)
         - cColors: an optional dictionary to set the color of each components in
             the SED plot
-        - showSED: True
+        - showSED: show SED of components (default=True)
         - t3B: baseline for displaying T3 'min', 'max' or 'avg'
         """
         oimodels.FIG_MAX_WIDTH = FIG_MAX_WIDTH
@@ -1846,6 +1849,7 @@ class OI:
         scale = self.images['scale']
         Xp, Yp = self.images['Xp'], self.images['Yp']
         R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
+        PA = np.arctan2(Yp-y0, Xp-x0)
 
         if excludeCentralPix:
             r = np.linspace(scale, np.max(R), 2*int(np.max(R)/scale))

@@ -1435,10 +1435,14 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
         else:
             y[i] = np.sum(k*Y)/np.sum(k)
         if phase:
+            # if no!=0 and np.isfinite(no):
+            #     y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
+            # else:
+            #     y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
             if no!=0 and np.isfinite(no):
-                y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
+                y[i] = np.angle(np.sum(k/E*np.exp(1j*Y*np.pi/180))/no)*180/np.pi
             else:
-                y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
+                y[i] = np.angle(np.sum(k*np.exp(1j*Y*np.pi/180))/np.sum(k))*180/np.pi
     return y
 
 def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=None):

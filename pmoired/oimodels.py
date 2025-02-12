@@ -870,10 +870,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             _param['thick'] = 1.0
         if 'thick' in _param:
             if 'diam' in _param:
-                diamout = _param['diam']
+                diamout = _param['diam'] #*(1+min(max(1e-9,_param['thick']),1))
             if 'diamout' in _param:
                 diamout = _param['diamout']
-            diamin = _param['diam']*(1-min(max(1e-9,_param['thick']),1))
+            diamin = _param['diam']*(1-min(max(1e-5,_param['thick']),1))
+
         else:
             diamin = _param['diamin']
             diamout = _param['diamout']
@@ -2699,8 +2700,8 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
     w = oi['WL']>0
     if 'fit' in oi and 'wl ranges' in oi['fit']:
         w = np.zeros(oi['WL'].shape)
-#        for WR in oi['fit']['wl ranges']:
-#            w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
+    #   for WR in oi['fit']['wl ranges']:
+    #       w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
         closest = []
         for WR in oi['fit']['wl ranges']:
             w += (oi['WL']>=WR[0])*(oi['WL']<=WR[1])
