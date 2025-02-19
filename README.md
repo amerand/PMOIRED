@@ -1,5 +1,11 @@
 ![banner](banner/banner/banner.001.png)
 
+[![python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org)
+[![numpy](http://img.shields.io/badge/https://img.shields.io/badge/Numpy-777BB4?style=for-the-badge&logo=numpy&logoColor=white)](http://www.numpy.org/)
+[![scipy](https://img.shields.io/badge/-SciPy-8CAAE6?logo=SciPy&logoColor=fff)](https://www.scipy.org)
+[![astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
+[![matplotlib](https://img.shields.io/badge/-Matplotlib-000000?style=flat&logo=python)](https://www.matplotlib.org)
+
 ## Overview
 
 `PMOIRED` is a Python3 module which allows to model astronomical spectro-interferometric data stored in the OIFITS format ([Duvert et al. 2017](https://ui.adsabs.harvard.edu/abs/2017A%26A...597A...8D/abstract)). Parametric modeling is used to describe the observed scene as blocks such as disks, rings and Gaussians which can be combined and their parameters linked. It includes plotting, least-square fitting and bootstrapping estimation of uncertainties. For spectroscopic instruments (such as GRAVITY), tools are provided to model spectral lines and correct spectra for telluric lines.
