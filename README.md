@@ -1,7 +1,7 @@
 ![banner](banner/banner/banner.001.png)
 
-[![python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org)
-[![numpy](http://img.shields.io/badge/https://img.shields.io/badge/Numpy-777BB4?style=for-the-badge&logo=numpy&logoColor=white)](http://www.numpy.org/)
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff)](https://www.python.org)
+[![numpy](https://img.shields.io/badge/NumPy-4DABCF?logo=numpy&logoColor=fff))](http://www.numpy.org/)
 [![scipy](https://img.shields.io/badge/-SciPy-8CAAE6?logo=SciPy&logoColor=fff)](https://www.scipy.org)
 [![astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 [![matplotlib](https://img.shields.io/badge/-Matplotlib-000000?style=flat&logo=python)](https://www.matplotlib.org)
