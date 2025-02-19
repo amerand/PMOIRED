@@ -23,14 +23,14 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
-### install with pip
+### Install with pip
 
 `PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
 
 ```
 pip3 install pmoired
 ```
-### install with git
+### Install with git
 
 To install from the github repository:
 ```
@@ -38,7 +38,7 @@ pip3 install git+https://github.com/amerand/PMOIRED
 ```
 you can also clone the repository and install with `pip3 install .` within the PMOIRED directory
 
-### uninstall
+### Uninstall
 To uninstall (works for both PyPI and github versions):
 ```
 pip3 uninstall pmoired
@@ -86,3 +86,16 @@ The latest version of `PMOIRED` has been tested on:
 - astroquery 0.4.6
 - matplotlib 3.7.0
 - jupyterlab 3.5.0
+
+## Acknowledgments
+
+This project has received funding from the European
+Union’s Horizon 2020 research and innovation
+programme under grant agreement No 101004719.
+
+<img src="banner/EU.jpg" alt="EU" width="200px"/>
+<img src="banner/ORP.png" alt="ORP" width="200px"/>
+<!--
+![EU](banner/EU.jpg)
+![ORP](banner/ORP.png)
+-->
