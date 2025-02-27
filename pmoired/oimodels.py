@@ -874,7 +874,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             if 'diamout' in _param:
                 diamout = _param['diamout']
             diamin = _param['diam']*(1-min(max(1e-5,_param['thick']),1))
-
         else:
             diamin = _param['diamin']
             diamout = _param['diamout']
@@ -4106,11 +4105,13 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
             if dLimParam is None:
                 kwargs['iter'] = i
                 res.append(tryfitOI(oi, PARAM[i], **kwargs))
-                progress()
+                if verbose:
+                    progress()
             else:
                 kwargs = {'nsigma': dLimSigma}
                 res.append(limitOI(oi, PARAM[i], dLimParam, **kwargs))
-                progress()
+                if verbose:
+                    progress()
         # -- make sure the progress bar finishes
         progress(finish=True)
         res = [r for r in res if r!={}]
@@ -4276,7 +4277,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         #         t['firstGuess'].extend(res[j]['firstGuess'])
         #     else:
         #         t['firstGuess'].append(res[j]['firstGuess'])
-    print()
+    #print()
 
     res = tmp
     res = sorted(res, key=lambda r: r['chi2'])
@@ -4551,15 +4552,20 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
                             if uncer[k]>0 else firstGuess[k] for k in firstGuess}
             else:
                 tmpfg = firstGuess
-            res.append(pool.apply_async(fitOI, (oi, tmpfg, ), kwargs, callback=progress))
+            if verbose:
+                res.append(pool.apply_async(fitOI, (oi, tmpfg, ), kwargs, callback=progress))
+            else:
+                res.append(pool.apply_async(fitOI, (oi, tmpfg, ), kwargs))
+
         pool.close()
         pool.join()
         res = [r.get(timeout=1) for r in res]
         for r in res:
             r['y'] = None
             r['y'] = None
-        # -- make sure the progress bar finishes
-        progress(finish=True)
+        if verbose:
+            # -- make sure the progress bar finishes
+            progress(finish=True)
     else:
         Np = 1
         t = time.time()
@@ -4571,10 +4577,11 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         for i in range(N):
             kwargs['iter'] = i
             res.append(fitOI(oi, firstGuess, **kwargs))
-            progress()
+            if verbose:
+                progress()
         # -- make sure the progress bar finishes
-        progress(finish=True)
-    print()
+        if verbose:
+            progress(finish=True)
     if verbose:
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
