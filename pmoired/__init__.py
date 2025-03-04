@@ -1649,15 +1649,16 @@ class OI:
                 title+= '\n v= %.0fkm/s'%((self.images['WL'][i0]*bcorr-vWl0)/self.images['WL'][i0]*299792)
             plt.title(title, fontsize=9, y=1.05 if imPlx else None)
 
+            cmodel = oimodels.computeLambdaParams(model)
             if imLegend:
                 # -- show position of each components
                 for c in sorted(comps):
                     if c+',x' in model.keys():
-                        x = model[c+',x']
+                        x = cmodel[c+',x']
                     else:
                         x = 0.0
                     if c+',y' in model.keys():
-                        y = model[c+',y']
+                        y = cmodel[c+',y']
                     else:
                         y = 0.0
                     if np.isreal(x) and np.isreal(y):
