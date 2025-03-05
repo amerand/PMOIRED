@@ -945,7 +945,7 @@ __mjd0 = 57000
 
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                  diam=None, cube=None, noise=None, thres=None,
-                 model=None, insname='fake', debug=False,
+                 model=None, insname='synthetic', debug=False,
                  doubleDL=False):
     """
     for VLTI!
@@ -969,12 +969,31 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     if noise == 0:
         noise = {k: 0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
     if noise is None:
-        # -- typical
-        noise = {'V2': 0.01, '|V|': 0.01, 'PHI': 1., 'FLUX': 0.01,
+        # -- typical for GRAVITY good SNR
+        noise = {'V2': 0.01, '|V|': 0.01, 'PHI': 0.5, 'FLUX': 0.01,
                  'T3PHI': 1., 'T3AMP': 0.01}
         # -- high precision
         # noise = {'V2': 0.001, '|V|':0.001, 'PHI':0.1, 'FLUX':0.001,
         #         'T3PHI':.1, 'T3AMP':0.001}
+        #
+    if type(noise)!=dict:
+       raise Exception('noise should be a dictionnary such as '+
+            str({'V2': 0.01, '|V|': 0.01, 'PHI': 0.5, 'FLUX': 0.01,'T3PHI': 1., 'T3AMP': 0.01}))
+
+    # -- try to complete the noise dictionnary
+    if 'V2' in noise and not '|V|' in noise:
+        noise['|V|'] = noise['V2']
+    if '|V|' in noise and not 'V2' in noise:
+        noise['V2'] = noise['|V|']
+    if '|V|' in noise and not 'T3AMP' in noise:
+            noise['T3AMP'] = 1.5*noise['|V|']*1.5
+    if 'T3PHI' in noise and not 'PHI' in noise:
+        noise['PHI'] = noise['T3PHI']/1.5
+    if 'PHI' in noise and not 'T3PHI' in noise:
+            noise['T3PHI'] = noise['T3PHI']*1.5
+    if not 'FLUX' in noise:
+        noise['FLUX'] = 0.01
+
     if thres is None:
         # -- threshold for noise behavior (absolute)
         thres = {'V2': 0.01, '|V|': 0.02, 'T3AMP': 0.05, 'FLUX': 0.01}
