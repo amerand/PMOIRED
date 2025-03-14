@@ -1551,7 +1551,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                     # -- ext2 are vector of length WL
                     if l=='OI_FLUX':
                         ext1 = ['MJD']
-                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX']
+                        ext2 = ['FLUX', 'EFLUX', 'FLAG', 'RFLUX', 'MJD2']
                     elif l=='OI_VIS2':
                         ext1 = ['u', 'v', 'MJD']
                         ext2 = ['V2', 'EV2', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2', 'PA']
@@ -1563,8 +1563,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                         ext2 = ['CF', 'ECF', 'PHI', 'EPHI', 'FLAG', 'u/wl', 'v/wl', 'B/wl', 'MJD2', 'PA']
                     if l=='OI_T3':
                         ext1 = ['u1', 'v1', 'u2', 'v2', 'MJD', 'B1', 'B2', 'B3']
-                        ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI',
-                                'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2']
+                        ext2 = ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI', 'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2']
                     if debug:
                         print(l, k, res[i0][l][k].keys())
                     for t in ext1:
@@ -1573,11 +1572,13 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                             res[i0][l][k][t] = np.append(res[i0][l][k][t], oi[l][k][t])
                     for t in ext2:
                         # -- append (len(MJDs),len(WL)) data
+                        oops = False
                         try:
                             s1 = res[i0][l][k][t].shape # = (len(MJDs),len(WL))
                             s2 = oi[l][k][t].shape # = (len(MJDs),len(WL))
                         except:
-                            print('ERROR!', l, k)
+                            print('ERROR!', l, k, t)
+
                         if t.startswith('E') and t[1:] in oi[l][k] and 'fit' in oi:
                             # -- errors -> allow editing
                             tmp = _filtErr(t[1:], oi[l][k], oi['fit'])
@@ -1585,13 +1586,17 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                         elif t == 'FLAG' and 'fit' in oi:
                             # -- flags -> editing based on errors
                             tmp = _filtFlag(oi[l][k], oi['fit'])
-                        else:
+                        elif t in oi[l][k]:
                             tmp = oi[l][k][t]
-                        res[i0][l][k][t] = np.append(res[i0][l][k][t], tmp)
-                        try:
-                            res[i0][l][k][t] = res[i0][l][k][t].reshape(s1[0]+s2[0], s1[1])
-                        except:
-                            print('!!!', i0, l, k, t, s1 ,s2, res[i0][l][k]['u/wl'])
+                        else:
+                            oops = True
+                            #print('!', l, k, t)
+                        if not oops:
+                            res[i0][l][k][t] = np.append(res[i0][l][k][t], tmp)
+                            try:
+                                res[i0][l][k][t] = res[i0][l][k][t].reshape(s1[0]+s2[0], s1[1])
+                            except:
+                                print('!!!', i0, l, k, t, s1 ,s2, res[i0][l][k]['u/wl'])
 
     for r in res:
         for k in ['telescopes', 'baselines', 'triangles']:
@@ -1753,8 +1758,8 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                         else:
                             tmp[k] = {p:r['fit'][k][p]}
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges',
-                                                'continuum ranges', 'prior', 'Nr',
-                                                'DPHI order', 'N|V| order',
+                                                'MJD ranges', 'continuum ranges', 'prior',
+                                                'Nr', 'DPHI order', 'N|V| order',
                                                 'NFLUX order', 'ignore negative flux',
                                                 'correlations']
                         if k in r['fit']}

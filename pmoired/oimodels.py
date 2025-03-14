@@ -2569,6 +2569,19 @@ def computeDiffPhiOI(oi, param=None, order='auto', debug=False,
 
             if 'EPHI' in oi['OI_VIS'][k]:
                 err = oi['OI_VIS'][k]['EPHI'][i,:].copy()
+                # if 'baseline ranges' in oi['fit']:
+                #     for bmin, bmax in oi['fit']['baseline ranges']:
+                #         if not 'T3' in data[l]['ext']:
+                #                 mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
+                #                         (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
+                #         else:
+                #             for b in ['B1', 'B2', 'B3']:
+                #                 mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
+                #                          (oi[data[l]['ext']][k][b][j]>=bmin))
+                # if 'MJD ranges' in oi['fit']:
+                #     for mjdmin, mjdmax in oi['fit']['MJD ranges']:
+                #         mask *= (oi['OI_VIS'][k]['MJD2'][i,:]<=mjdmax)*\
+                #                 (oi['OI_VIS'][k]['MJD2'][i,:]>=mjdmin)
                 if 'max error' in oi['fit'] and 'DPHI' in oi['fit']['max error']:
                     # -- ignore data with large error bars
                     mask *= (err<=oi['fit']['max error']['DPHI'])
@@ -5507,14 +5520,20 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 showIgn = False
                 if 'baseline ranges' in oi['fit']:
                     for bmin, bmax in oi['fit']['baseline ranges']:
-                        if not 'T3' in data[l]['ext']:
-                                mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
-                                        (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
-                        else:
+                        if 'FLUX' in data[l]['ext']:
+                            pass
+                        elif 'T3' in data[l]['ext']:
                             for b in ['B1', 'B2', 'B3']:
                                 mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
-                                         (oi[data[l]['ext']][k][b][j]>=bmin))
-
+                                            (oi[data[l]['ext']][k][b][j]>=bmin))
+                        else:
+                            mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
+                                    (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
+                if 'MJD ranges' in oi['fit']:
+                    for mjdmin, mjdmax in oi['fit']['MJD ranges']:
+                        mask *= (oi[data[l]['ext']][k]['MJD2'][j,:]<=mjdmax)*\
+                                (oi[data[l]['ext']][k]['MJD2'][j,:]>=mjdmin)
+                        #print('debug:', data[l]['ext'], k, oi[data[l]['ext']][k]['MJD2'])
                 if 'max error' in oi['fit'] and \
                         data[l]['var'] in oi['fit']['max error']:
                     # -- ignore data with large error bars

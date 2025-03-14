@@ -358,6 +358,8 @@ class OI:
             it will affect bose baselines AND triangles if any baseline if out of range(s)
         -> by default, the full defined range is fitted.
 
+        'MJD ranges': a list of ranges in MJD where to fit.
+
         'min error': forcing errors to have a minimum value. Keyed by the same
             values as 'obs'. e.g. {'V2':0.04, 'T3PHI':1.5} sets the minimum error
             to 0.04 in V2 (absolute) and 1.5 degrees for T3PHI
@@ -2220,7 +2222,10 @@ def _checkSetupFit(fit):
     keys = {'min error':dict, 'min relative error':dict,
             'max error':dict, 'max relative error':dict,
             'mult error':dict,
-            'obs':list, 'wl ranges':list, 'baseline ranges':list,
+            'obs':list,
+            'wl ranges':list,
+            'baseline ranges':list,
+            'MJD ranges':list,
             'Nr':int, 'spec res pix':float,
             'continuum ranges':list,
             'ignore negative flux':bool,
