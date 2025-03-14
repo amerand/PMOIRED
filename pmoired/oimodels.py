@@ -3219,6 +3219,23 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                 if not test:
                     mask = np.logical_and(w[None,:], ~oi[ext[f]][k]['FLAG'])
                     err = oi[ext[f]][k]['E'+f].copy()
+                    if 'baseline ranges' in oi['fit']:
+                        #print('debug: baseline ranges')
+                        for bmin, bmax in oi['fit']['baseline ranges']:
+                            if 'FLUX' in ext[f]:
+                                pass
+                            elif 'T3' in ext[f]:
+                                for b in ['B1', 'B2', 'B3']:
+                                    mask *= ((oi[ext[f]][k][b]<=bmax)*
+                                             (oi[ext[f]][k][b]>=bmin))
+                            else:
+                                mask *= (oi[ext[f]][k]['B/wl']*oi['WL']<=bmax)*\
+                                        (oi[ext[f]][k]['B/wl']*oi['WL']>=bmin)
+                    if 'MJD ranges' in oi['fit']:
+                        for mjdmin, mjdmax in oi['fit']['MJD ranges']:
+                            mask *= (oi[ext[f]][k]['MJD2']<=mjdmax)*\
+                                    (oi[ext[f]][k]['MJD2']>=mjdmin)
+
                     if 'max error' in oi['fit'] and f in oi['fit']['max error']:
                         # -- ignore data with large error bars
                         mask *= (err<oi['fit']['max error'][f])
