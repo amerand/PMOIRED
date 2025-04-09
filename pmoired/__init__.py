@@ -389,6 +389,8 @@ class OI:
         'correlations':True takes into account spectral correlations, can be a dict
             with correlations per observables
 
+        'spatial kernel': multiply vis / convolve images with spatial kernel of FWHM (in mas)
+
         example: oi.setupFit({'obs':['V2', 'T3PHI'], 'max error':{'T3PHI':10}})
           to fit V2 and T3PHI data, reject data with errors in T3PHI>10 degrees
         """
@@ -446,7 +448,6 @@ class OI:
                 d['fit']['obs'] = _checkObs(d, d['fit']['obs']).copy()
                 if debug:
                     print('fit>obs:', d['fit']['obs'])
-
         return
 
     def _setPrior(self, model, prior=None, autoPrior=True):
@@ -523,6 +524,12 @@ class OI:
 
         if doNotFit=='auto':
             doNotFit = []
+
+        # -- known keywords to ignore
+        _doNotFit = ['#spatial kernel']
+        for k in _doNotFit:
+            if k in model:
+                doNotFit.append(k)
 
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
@@ -1287,14 +1294,15 @@ class OI:
             showIM = False
             imFov = None
 
-        # if not model is None and not imFov is None and checkImVis:
-        #     allInOne = False
-        #     perSetUp = False
-        #     # -- prepare computing model's images
-        #     print('computing model images and corresponding visibilities:')
-        #     self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
-        #                             imX=imX, imY=imY, visibilities=True)
-
+        if not model is None and not imFov is None and checkImVis:
+            allInOne = False
+            perSetUp = False
+            # -- prepare computing model's images
+            print('computing model images and corresponding visibilities:')
+            t0 = time.time()
+            self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
+                                    imX=imX, imY=imY, visibilities=True)
+            print('in %.1fs'%(time.time()-t0))
         self._dataAxes = {}
         if perSetup:
             if self.debug:
@@ -1345,11 +1353,16 @@ class OI:
                     _obs = g['fit']['obs']
                 else:
                     _obs = obs
+                if checkImVis:
+                    _imoi = self.vfromim
+                else:
+                    _imoi = None
+
                 oimodels.showOI(g,
                         param=model, fig=self.fig, obs=_obs, logV=logV,
                         logB=logB, showFlagged=showFlagged, showIm=False,
                         spectro=spectro, showUV=showUV, allInOne=True,
-                        imFov=None, checkImVis=False, vWl0=vWl0,
+                        imFov=None, checkImVis=checkImVis, vWl0=vWl0, imoi=_imoi,
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
                         barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
                 self._dataAxes[perSetup[j]] = oimodels.ai1ax
@@ -1398,6 +1411,10 @@ class OI:
                         if not 'fit' in d:
                             d['fit'] = {}
                         d['fit']['obs'] = _obs
+            if checkImVis:
+                imoi = self.vfromim
+            else:
+                imoi = None
 
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
                     obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
@@ -1405,7 +1422,7 @@ class OI:
                     imFov=None, showIm=False, #imPix=imPix, imPow=imPow, imMax=imMax,
                     #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
                     #cColors=cColors, cMarkers=cMarkers
-                    checkImVis=False, vWl0=vWl0, showChi2=showChi2,
+                    checkImVis=checkImVis, imoi=imoi, vWl0=vWl0, showChi2=showChi2,
                     debug=self.debug, bckgGrid=bckgGrid,
                     barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
             self._dataAxes['ALL'] = oimodels.ai1ax
@@ -1431,11 +1448,11 @@ class OI:
         else:
             self._model = []
             for i,d in enumerate(data):
+                _obs = None
                 if 'fit' in d and 'obs' in d['fit']:
                     #print(j, g['fit'])
                     _obs = d['fit']['obs']
-                else:
-                    _obs = None
+
                 if checkImVis:
                     imoi = [self.vfromim[i]]
                 else:
@@ -1950,6 +1967,22 @@ class OI:
                     else:
                         res['cube'].append(t['MODEL']['image'])
         res['cube'] = np.array([res['cube'][i] for i in np.argsort(res['WL'])])
+
+        # == convolve by a spatial kernel
+        if '#spatial kernel' in model:
+            kfwhm = model['#spatial kernel']
+        else:
+            kfwhm = None
+        if not kfwhm is None:
+            # -- kernel
+            s = kfwhm/(2*np.sqrt(2+np.log(2)))
+            ker = np.exp(-((res['X']-imX)**2+(res['Y']-imY)**2)/(2*s**2))/(s*np.sqrt(2*np.pi))
+            # -- for each wavelength in the cube
+            for i,c in enumerate(res['cube']):
+                # print('c', c.shape)
+                #res['cube'][i] = scipy.signal.convolve2d(c, ker, mode='same')
+                res['cube'][i] = scipy.signal.fftconvolve(c, ker, mode='same')
+
         res['WL'] = np.array(sorted(res['WL']))
 
         # -- photocenter
@@ -1973,7 +2006,8 @@ class OI:
                 key = 'OI_VIS'
             else:
                 key = 'OI_VIS2'
-            tmp = {'OI_VIS':{}, 'OI_VIS2':{}, 'WL':d['WL'], 'OI_FLUX':{}}
+            tmp = {'OI_VIS':{}, 'OI_VIS2':{}, 'WL':d['WL'], 'OI_FLUX':{},
+                'MJD':d['MJD']}
             wl = np.array([np.argmin(np.abs(x-res['WL'])) for x in d['WL']])
             norm = np.sum(res['cube'][wl,:,:], axis=(1,2))
             _c = np.pi**2/180/3600/1000*1e6
@@ -1989,6 +2023,7 @@ class OI:
                                     'v/wl': d[key][k]['v/wl'],
                                     'B/wl': d[key][k]['B/wl'],
                                     'MJD':d[key][k]['MJD'],
+                                    'MJD2':d[key][k]['MJD2'],
                                     }
                 if 'OI_VIS' in d:
                     tmp['OI_VIS'][k]['FLAG'] = d['OI_VIS'][k]['FLAG']
@@ -2000,6 +2035,7 @@ class OI:
                                     'v/wl': d[key][k]['v/wl'],
                                     'B/wl': d[key][k]['B/wl'],
                                     'MJD':d[key][k]['MJD'],
+                                    'MJD2':d[key][k]['MJD2'],
                                     }
                 if 'OI_VIS2' in d:
                     tmp['OI_VIS2'][k]['FLAG'] = d['OI_VIS2'][k]['FLAG']
@@ -2010,19 +2046,21 @@ class OI:
             if 'OI_T3' in d:
                 tmp['OI_T3'] = {}
                 for k in d['OI_T3']:
-                    tmp['OI_T3'][k] = { x: d['OI_T3'][k][x] for x in
-                        ['formula', 'MJD', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG']}
+                    tmp['OI_T3'][k] = { x: d['OI_T3'][k][x].copy() for x in
+                        ['formula', 'MJD', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG', 'MJD2']}
             tmp = oimodels.computeT3fromVisOI(tmp)
 
-            for k in d['OI_FLUX'].keys():
-                tmp['OI_FLUX'][k] = {'FLUX':d['OI_FLUX'][k]['FLAG']*0 +
-                                     np.sum(res['cube'], axis=(1,2))[None,:],
-                                     'EFLUX':d['OI_FLUX'][k]['FLAG']*0 + 1,
-                                     'RFLUX':d['OI_FLUX'][k]['FLAG']*0 +
-                                      np.sum(res['cube'], axis=(1,2))[None,:],
-                                     'MJD':d['OI_FLUX'][k]['MJD'],
-                                     'FLAG':d['OI_FLUX'][k]['FLAG'],
-                                    }
+            if 'OI_FLUX' in d:
+                for k in d['OI_FLUX'].keys():
+                    tmp['OI_FLUX'][k] = {'FLUX':d['OI_FLUX'][k]['FLAG']*0 +
+                                        np.sum(res['cube'], axis=(1,2))[None,:],
+                                        'EFLUX':d['OI_FLUX'][k]['FLAG']*0 + 1,
+                                        'RFLUX':d['OI_FLUX'][k]['FLAG']*0 +
+                                        np.sum(res['cube'], axis=(1,2))[None,:],
+                                        'MJD':d['OI_FLUX'][k]['MJD'],
+                                        'FLAG':d['OI_FLUX'][k]['FLAG'],
+                                        'MJD2':d['OI_FLUX'][k]['MJD2'],
+                                        }
             tmp = oimodels.computeNormFluxOI(tmp, param=model)
             syn.append(tmp)
         self.vfromim = syn
@@ -2234,6 +2272,7 @@ def _checkSetupFit(fit):
             'N|V| order':int,
             'NFLUX order': int,
             'correlations': (bool, dict),
+            'spatial kernel': float,
             }
 
     ok = True

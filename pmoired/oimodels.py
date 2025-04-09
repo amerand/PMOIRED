@@ -425,7 +425,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
     with param
 
-    oi: result from oiutils.loadOI, or a list of results
+    oi: result from oiutils.loadOI (a dict), or a list of results (list of dict)
 
     param: a dictionnary with the possible keys defined below.
 
@@ -1828,7 +1828,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     param = computeLambdaParams(p, MJD=np.mean(oi['MJD']))
     #print('param', param)
     # -- split in components if needed
-    comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x])
+    comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x and not x.startswith('#')])
     if len(comp)==0:
         # -- assumes single component
         return VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
@@ -1955,7 +1955,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                             timeit=timeit, indent=indent+1, noT3=True,
                             _dwl=_dwl, _ffrac=_ffrac, fullOutput=fullOutput)
             if _dwl!=0:
-                # -- correct wavelenth offset
+                # -- correct wavelength offset
                 _cwl = 1.0 + _dwl/np.mean(res['WL'])
                 res['WL'] -= _dwl
                 for x in ['OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_CF']:
@@ -2070,8 +2070,21 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                                          np.exp(1j*np.pi*m['OI_VIS'][k]['PHI']/180)
 
         res['MODEL']['param'] = computeLambdaParams(p, MJD=np.mean(res['MJD']))
+
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
+
+    # -- multiply by spatial kernel
+    #kfwhm = .5 # in mas
+    if '#spatial kernel' in p:
+        kfwhm = p['#spatial kernel']
+    else:
+        kfwhm = None
+    if not kfwhm is None:
+        a = 1./((kfwhm/(2*np.sqrt(2*np.log(2))))**2)
+        _c = np.pi**2/180/3600/1000*1e6
+        for k in res['MOD_VIS']:
+            res['MOD_VIS'][k] *= np.exp(-(_c*res['OI_VIS'][k]['B/wl'])**2/a)
 
     t0 = time.time()
     # -- compute OI_VIS and OI_VIS2 (and OI_CF if needed)
@@ -4886,6 +4899,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         imX: center of FoV (in mas, default:0.0)
         imY: center of FoV (in mas, default:0.0)
     """
+    #print('debug', checkImVis)
     global ai1ax, ai1mcB, ai1mcT, ai1i, US_SPELLING
 
     if type(oi)==list:
@@ -5431,7 +5445,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             Xscale = 'linear'
             if not spectro:
                 if 'X' in data[l]:
-                    X = lambda r, j: r[data[l]['ext']][k][data[l]['X']][j,:]
+                    X = lambda _r, _j: _r[data[l]['ext']][k][data[l]['X']][_j,:]
                     Xlabel = data[l]['X']
                     if logB:
                         Xscale = 'log'
@@ -6774,7 +6788,6 @@ def _negativityAzvar(n, phi, amp, N=200):
     for i in range(len(n)):
         y += amp[i]*np.cos(n[i]*(x + 3*np.pi/2 + phi[i]*np.pi/180))
     return np.sum(y<0)/np.sum(y>=0)
-
 
 def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             XY=None, nB=30, numVis=False):
