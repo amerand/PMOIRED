@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.signal
 """
 Daubechies Wavelet, D4 is the default behaviour, but other orders are available.
 
@@ -48,10 +47,11 @@ for k in coefH.keys():
     # -- inverse transform
     coefG[k] = (-1.)**np.arange(k)*coefH[k][::-1]
 
-for i in range(34):
-    k = 2*i+2
-    coefH[k] = scipy.signal.daub(i+1)
-    coefG[k] = (-1.)**np.arange(k)*coefH[k][::-1]
+# import scipy.signal
+# for i in range(34):
+#     k = 2*i+2
+#     coefH[k] = scipy.signal.daub(i+1)
+#     coefG[k] = (-1.)**np.arange(k)*coefH[k][::-1]
 
 fMats = {} # stores forward transform matrices
 iMats = {} # stores inverse transform matrices
