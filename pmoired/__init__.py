@@ -525,12 +525,6 @@ class OI:
         if doNotFit=='auto':
             doNotFit = []
 
-        # -- known keywords to ignore
-        _doNotFit = ['#spatial kernel']
-        for k in _doNotFit:
-            if k in model:
-                doNotFit.append(k)
-
         # -- merge data to accelerate computations
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         prior = self._setPrior(model, prior, autoPrior)
@@ -1620,6 +1614,12 @@ class OI:
                 plt.plot(xphot, yphot, color='w', marker=r'$\bigotimes$',
                         alpha=0.5, label='photo centre', linestyle='none')
                 plt.legend(fontsize=6)
+            if '#spatial kernel' in model:
+                xk = np.max(self.images['X'])-model['#spatial kernel']
+                yk = np.min(self.images['Y'])+model['#spatial kernel']
+                c = plt.Circle((xk, yk), model['#spatial kernel']/2,
+                                color=(0.8, 0.6, 0.3), linewidth=2, alpha=0.5, label='kernel FWHM')
+                plt.gca().add_patch(c)
 
             Xcb = np.linspace(0,1,5)*_imMax
             XcbL = ['%.1e'%(xcb**(1./imPow)) for xcb in Xcb]
@@ -1968,20 +1968,20 @@ class OI:
                         res['cube'].append(t['MODEL']['image'])
         res['cube'] = np.array([res['cube'][i] for i in np.argsort(res['WL'])])
 
-        # == convolve by a spatial kernel
-        if '#spatial kernel' in model:
-            kfwhm = model['#spatial kernel']
-        else:
-            kfwhm = None
-        if not kfwhm is None:
-            # -- kernel
-            s = kfwhm/(2*np.sqrt(2+np.log(2)))
-            ker = np.exp(-((res['X']-imX)**2+(res['Y']-imY)**2)/(2*s**2))/(s*np.sqrt(2*np.pi))
-            # -- for each wavelength in the cube
-            for i,c in enumerate(res['cube']):
-                # print('c', c.shape)
-                #res['cube'][i] = scipy.signal.convolve2d(c, ker, mode='same')
-                res['cube'][i] = scipy.signal.fftconvolve(c, ker, mode='same')
+        # == convolve by a spatial kernel -> done per component
+        # if '#spatial kernel' in model:
+        #     kfwhm = model['#spatial kernel']
+        # else:
+        #     kfwhm = None
+        # if not kfwhm is None:
+        #     # -- kernel
+        #     s = kfwhm/(2*np.sqrt(2*np.log(2)))
+        #     ker = np.exp(-((res['X']-imX)**2+(res['Y']-imY)**2)/(2*s**2))/(s*np.sqrt(2*np.pi))
+        #     # -- for each wavelength in the cube
+        #     for i,c in enumerate(res['cube']):
+        #         # print('c', c.shape)
+        #         #res['cube'][i] = scipy.signal.convolve2d(c, ker, mode='same')
+        #         res['cube'][i] = scipy.signal.fftconvolve(c, ker, mode='same')
 
         res['WL'] = np.array(sorted(res['WL']))
 

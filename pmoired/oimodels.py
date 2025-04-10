@@ -1053,7 +1053,22 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     if timeit:
         print(' '*indent+'VsingleOI > setup %.3fms'%(1000*(time.time()-ts)))
 
-    # -- build observables:
+    if 'spatial kernel' in _param:
+        kfwhm = _param['spatial kernel']
+        s = kfwhm/(2*np.sqrt(2*np.log(2)))
+
+        # -- multiply complex visibilities by spatial kernel's visibility
+        _ka = 1./(2*s**2)
+        _ka /= (np.pi**2/180/3600/1000*1e6)**2
+
+        # -- convolve image by spatial kernel
+        if not imFov is None:
+            ker = np.exp(-((X-imX)**2+(Y-imY)**2)/(2*s**2))/(s*np.sqrt(2*np.pi))
+            I = scipy.signal.fftconvolve(I, ker, mode='same')
+    else:
+        kfwhm = None
+
+    # == build observables: ===================================
     res['OI_VIS'] = {}
     res['OI_VIS2'] = {}
     if 'OI_CF' in oi:
@@ -1080,6 +1095,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
             V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
+
+        if not kfwhm is None:
+            V *= (1+0j)*np.exp(-(oi[key][k]['B/wl'])**2/_ka)
 
         tmp['|V|'] = np.abs(V)
         #print(k, Vf(oi[key][k]), tmp['|V|'])
@@ -1200,7 +1218,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         else:
             # -- this works (I think)
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD'
-
     return res
 
 _sparse_image_file = ""
@@ -2073,18 +2090,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
         if timeit:
             print(' '*indent+'VmodelOI > VsingleOI "%s" %.3fms'%(c, 1000*(time.time()-tc)))
-
-    # -- multiply by spatial kernel
-    #kfwhm = .5 # in mas
-    if '#spatial kernel' in p:
-        kfwhm = p['#spatial kernel']
-    else:
-        kfwhm = None
-    if not kfwhm is None:
-        a = 1./((kfwhm/(2*np.sqrt(2*np.log(2))))**2)
-        _c = np.pi**2/180/3600/1000*1e6
-        for k in res['MOD_VIS']:
-            res['MOD_VIS'][k] *= np.exp(-(_c*res['OI_VIS'][k]['B/wl'])**2/a)
 
     t0 = time.time()
     # -- compute OI_VIS and OI_VIS2 (and OI_CF if needed)
