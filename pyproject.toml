@@ -7,7 +7,7 @@ include = ["pmoired"]
 exclude = ["banner"]
 
 [tool.setuptools.package-data]
-pmoired = ["newVltiHzn_obsDoors.txt", 
+pmoired = ["newVltiHzn_obsDoors.txt",
            "transir_gravity.pckl"]
 
 [tool.setuptools.dynamic]
@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-keywords = ["optical interferometry", "visualization", "display", "OIFITS", 
+keywords = ["optical interferometry", "visualization", "display", "OIFITS",
             "data modelling", "astrophysics"]
 description = "Display and fit Optical (spectro-)Interferometric OIFITS data"
 authors = [
@@ -36,10 +36,10 @@ authors = [
 ]
 
 dependencies = [
-    "scipy >= 1.10.0", 
-    "numpy >= 1.24.0", 
-    "matplotlib >= 3.8.0", 
-    "astropy >= 6.0.0", 
+    "scipy >= 1.10.0",
+    "numpy >= 2.0.0",
+    "matplotlib >= 3.8.0",
+    "astropy >= 6.0.0",
     "astroquery >= 0.4.4",
     'importlib_resources; python_version < "3.9"'
 ]
@@ -49,4 +49,3 @@ Repository = "https://github.com/amerand/PMOIRED"
 Issues = "https://github.com/amerand/PMOIRED/issues"
 Bibliography = "https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA"
 Publications = "https://ui.adsabs.harvard.edu/search/p_=0&q=%20full%253A%22PMOIRED%22"
-

@@ -770,7 +770,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         #    negativity += np.max(np.abs(_c*_param['fwhm']*_Bwl(z)))
 
         if np.abs(_param['fwhm'])>1e-3: # UGLY KLUDGE!
-            #a = 1./(2.*(_param['fwhm']/2.35482)**2)
             a = 1./(2.*(_param['fwhm']/(2*np.sqrt(2*np.log(2))))**2)
             Rout = np.abs(_param['fwhm'])/2
             Vf = lambda z: np.exp(-(_c*_Bwl(z))**2/a)
@@ -793,6 +792,55 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 # -- unresolved -> single imPixel
                 R2 = _X**2+_Y**2
                 I = R2==np.min(R2)
+    elif 'fwhmin' in _param and 'fwhmout' in _param:
+        # -- bi-gaussian ring
+        fwhmin, fwhmout = np.abs(_param['fwhmin']), np.abs(_param['fwhmout'])
+        if fwhmin>fwhmout:
+            fwhmin, fwhmout = fwhmout, fwhmin
+        ain = 1./(2.*(fwhmin /(2*np.sqrt(2*np.log(2))))**2)
+        aou = 1./(2.*(fwhmout/(2*np.sqrt(2*np.log(2))))**2)
+
+        # -- az variation (if any)
+        _n, _amp, _phi = [], [], []
+        for k in _param.keys():
+            if k.startswith('az amp'):
+                _n.append(int(k.split('az amp')[1]))
+                _phi.append(_param[k.replace('az amp', 'az projang')])
+                _amp.append(_param[k])
+        if len(_n)>0:
+            if 'projang' in _param.keys() and 'incl' in _param.keys():
+                stretch = [np.cos(np.pi*_param['incl']/180), _param['projang']]
+            else:
+                stretch = [1,0]
+            if 'Nr' in oi['fit']:
+                Nr = oi['fit']['Nr']
+            else:
+                Nr = min(int(20*fwhmout/fwhmin), 100)
+            _r = np.linspace(0, 5*fwhmout, Nr)
+            Ir = np.exp(-_r**2*aou)-np.exp(-_r**2*ain)
+            negativity += np.sum(flux)*_negativityAzvar(_n, _phi, _amp)
+            Vf = lambda z: _Vazvar(z['u/wl'][:,wwl]/cwl, z['v/wl'][:,wwl]/cwl,
+                                   Ir, _r, _n, _phi, _amp, stretch=stretch)
+            if not I is None:
+                if len(baselines):
+                    XY = (X-np.mean(x(oi[key][baselines[0]])),
+                          Y-np.mean(y(oi[key][baselines[0]])))
+                else:
+                    XY = (X-_xs, Y-_ys)
+
+                I = _Vazvar(None, None, Ir, _r, _n, _phi, _amp,
+                            stretch=stretch, numerical=1, XY=XY)
+                if np.sum(I)==0:
+                    # -- unresolved -> single imPixel
+                    R2 = _X**2+_Y**2
+                    I = R2==np.min(R2)
+        else:
+            Vf = lambda z: (1/aou*np.exp(-(_c*_Bwl(z))**2/aou)-
+                            1/ain*np.exp(-(_c*_Bwl(z))**2/ain))/\
+                            (1/aou-1/ain)
+            if not I is None:
+                I = np.exp(-R**2*aou)-np.exp(-R**2*ain)
+
     elif 'crin' in _param and 'crout' in _param and 'croff' in _param: # crecsent
         #print('crescent')
         #if _param['crin']>_param['crout']:
@@ -916,7 +964,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 _n.append(int(k.split('az amp')[1]))
                 _phi.append(_param[k.replace('az amp', 'az projang')])
                 _amp.append(_param[k])
-
         if 'projang' in _param.keys() and 'incl' in _param.keys():
             stretch = [np.cos(np.pi*_param['incl']/180), _param['projang']]
         else:
@@ -933,7 +980,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 Ir /= max(tmp)
 
             # -- use this to compute flux, can be function of wavelength
-            flux = 2*np.pi*np.trapz(Ir*_r, _r)*_ffrac
+            flux = 2*np.pi*np.trapezoid(Ir*_r, _r)*_ffrac
             if not '$WL' in _param['surf bri']:
                 flux *= np.ones(len(oi['WL']))*_param['surf bri']
             else:
@@ -1691,11 +1738,11 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
         # -- integrate each ring along PA
         for rminr in sorted(set(P[:,6])):
             w = np.where(P[:,6]==rminr)
-            flx.append(np.trapz(flux[:,w[0]], P[:,7][w][None,:], axis=1))
-            vis.append(np.trapz(flux[:,w[0]][None,:,:]*Vpoints[:,:,w[0]], P[:,7][w][None,None,:], axis=2))
+            flx.append(np.trapezoid(flux[:,w[0]], P[:,7][w][None,:], axis=1))
+            vis.append(np.trapezoid(flux[:,w[0]][None,:,:]*Vpoints[:,:,w[0]], P[:,7][w][None,None,:], axis=2))
         # -- integrate along radial dimension
-        flx = np.trapz(np.array(flx)*R[:,None], R[:,None], axis=0)
-        vis = np.trapz(np.array(vis)*R[:,None,None], R[:,None,None], axis=0)
+        flx = np.trapezoid(np.array(flx)*R[:,None], R[:,None], axis=0)
+        vis = np.trapezoid(np.array(vis)*R[:,None,None], R[:,None,None], axis=0)
 
         # -- for the case continuum is 0
         w0 = flx>1e-10*np.max(flx)
@@ -6329,7 +6376,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
             tmp = tmp.replace('$D', '_d')
         _p = eval(tmp)
 
-    _cf = np.array([np.trapz((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
+    _cf = np.array([np.trapezoid((_p*_r)[_r<=x], _r[_r<=x]) for x in _r])
     _cf /= _cf.max()
     rh = np.interp(0.5, _cf, _r)
     if not fig is None:
@@ -6382,7 +6429,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     # -- radius
     r = np.linspace(R.min(), R.max(), 100)
     # -- cumulative flux
-    cF = np.array([np.trapz(P[R<x]*R[R<x], R[R<x]) for x in r])
+    cF = np.array([np.trapezoid(P[R<x]*R[R<x], R[R<x]) for x in r])
     cF /= cF.max()
     # -- half ligh radius:
     rh = np.interp(0.5, cF, r)
@@ -6933,7 +6980,7 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             elif len(u.shape)==1:
                 Vis = Im[:,:,None]*np.exp(-2j*_c*(u[None,None,:,:]*X[:,:,None] +
                                                   v[None,None,:,:]*Y[:,:,None]))
-            Vis = np.trapz(np.trapz(Vis, axis=0), axis=0)/np.trapz(np.trapz(Im, axis=0), axis=0)
+            Vis = np.trapezoid(np.trapezoid(Vis, axis=0), axis=0)/np.trapezoid(np.trapezoid(Im, axis=0), axis=0)
         else:
             Vis = None
 
@@ -6966,12 +7013,12 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
         Bm = None
 
     # -- define Hankel transform of order n
-    _N = np.trapz(I*r, r)
+    _N = np.trapezoid(I*r, r)
     if _N==0 or not np.isfinite(_N):
         _N = 1
     def Hankel(n):
         if not Bm is None:
-            H = np.trapz(I[:,None]*r[:,None]*\
+            H = np.trapezoid(I[:,None]*r[:,None]*\
                          scipy.special.jv(n, 2*_c*Bm[None,:]*r[:,None]),
                          r, axis=0)/_N
             H[~np.isfinite(H)] = 0
@@ -6979,7 +7026,7 @@ def _Vazvar(u, v, I, r, n, phi, amp, stretch=None, V0=None, numerical=False,
             #     print('H(%d), _N:'%n, H, _N)
             return np.interp(_B, Bm, H)
         else:
-            H = np.trapz(I[:,None]*r[:,None]*\
+            H = np.trapezoid(I[:,None]*r[:,None]*\
                          scipy.special.jv(n, 2*_c*_B.flatten()[None,:]*r[:,None]),
                          r, axis=0)/_N
             return np.reshape(H, _B.shape)

@@ -85,13 +85,12 @@ in iPython, you can now type `%run myscript.py`.
 ### Dependencies
 
 The latest version of `PMOIRED` has been tested on:
-- python 3.11.2
-- numpy 1.24.2
-- scipy 1.10.1
-- astropy 5.2.1
-- astroquery 0.4.6
-- matplotlib 3.7.0
-- jupyterlab 3.5.0
+- python 3.13.1
+- numpy 2.2.0 (need >2.0)
+- scipy 1.14.1
+- astropy 7.0.0
+- astroquery 0.4.7
+- matplotlib 4.3.3
 
 ## Acknowledgments
 
@@ -101,7 +100,3 @@ programme under grant agreement No 101004719.
 
 <img src="banner/EU.jpg" alt="EU" width="200px"/>
 <img src="banner/ORP.png" alt="ORP" width="200px"/>
-<!--
-![EU](banner/EU.jpg)
-![ORP](banner/ORP.png)
--->
