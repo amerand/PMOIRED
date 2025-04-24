@@ -3087,7 +3087,7 @@ def autoPrior(param):
             else:
                 prior.append((k, '>=', 0.0))
 
-        tmp = ['diamout', 'crout']
+        tmp = ['diamout', 'crout', 'fwhmout']
         if k in tmp or (',' in k and (k.split(',')[1] in tmp)):
             prior.append((k, '>', k[:-3]+'in', 1e-3))
 
@@ -5400,7 +5400,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                  ax.plot(b*np.cos(t), b*np.sin(t), ':k', alpha=0.2)
 
             bmax = 1.1*np.max(bmax)
-            ax.legend(fontsize=4, loc='upper left', ncol=3)
+            ax.legend(fontsize=5, loc='upper left', ncol=3)
             #ax.set_title('u,v (m)', fontsize=10)
             #ax.set_xlabel('u')
             #ax.set_ylabel('v')
@@ -5928,7 +5928,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
-                ax.legend(fontsize=4, ncol=4)
+                ax.legend(fontsize=5, ncol=4)
         i_col += 1
         if debug:
             print()

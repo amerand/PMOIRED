@@ -1694,7 +1694,7 @@ class OI:
                         ncol=3
                     else:
                         ncol=2
-                    plt.legend(fontsize=5, ncol=ncol)
+                    plt.legend(fontsize=6, ncol=ncol)
 
         if showSED:
             ax = plt.subplot(1, nplot, i+2)

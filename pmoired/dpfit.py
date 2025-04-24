@@ -1087,12 +1087,15 @@ def _ellParam(sA2, sB2, sAB):
 
     return sMa, sma, a
 
-def dispBest(fit, pre='', asStr=False, asDict=True, color=True):
+def dispBest(fit, pre='', asStr=False, asDict=True, color=True, showOnly=None):
     #tmp = sorted(fit['best'].keys())
     # -- fitted param:
     tmp = sorted(fit['fitOnly'])
     # -- unfitted:
     tmp += sorted(list(filter(lambda x: x not in fit['fitOnly'], fit['best'].keys())))
+
+    if not showOnly is None:
+        tmp = showOnly
 
     uncer = fit['uncer']
     if 'uncer+' in fit and 'uncer-' in fit:

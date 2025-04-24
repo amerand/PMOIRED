@@ -33,8 +33,9 @@ def varVsErr(y, e, x=None, n='auto', verbose=0, fig=None, normalised=False):
             fit = dpfit.leastsqFit(dpfit.polyN, x-np.mean(x), p, y, e, verbose=0)
             if chi2==0:
                 chi2 = fit['chi2']
+                test = j<len(y)//2-1
             else:
-                test = (chi2-fit['chi2'])/chi2 > 0.01 and j<(len(y)//2)
+                test = (chi2-fit['chi2'])/chi2 > 0.01 and j<(len(y)//2-1)
                 chi2 = fit['chi2']
             j+=1
         n = j-1

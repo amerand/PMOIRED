@@ -1577,7 +1577,8 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                             s1 = res[i0][l][k][t].shape # = (len(MJDs),len(WL))
                             s2 = oi[l][k][t].shape # = (len(MJDs),len(WL))
                         except:
-                            print('ERROR!', l, k, t)
+                            #print('WARNING! in merging', l, k, t)
+                            pass
 
                         if t.startswith('E') and t[1:] in oi[l][k] and 'fit' in oi:
                             # -- errors -> allow editing
