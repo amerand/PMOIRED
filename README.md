@@ -38,11 +38,16 @@ pip3 install pmoired
 ```
 ### Install with git
 
-To install from the github repository:
+The Github version is the most up-to-date. To install from the github repository directly:
 ```
 pip3 install git+https://github.com/amerand/PMOIRED
 ```
-you can also clone the repository and install with `pip3 install .` within the PMOIRED directory
+you can also clone the repository and install with pip:
+```
+git clone https://github.com/amerand/PMOIRED
+cd PMOIRED
+pip3 install .
+``` 
 
 ### Uninstall
 To uninstall (works for both PyPI and github versions):
@@ -91,8 +96,11 @@ The latest version of `PMOIRED` has been tested on:
 - astropy 7.0.0
 - astroquery 0.4.7
 - matplotlib 4.3.3
+- jupyterlab 4.4.1
 
 ## Acknowledgments
+
+`PMOIRED` has received contributions from Akke Corporaal, Evgenia Koumpia and Robert Klement.
 
 This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 101004719.
 
