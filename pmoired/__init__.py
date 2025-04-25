@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.3.0'
+__version__= '1.3.1'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
