@@ -48,5 +48,4 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/amerand/PMOIRED"
 Issues = "https://github.com/amerand/PMOIRED/issues"
-Bibliography = "https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA"
-Publications = "https://ui.adsabs.harvard.edu/search/p_=0&q=%20full%253A%22PMOIRED%22"
+Publications = "https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA"
