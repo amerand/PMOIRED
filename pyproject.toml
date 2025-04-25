@@ -8,7 +8,8 @@ exclude = ["banner"]
 
 [tool.setuptools.package-data]
 pmoired = ["newVltiHzn_obsDoors.txt",
-           "transir_gravity.pckl"]
+           "transir_gravity.pckl",
+           "Model definitions and examples.ipynb"]
 
 [tool.setuptools.dynamic]
 version = {attr='pmoired.__version__'}
