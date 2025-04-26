@@ -6500,14 +6500,6 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
             boot['all best'][k] = np.array([b['best'][k] for b in boot['all fits']])
         boot = analyseBootstrap(boot, verbose=2, sigmaClipping=sigmaClipping, chi2MaxClipping=chi2MaxClipping)
 
-    if figWidth is None:
-        figWidth = min(FIG_MAX_WIDTH, 1+2*len(boot['fitOnly']))
-
-    fontsize = max(min(9*figWidth/len(boot['fitOnly']), 14), 6)
-    plt.close(fig)
-    plt.figure(fig, figsize=(figWidth, figWidth))
-    _AX = {}
-
     color1 = 'orange' # single fit
     color2 = (0.2, 0.4, 1.0) # bootstrap
     colorC2 = (0, 0.4, 0.2) # chi2
@@ -6521,6 +6513,14 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
     showP += sorted(filter(lambda k: k in combParam.keys() and k not in ignore, boot['fitOnly']),
         key=lambda k: k if not k in alternateParameterNames else alternateParameterNames[k])
+
+    if figWidth is None:
+        figWidth = min(FIG_MAX_WIDTH, 1+2*len(showP))
+
+    fontsize = max(min(9*figWidth/len(showP), 14), 6)
+    plt.close(fig)
+    plt.figure(fig, figsize=(figWidth, figWidth))
+    _AX = {}
 
     if showChi2:
         showP.append('chi2')
