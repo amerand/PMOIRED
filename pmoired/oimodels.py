@@ -1265,6 +1265,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         else:
             # -- this works (I think)
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD'
+    res['param'] = param
     return res
 
 _sparse_image_file = ""
@@ -1886,7 +1887,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # -- iteration on "oi" if a list
         _param = [computeLambdaParams(p, MJD=np.mean(o['MJD'])) for o in oi]
         return [VmodelOI(o, _param[i], imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                        timeit=timeit, indent=indent, fullOutput=fullOutput,
+                        timeit=timeit, indent=indent, fullOutput=fullOutput, v2smear=v2smear,
                         debug=debug) for i,o in enumerate(oi)]
 
     param = computeLambdaParams(p, MJD=np.mean(oi['MJD']))
@@ -1895,8 +1896,11 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     comp = set([x.split(',')[0].strip() for x in param.keys() if ',' in x and not x.startswith('#')])
     if len(comp)==0:
         # -- assumes single component
-        return VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+        res = VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                          timeit=timeit, indent=indent+1, fullOutput=fullOutput)
+        #print(res.keys())
+        res = _applyTF(res)
+        return res
 
     # -- multiple components:
     tinit = time.time()
@@ -2078,8 +2082,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         else:
             # -- combine model with other components
             m = VsingleOI(oi, _param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                        timeit=timeit, indent=indent+1, noT3=True,
-                        _dwl=_dwl, _ffrac=_ffrac)
+                          timeit=timeit, indent=indent+1, noT3=True,
+                          _dwl=_dwl, _ffrac=_ffrac)
             if 'image' in m['MODEL'].keys():
                 res['MODEL'][c+',image'] = m['MODEL']['image']
                 if '&dwl' in c:
@@ -2385,6 +2389,10 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     # == single target self-calibration -> assumes tel name have no '-'!!!
     # "#TF_|V|_U1U2_*" -> overall coefficient
     # "#TF_|V|_U1U2_+" -> overall coefficient
+    res = _applyTF(res)
+    return res
+
+def _applyTF(res):
     if any(['#TF' in k for k in res['param'].keys()]):
         _debug = False
         if _debug:
@@ -2423,8 +2431,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                         res[O[o]]['all'][o][w] *= 1 + (res['WL']-np.mean(res['WL']))[None,:]*TF[o][b]['s']
                     if 'wl0' in TF[o][b] and 'wl2' in TF[o][b]:
                         res[O[o]]['all'][o][w] *= 1 + (res['WL']-TF[o][b]['wl0'])[None,:]*TF[o][b]['wl2']
-
-
                 else:
                     if '+' in TF[o][b] and b in res[O[o]]:
                         res[O[o]][b][o] += TF[o][b]['+']
@@ -2434,7 +2440,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                         res[O[o]][b][o] *= 1 + (res['WL']-np.mean(res['WL']))[None,:]*TF[o][b]['s']
                     if 'wl0' in TF[o][b] and 'wl2' in TF[o][b] and b in res[O[o]]:
                         res[O[o]][b][o] *= 1 + (res['WL']-TF[o][b]['wl0'])[None,:]*TF[o][b]['wl2']
-
     return res
 
 def computeLambdaParams(params, MJD=0):
