@@ -184,14 +184,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6 + wlOffset
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
             if not binning is None:
-                # -- keep track of true wavelength
-                _WL = res['WL']*1.0
-                _dWL = res['dWL']*1.0
-                # -- binned
-                res['WL'] = np.linspace(res['WL'].min(),
-                                        res['WL'].max(),
-                                        len(res['WL'])//binning)
-                res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
+                pass
+                # # -- keep track of true wavelength
+                # _WL = res['WL']*1.0
+                # _dWL = res['dWL']*1.0
+                # # -- binned
+                # res['WL'] = np.linspace(res['WL'].min(),
+                #                         res['WL'].max(),
+                #                         len(res['WL'])//binning)
+                # res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
             if debug:
                 #print('DEBUG: OI_WAVELENGTH')
                 #print(' | WL', res['WL'])
@@ -253,23 +254,24 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
             if not tellurics is False:
                 if not binning is None and len(hdu.data['TELL_TRANS'])==len(_WL):
-                    if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
-                        # -- corrected wavelength
-                        res['WL'] = hdu.data['CORR_WAVE']*1e6
-                        if not binning is None:
-                            # -- keep track of true wavelength
-                            _WL = res['WL']*1.0
-                            # -- binned
-                            res['WL'] = np.linspace(res['WL'].min(),
-                                                    res['WL'].max(),
-                                                    len(res['WL'])//binning)
+                    pass
+                    # if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
+                    #     # -- corrected wavelength
+                    #     res['WL'] = hdu.data['CORR_WAVE']*1e6
+                    #     if not binning is None:
+                    #         # -- keep track of true wavelength
+                    #         _WL = res['WL']*1.0
+                    #         # -- binned
+                    #         res['WL'] = np.linspace(res['WL'].min(),
+                    #                                 res['WL'].max(),
+                    #                                 len(res['WL'])//binning)
 
-                    res['TELLURICS'] = binOI(res['WL'], _WL,
-                                             np.array([hdu.data['TELL_TRANS']]),
-                                             np.array([hdu.data['TELL_TRANS']<0]),
-                                             medFilt=medFilt,
-                                             retFlag=False)[0]
-                    res['PWV'] = hdu.header['PWV']
+                    # res['TELLURICS'] = binOI(res['WL'], _WL,
+                    #                          np.array([hdu.data['TELL_TRANS']]),
+                    #                          np.array([hdu.data['TELL_TRANS']<0]),
+                    #                          medFilt=medFilt,
+                    #                          retFlag=False)[0]
+                    # res['PWV'] = hdu.header['PWV']
                 elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
                     if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
@@ -319,21 +321,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         # -- Note the binning of flux is not weighted, because
                         # -- it would make the tellurics correction incorrect
                         # -- overwise
-                        res['OI_FLUX'][k]['FLUX'], flag = \
-                                                    binOI(res['WL'], _WL,
-                                                           res['OI_FLUX'][k]['FLUX'],
-                                                           res['OI_FLUX'][k]['FLAG'],
-                                                           medFilt=medFilt, retFlag=True)
-                        # -- KLUDGE!
-                        # res['OI_FLUX'][k]['EFLUX'] = binOI(res['WL'], _WL,
-                        #                                    res['OI_FLUX'][k]['EFLUX'],
+                        pass
+                        # res['OI_FLUX'][k]['FLUX'], flag = \
+                        #                             binOI(res['WL'], _WL,
+                        #                                    res['OI_FLUX'][k]['FLUX'],
+                        #                                    res['OI_FLUX'][k]['FLAG'],
+                        #                                    medFilt=medFilt, retFlag=True)
+                        # res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
+                        #                                    1/res['OI_FLUX'][k]['EFLUX'],
                         #                                    res['OI_FLUX'][k]['FLAG'],
                         #                                    medFilt=medFilt)
-                        res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
-                                                           1/res['OI_FLUX'][k]['EFLUX'],
-                                                           res['OI_FLUX'][k]['FLAG'],
-                                                           medFilt=medFilt)
-                        res['OI_FLUX'][k]['FLAG'] = flag
+                        # res['OI_FLUX'][k]['FLAG'] = flag
 
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
@@ -397,27 +395,22 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
                                                     1j*res['OI_VIS2'][k]['u/wl'], deg=True)
                     if not binning is None:
-                        res['OI_VIS2'][k]['V2'], flag =\
-                                                   binOI(res['WL'], _WL,
-                                                         res['OI_VIS2'][k]['V2'],
-                                                         res['OI_VIS2'][k]['FLAG'],
-                                                         res['OI_VIS2'][k]['EV2'],
-                                                         medFilt=medFilt,
-                                                         retFlag=True)
-
-                        # -- KLUDGE!
-                        # res['OI_VIS2'][k]['EV2'] = binOI(res['WL'], _WL,
+                        pass
+                        # res['OI_VIS2'][k]['V2'], flag =\
+                        #                            binOI(res['WL'], _WL,
+                        #                                  res['OI_VIS2'][k]['V2'],
+                        #                                  res['OI_VIS2'][k]['FLAG'],
                         #                                  res['OI_VIS2'][k]['EV2'],
+                        #                                  medFilt=medFilt,
+                        #                                  retFlag=True)
+
+                        # res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
+                        #                                  1/res['OI_VIS2'][k]['EV2'],
                         #                                  res['OI_VIS2'][k]['FLAG'],
                         #                                  res['OI_VIS2'][k]['EV2'],
                         #                                  medFilt=medFilt)
-                        res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
-                                                         1/res['OI_VIS2'][k]['EV2'],
-                                                         res['OI_VIS2'][k]['FLAG'],
-                                                         res['OI_VIS2'][k]['EV2'],
-                                                         medFilt=medFilt)
 
-                        res['OI_VIS2'][k]['FLAG'] = flag
+                        # res['OI_VIS2'][k]['FLAG'] = flag
 
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
@@ -526,42 +519,31 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                               ~np.isfinite(res[ext][k]['E'+vis]))
 
                     if not binning is None:
-                        _w = ~res[ext][k]['FLAG']
-                        res[ext][k][vis],  flag = binOI(res['WL'], _WL,
-                                                         res[ext][k][vis],
-                                                         res[ext][k]['FLAG'],
-                                                         res[ext][k]['E'+vis],
-                                                         medFilt=medFilt,
-                                                         retFlag=True)
-                        res[ext][k]['PHI'] = binOI(res['WL'], _WL,
-                                                         res[ext][k]['PHI'],
-                                                         res[ext][k]['FLAG'],
-                                                         res[ext][k]['EPHI'],
-                                                         medFilt=medFilt)
-
-                        # -- KLUDGE!
-                        # res[ext][k]['E'+vis] = binOI(res['WL'], _WL,
+                        pass
+                        # _w = ~res[ext][k]['FLAG']
+                        # res[ext][k][vis],  flag = binOI(res['WL'], _WL,
+                        #                                  res[ext][k][vis],
+                        #                                  res[ext][k]['FLAG'],
                         #                                  res[ext][k]['E'+vis],
+                        #                                  medFilt=medFilt,
+                        #                                  retFlag=True)
+                        # res[ext][k]['PHI'] = binOI(res['WL'], _WL,
+                        #                                  res[ext][k]['PHI'],
                         #                                  res[ext][k]['FLAG'],
-                        #                                  res[ext][k]['E|V|'],
-                        #                                  medFilt=medFilt)
-                        # res[ext][k]['EPHI'] = binOI(res['WL'], _WL,
                         #                                  res[ext][k]['EPHI'],
+                        #                                  medFilt=medFilt)
+                        # res[ext][k]['E'+vis] = 1/binOI(res['WL'], _WL,
+                        #                                  1/res[ext][k]['E'+vis],
+                        #                                  res[ext][k]['FLAG'],
+                        #                                  res[ext][k]['E'+vis],
+                        #                                  medFilt=medFilt)
+                        # res[ext][k]['EPHI'] = 1/binOI(res['WL'], _WL,
+                        #                                  1/res[ext][k]['EPHI'],
                         #                                  res[ext][k]['FLAG'],
                         #                                  res[ext][k]['EPHI'],
                         #                                  medFilt=medFilt)
-                        res[ext][k]['E'+vis] = 1/binOI(res['WL'], _WL,
-                                                         1/res[ext][k]['E'+vis],
-                                                         res[ext][k]['FLAG'],
-                                                         res[ext][k]['E'+vis],
-                                                         medFilt=medFilt)
-                        res[ext][k]['EPHI'] = 1/binOI(res['WL'], _WL,
-                                                         1/res[ext][k]['EPHI'],
-                                                         res[ext][k]['FLAG'],
-                                                         res[ext][k]['EPHI'],
-                                                         medFilt=medFilt)
 
-                        res[ext][k]['FLAG'] = flag
+                        # res[ext][k]['FLAG'] = flag
 
         #elif debug and 'EXTNAME' in hdu.header:
         #    print('DEBUG:', hdu.header['EXTNAME'])
@@ -715,43 +697,35 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                     #                                         ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
                     if not binning is None:
-                        _w = ~res['OI_T3'][k]['FLAG']
-                        res['OI_T3'][k]['T3AMP'], flag = \
-                                                    binOI(res['WL'], _WL,
-                                                          res['OI_T3'][k]['T3AMP'],
-                                                          res['OI_T3'][k]['FLAG'],
-                                                          res['OI_T3'][k]['ET3AMP'],
-                                                          medFilt=medFilt,
-                                                          retFlag=True)
-                        res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
-                                                         res['OI_T3'][k]['T3PHI'],
-                                                         res['OI_T3'][k]['FLAG'],
-                                                         res['OI_T3'][k]['ET3PHI'],
-                                                         medFilt=medFilt, phase=True)
-                        # -- KLUDGE!
-                        # res['OI_T3'][k]['ET3AMP'] = binOI(res['WL'], _WL,
-                        #                                    res['OI_T3'][k]['ET3AMP'],
+                        pass
+                        # _w = ~res['OI_T3'][k]['FLAG']
+                        # res['OI_T3'][k]['T3AMP'], flag = \
+                        #                             binOI(res['WL'], _WL,
+                        #                                   res['OI_T3'][k]['T3AMP'],
+                        #                                   res['OI_T3'][k]['FLAG'],
+                        #                                   res['OI_T3'][k]['ET3AMP'],
+                        #                                   medFilt=medFilt,
+                        #                                   retFlag=True)
+                        # res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
+                        #                                  res['OI_T3'][k]['T3PHI'],
+                        #                                  res['OI_T3'][k]['FLAG'],
+                        #                                  res['OI_T3'][k]['ET3PHI'],
+                        #                                  medFilt=medFilt, phase=True)
+                        # res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
+                        #                                    1/res['OI_T3'][k]['ET3AMP'],
                         #                                    res['OI_T3'][k]['FLAG'],
                         #                                    res['OI_T3'][k]['ET3AMP'],
                         #                                    medFilt=medFilt)
-                        # res['OI_T3'][k]['ET3PHI'] = binOI(res['WL'], _WL,
-                        #                                    res['OI_T3'][k]['ET3PHI'],
+                        # res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
+                        #                                    1/res['OI_T3'][k]['ET3PHI'],
                         #                                    res['OI_T3'][k]['FLAG'],
                         #                                    res['OI_T3'][k]['ET3PHI'],
                         #                                    medFilt=medFilt)
-                        res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
-                                                           1/res['OI_T3'][k]['ET3AMP'],
-                                                           res['OI_T3'][k]['FLAG'],
-                                                           res['OI_T3'][k]['ET3AMP'],
-                                                           medFilt=medFilt)
-                        res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
-                                                           1/res['OI_T3'][k]['ET3PHI'],
-                                                           res['OI_T3'][k]['FLAG'],
-                                                           res['OI_T3'][k]['ET3PHI'],
-                                                           medFilt=medFilt)
-
-                        res['OI_T3'][k]['FLAG'] = flag
+                        # res['OI_T3'][k]['FLAG'] = flag
                 res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+
+    if not binning is None:
+        res = _binOI(res, binning=binning, medFilt=medFilt)
 
     key = 'OI_VIS'
     if res['OI_VIS']=={} and res['OI_T3']=={}:
@@ -1111,6 +1085,166 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             print('WARNING: error while reading ESO pipelines parameters')
     return res
 
+
+def _binOI(res, binning=None, medFilt=None):
+    """
+    binning: number of spectral channels to bin (>2, None or 1 does nothing).
+    """
+    if binning is None or binning==1:
+        return res
+    # -- keep track of true wavelength
+    _WL = res['WL']*1.0
+    _dWL = res['dWL']*1.0
+    res['WL'] = np.linspace(res['WL'].min(),
+                            res['WL'].max(),
+                            len(res['WL'])//binning)
+    res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
+
+    if 'TELLURICS' in res:
+        res['TELLURICS'] = binOI(res['WL'], _WL,
+                             res['TELLURICS'],
+                             res['TELLURICS']<0,
+                             medFilt=medFilt,
+                             retFlag=False)[0]
+    if 'OI_FLUX' in res:
+        # -- Note the binning of flux is not weighted, because
+        # -- it would make the tellurics correction incorrect
+        # -- overwise
+        for k in res['OI_FLUX']:
+            res['OI_FLUX'][k]['FLUX'], flag = binOI(res['WL'], _WL,
+                                            res['OI_FLUX'][k]['FLUX'],
+                                            res['OI_FLUX'][k]['FLAG'],
+                                            medFilt=medFilt, retFlag=True)
+            res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
+                                                1/res['OI_FLUX'][k]['EFLUX'],
+                                                res['OI_FLUX'][k]['FLAG'],
+                                                medFilt=medFilt)
+            res['OI_FLUX'][k]['FLAG'] = flag
+            res['OI_FLUX'][k]['MJD2'] = res['OI_FLUX'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+
+    if 'OI_VIS2' in res:
+        for k in res['OI_VIS2']:
+            res['OI_VIS2'][k]['V2'], flag =\
+                                    binOI(res['WL'], _WL,
+                                            res['OI_VIS2'][k]['V2'],
+                                            res['OI_VIS2'][k]['FLAG'],
+                                            res['OI_VIS2'][k]['EV2'],
+                                            medFilt=medFilt,
+                                            retFlag=True)
+            res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_VIS2'][k]['EV2'],
+                                            res['OI_VIS2'][k]['FLAG'],
+                                            res['OI_VIS2'][k]['EV2'],
+                                            medFilt=medFilt)
+            res['OI_VIS2'][k]['FLAG'] = flag
+            res['OI_VIS2'][k]['MJD2'] = res['OI_VIS2'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_VIS2'][k]['u/wl'] = res['OI_VIS2'][k]['u'][:,None]/res['WL'][None,:]
+            res['OI_VIS2'][k]['v/wl'] = res['OI_VIS2'][k]['v'][:,None]/res['WL'][None,:]
+            res['OI_VIS2'][k]['B/wl'] = np.sqrt(res['OI_VIS2'][k]['u'][:,None]**2+
+                res['OI_VIS2'][k]['v'][:,None]**2)/res['WL'][None,:]
+
+    if 'OI_VIS' in res:
+        for k in res['OI_VIS']:
+            res['OI_VIS'][k]['|V|'],  flag = binOI(res['WL'], _WL,
+                                            res['OI_VIS'][k]['|V|'],
+                                            res['OI_VIS'][k]['FLAG'],
+                                            res['OI_VIS'][k]['E|V|'],
+                                            medFilt=medFilt,
+                                            retFlag=True)
+            res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
+                                            res['OI_VIS'][k]['PHI'],
+                                            res['OI_VIS'][k]['FLAG'],
+                                            res['OI_VIS'][k]['EPHI'],
+                                            medFilt=medFilt)
+            res['OI_VIS'][k]['E|V|'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_VIS'][k]['E|V|'],
+                                            res['OI_VIS'][k]['FLAG'],
+                                            res['OI_VIS'][k]['E|V|'],
+                                            medFilt=medFilt)
+            res['OI_VIS'][k]['EPHI'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_VIS'][k]['EPHI'],
+                                            res['OI_VIS'][k]['FLAG'],
+                                            res['OI_VIS'][k]['EPHI'],
+                                            medFilt=medFilt)
+            res['OI_VIS'][k]['FLAG'] = flag
+            res['OI_VIS'][k]['MJD2'] = res['OI_VIS'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_VIS'][k]['u/wl'] = res['OI_VIS'][k]['u'][:,None]/res['WL'][None,:]
+            res['OI_VIS'][k]['v/wl'] = res['OI_VIS'][k]['v'][:,None]/res['WL'][None,:]
+            res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u'][:,None]**2+
+                res['OI_VIS'][k]['v'][:,None]**2)/res['WL'][None,:]
+
+    if 'OI_CF' in res:
+        for k in res['OI_CF']:
+            res['OI_CF'][k]['CF'],  flag = binOI(res['WL'], _WL,
+                                            res['OI_CF'][k]['|V|'],
+                                            res['OI_CF'][k]['FLAG'],
+                                            res['OI_CF'][k]['ECF'],
+                                            medFilt=medFilt,
+                                            retFlag=True)
+            res['OI_CF'][k]['PHI'] = binOI(res['WL'], _WL,
+                                            res['OI_CF'][k]['PHI'],
+                                            res['OI_CF'][k]['FLAG'],
+                                            res['OI_CF'][k]['EPHI'],
+                                            medFilt=medFilt)
+            res['OI_CF'][k]['ECF'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_CF'][k]['ECF'],
+                                            res['OI_CF'][k]['FLAG'],
+                                            res['OI_CF'][k]['ECF'],
+                                            medFilt=medFilt)
+            res['OI_CF'][k]['EPHI'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_CF'][k]['EPHI'],
+                                            res['OI_CF'][k]['FLAG'],
+                                            res['OI_CF'][k]['EPHI'],
+                                            medFilt=medFilt)
+            res['OI_CF'][k]['FLAG'] = flag
+            res['OI_CF'][k]['MJD2'] = res['OI_CF'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_VIS'][k]['u/wl'] = res['OI_VIS'][k]['u'][:,None]/res['WL'][None,:]
+            res['OI_VIS'][k]['v/wl'] = res['OI_VIS'][k]['v'][:,None]/res['WL'][None,:]
+            res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u'][:,None]**2+
+                res['OI_VIS'][k]['v'][:,None]**2)/res['WL'][None,:]
+
+    if 'OI_T3' in res:
+        for k in res['OI_T3']:
+            res['OI_T3'][k]['T3AMP'], flag = \
+                                        binOI(res['WL'], _WL,
+                                            res['OI_T3'][k]['T3AMP'],
+                                            res['OI_T3'][k]['FLAG'],
+                                            res['OI_T3'][k]['ET3AMP'],
+                                            medFilt=medFilt,
+                                            retFlag=True)
+            res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
+                                            res['OI_T3'][k]['T3PHI'],
+                                            res['OI_T3'][k]['FLAG'],
+                                            res['OI_T3'][k]['ET3PHI'],
+                                            medFilt=medFilt, phase=True)
+            res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_T3'][k]['ET3AMP'],
+                                            res['OI_T3'][k]['FLAG'],
+                                            res['OI_T3'][k]['ET3AMP'],
+                                            medFilt=medFilt)
+            res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
+                                            1/res['OI_T3'][k]['ET3PHI'],
+                                            res['OI_T3'][k]['FLAG'],
+                                            res['OI_T3'][k]['ET3PHI'],
+                                            medFilt=medFilt)
+            res['OI_T3'][k]['FLAG'] = flag
+            res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_T3'][k]['u1/wl'] = res['OI_T3'][k]['u1'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['v1/wl'] = res['OI_T3'][k]['v1'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['u2/wl'] = res['OI_T3'][k]['u2'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['v2/wl'] = res['OI_T3'][k]['v2'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['Bmax/wl'] = np.maximum(res['OI_T3'][k]['B1'][:,None],
+                                                    res['OI_T3'][k]['B2'][:,None],
+                                                    res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]
+            res['OI_T3'][k]['Bmin/wl'] = np.minimum(res['OI_T3'][k]['B1'][:,None],
+                                                    res['OI_T3'][k]['B2'][:,None],
+                                                    res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]
+            res['OI_T3'][k]['Bavg/wl'] = (res['OI_T3'][k]['B1'][:,None]+
+                                          res['OI_T3'][k]['B2'][:,None]+
+                                          res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]/3
+        return res
+
+
 def splitOIbyMJD(oi, dMJD=0):
     """
     ois: list of oi results from loadOI
@@ -1191,7 +1325,6 @@ def splitOIbyMJD(oi, dMJD=0):
         res.append(tmp)
 
     return res
-
 
 def match_VIS_VIS2_CF(res, debug=False, ignoreCF=False):
     """
