@@ -2386,13 +2386,13 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
 
         #print('done in %.3fs'%(time.time()-t0))
 
-    # == single target self-calibration -> assumes tel name have no '-'!!!
-    # "#TF_|V|_U1U2_*" -> overall coefficient
-    # "#TF_|V|_U1U2_+" -> overall coefficient
     res = _applyTF(res)
     return res
 
 def _applyTF(res):
+    # == single target self-calibration -> assumes tel name have no '-'!!!
+    # "#TF_|V|_U1U2_*" -> overall coefficient
+    # "#TF_|V|_U1U2_+" -> overall coefficient
     if any(['#TF' in k for k in res['param'].keys()]):
         _debug = False
         if _debug:
