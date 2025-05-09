@@ -39,7 +39,7 @@ def _globlist(filenames, strict=False):
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
            binning=None, useTelluricsWl=True, barycentric=False, ignoreCF=False,
-           wlOffset=0.0):
+           wlOffset=0.0, orderedWl=True):
     """
     load OIFITS "filename" and return a dict:
 
@@ -181,23 +181,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
             hdu.header['INSNAME']==insname:
             # -- OIFITS in m, here we want um
-            res['WL'] = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6 + wlOffset
+            res['WL']  = np.array(hdu.data['EFF_WAVE'], dtype=np.float64)*1e6 + wlOffset
             res['dWL'] = np.array(hdu.data['EFF_BAND'], dtype=np.float64)*1e6
-            if not binning is None:
-                pass
-                # # -- keep track of true wavelength
-                # _WL = res['WL']*1.0
-                # _dWL = res['dWL']*1.0
-                # # -- binned
-                # res['WL'] = np.linspace(res['WL'].min(),
-                #                         res['WL'].max(),
-                #                         len(res['WL'])//binning)
-                # res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
-            if debug:
-                #print('DEBUG: OI_WAVELENGTH')
-                #print(' | WL', res['WL'])
-                #print(' | dWL', res['dWL'])
-                pass
+
+            # -- make sure data are sorted by increasing wavelength
+            #wls = np.arange(len(res['WL']))
+            #wls = np.argsort(res['WL'])
+            #res['WL'] = res['WL'][wls]
+            #res['dWL'] = res['dWL'][wls]
+
     assert 'WL' in res, 'OIFITS is inconsistent: no wavelength table for insname="%s"'%(insname)
 
     if 'GRAVITY' in insname:
@@ -207,7 +199,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             for i in range(4):
                 Tel = h[0].header['ESO ISS CONF STATION%d'%(i+1)]
                 opl = 0.5*(h[0].header['ESO DEL DLT%d OPL START'%(i+1)] +
-                        h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
+                           h[0].header['ESO DEL DLT%d OPL END'%(i+1)])
                 opl += h[0].header['ESO ISS CONF A%dL'%(i+1)]
                 OPL[Tel] = opl
             res['OPL'] = OPL
@@ -253,31 +245,11 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     for ih, hdu in enumerate(h):
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='TELLURICS':
             if not tellurics is False:
-                if not binning is None and len(hdu.data['TELL_TRANS'])==len(_WL):
-                    pass
-                    # if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
-                    #     # -- corrected wavelength
-                    #     res['WL'] = hdu.data['CORR_WAVE']*1e6
-                    #     if not binning is None:
-                    #         # -- keep track of true wavelength
-                    #         _WL = res['WL']*1.0
-                    #         # -- binned
-                    #         res['WL'] = np.linspace(res['WL'].min(),
-                    #                                 res['WL'].max(),
-                    #                                 len(res['WL'])//binning)
-
-                    # res['TELLURICS'] = binOI(res['WL'], _WL,
-                    #                          np.array([hdu.data['TELL_TRANS']]),
-                    #                          np.array([hdu.data['TELL_TRANS']<0]),
-                    #                          medFilt=medFilt,
-                    #                          retFlag=False)[0]
-                    # res['PWV'] = hdu.header['PWV']
-                elif len(hdu.data['TELL_TRANS'])==len(res['WL']):
+                if len(hdu.data['TELL_TRANS'])==len(res['WL']):
                     res['TELLURICS'] = hdu.data['TELL_TRANS']
                     if useTelluricsWl and 'CORR_WAVE' in [c.name for c in hdu.data.columns]:
                         # -- corrected wavelength
                         res['WL'] = hdu.data['CORR_WAVE']*1e6
-
                     res['PWV'] = hdu.header['PWV']
             else:
                 ignoredTellurics = True
@@ -298,40 +270,25 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 # --
                 w = (np.array(sta1)==k)*wTarg(hdu, targname, targets)
                 try:
-                    # GRAVITY Data have non-standard naming :(
+                    # some GRAVITY Data have non-standard naming :(
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUX'][w].reshape(w.sum(), -1),
-                                        'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
-                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
-                                        'MJD':hdu.data['MJD'][w],
-                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
+                                         'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
+                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
+                                         'MJD':hdu.data['MJD'][w],
+                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          }
                 except:
                     res['OI_FLUX'][k] = {'FLUX':hdu.data['FLUXDATA'][w].reshape(w.sum(), -1),
-                                        'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
-                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
-                                        'MJD':hdu.data['MJD'][w],
-                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
+                                         'EFLUX':hdu.data['FLUXERR'][w].reshape(w.sum(), -1),
+                                         'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1),
+                                         'MJD':hdu.data['MJD'][w],
+                                         'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
                                          }
                 if any(w):
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['FLUX']))
                     res['OI_FLUX'][k]['FLAG'] = np.logical_or(res['OI_FLUX'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_FLUX'][k]['EFLUX']))
-                    if not binning is None:
-                        # -- Note the binning of flux is not weighted, because
-                        # -- it would make the tellurics correction incorrect
-                        # -- overwise
-                        pass
-                        # res['OI_FLUX'][k]['FLUX'], flag = \
-                        #                             binOI(res['WL'], _WL,
-                        #                                    res['OI_FLUX'][k]['FLUX'],
-                        #                                    res['OI_FLUX'][k]['FLAG'],
-                        #                                    medFilt=medFilt, retFlag=True)
-                        # res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
-                        #                                    1/res['OI_FLUX'][k]['EFLUX'],
-                        #                                    res['OI_FLUX'][k]['FLAG'],
-                        #                                    medFilt=medFilt)
-                        # res['OI_FLUX'][k]['FLAG'] = flag
 
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS2' and\
                     hdu.header['INSNAME']==insname:
@@ -363,10 +320,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     tmp = hdu.data['UCOORD'][w][:,None]/res['WL'][None,:]
                     res['OI_VIS2'][k]['u/wl'] = np.append(res['OI_VIS2'][k]['u/wl'],
                                                           tmp, axis=0)
-
                     tmp = hdu.data['VCOORD'][w][:,None]/res['WL'][None,:]
-                    res['OI_VIS2'][k]['v/wl'] = np.append(res['OI_VIS2'][k]['v/wl'],
-                                                            tmp, axis=0)
+                    res['OI_VIS2'][k]['v/wl'] = np.append(res['OI_VIS2'][k]['v/wl'], tmp, axis=0)
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
                                                               ~np.isfinite(res['OI_VIS2'][k]['V2']))
                     res['OI_VIS2'][k]['FLAG'] = np.logical_or(res['OI_VIS2'][k]['FLAG'],
@@ -394,23 +349,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                         res['OI_VIS2'][k]['v/wl']**2)
                     res['OI_VIS2'][k]['PA'] = np.angle(res['OI_VIS2'][k]['v/wl']+
                                                     1j*res['OI_VIS2'][k]['u/wl'], deg=True)
-                    if not binning is None:
-                        pass
-                        # res['OI_VIS2'][k]['V2'], flag =\
-                        #                            binOI(res['WL'], _WL,
-                        #                                  res['OI_VIS2'][k]['V2'],
-                        #                                  res['OI_VIS2'][k]['FLAG'],
-                        #                                  res['OI_VIS2'][k]['EV2'],
-                        #                                  medFilt=medFilt,
-                        #                                  retFlag=True)
-
-                        # res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
-                        #                                  1/res['OI_VIS2'][k]['EV2'],
-                        #                                  res['OI_VIS2'][k]['FLAG'],
-                        #                                  res['OI_VIS2'][k]['EV2'],
-                        #                                  medFilt=medFilt)
-
-                        # res['OI_VIS2'][k]['FLAG'] = flag
 
         # -- V baselines == telescopes pairs
         elif 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_VIS' and\
@@ -473,11 +411,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res[ext][k][k1] = np.append(res[ext][k][k1],
                                                           hdu.data[k2][w])
                     tmp = hdu.data['UCOORD'][w][:,None]/res['WL'][None,:]
-                    res[ext][k]['u/wl'] = np.append(res[ext][k]['u/wl'],
-                                                         tmp, axis=0)
+                    res[ext][k]['u/wl'] = np.append(res[ext][k]['u/wl'], tmp, axis=0)
                     tmp = hdu.data['VCOORD'][w][:,None]/res['WL'][None,:]
-                    res[ext][k]['v/wl'] = np.append(res[ext][k]['v/wl'],
-                                                         tmp, axis=0)
+                    res[ext][k]['v/wl'] = np.append(res[ext][k]['v/wl'], tmp, axis=0)
                     res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
                                                              ~np.isfinite(res[ext][k][vis]))
                     res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
@@ -485,19 +421,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
                 elif any(w):
                     res[ext][k] = {vis:hdu.data['VISAMP'][w].reshape(w.sum(), -1),
-                                        'E'+vis:hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
-                                        #'PHI': hdu.data['VISPHI'][w].reshape(w.sum(), -1),
-                                        #'EPHI': hdu.data['VISPHIERR'][w].reshape(w.sum(), -1),
-                                        'MJD':hdu.data['MJD'][w],
-                                        'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
-                                        'u':hdu.data['UCOORD'][w],
-                                        'v':hdu.data['VCOORD'][w],
-                                        'u/wl': hdu.data['UCOORD'][w][:,None]/
-                                               res['WL'][None,:],
-                                        'v/wl': hdu.data['VCOORD'][w][:,None]/
-                                               res['WL'][None,:],
-                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
-                                        }
+                                   'E'+vis:hdu.data['VISAMPERR'][w].reshape(w.sum(), -1),
+                                   'MJD':hdu.data['MJD'][w],
+                                   'MJD2':hdu.data['MJD'][w][:,None]+0*res['WL'][None,:],
+                                   'u':hdu.data['UCOORD'][w],
+                                   'v':hdu.data['VCOORD'][w],
+                                   'u/wl': hdu.data['UCOORD'][w][:,None]/
+                                            res['WL'][None,:],
+                                   'v/wl': hdu.data['VCOORD'][w][:,None]/
+                                            res['WL'][None,:],
+                                   'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
+                                    }
                     try:
                         # -- weird bug in some files from Alex
                         res[ext][k]['PHI'] = hdu.data['VISPHI'][w].reshape(w.sum(), -1)
@@ -506,49 +440,15 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                         res[ext][k]['PHI'] = 0.0*res[ext][k][vis]
                         res[ext][k]['EPHI'] = 0.0*res[ext][k][vis]+1.0
 
-
                 if any(w):
-                    res[ext][k]['B/wl'] = np.sqrt(res[ext][k]['u/wl']**2+
-                                                       res[ext][k]['v/wl']**2)
-                    res[ext][k]['PA'] = np.angle(res[ext][k]['v/wl']+
-                                                   1j*res[ext][k]['u/wl'], deg=True)
+                    res[ext][k]['B/wl'] = np.sqrt(res[ext][k]['u/wl']**2+res[ext][k]['v/wl']**2)
+                    res[ext][k]['PA'] = np.angle(res[ext][k]['v/wl']+1j*res[ext][k]['u/wl'], deg=True)
 
                     res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
                                                              ~np.isfinite(res[ext][k][vis]))
                     res[ext][k]['FLAG'] = np.logical_or(res[ext][k]['FLAG'],
                                                               ~np.isfinite(res[ext][k]['E'+vis]))
 
-                    if not binning is None:
-                        pass
-                        # _w = ~res[ext][k]['FLAG']
-                        # res[ext][k][vis],  flag = binOI(res['WL'], _WL,
-                        #                                  res[ext][k][vis],
-                        #                                  res[ext][k]['FLAG'],
-                        #                                  res[ext][k]['E'+vis],
-                        #                                  medFilt=medFilt,
-                        #                                  retFlag=True)
-                        # res[ext][k]['PHI'] = binOI(res['WL'], _WL,
-                        #                                  res[ext][k]['PHI'],
-                        #                                  res[ext][k]['FLAG'],
-                        #                                  res[ext][k]['EPHI'],
-                        #                                  medFilt=medFilt)
-                        # res[ext][k]['E'+vis] = 1/binOI(res['WL'], _WL,
-                        #                                  1/res[ext][k]['E'+vis],
-                        #                                  res[ext][k]['FLAG'],
-                        #                                  res[ext][k]['E'+vis],
-                        #                                  medFilt=medFilt)
-                        # res[ext][k]['EPHI'] = 1/binOI(res['WL'], _WL,
-                        #                                  1/res[ext][k]['EPHI'],
-                        #                                  res[ext][k]['FLAG'],
-                        #                                  res[ext][k]['EPHI'],
-                        #                                  medFilt=medFilt)
-
-                        # res[ext][k]['FLAG'] = flag
-
-        #elif debug and 'EXTNAME' in hdu.header:
-        #    print('DEBUG:', hdu.header['EXTNAME'])
-        #elif debug:
-        #    print('DEBUG: skipping HDU')
 
     if res['OI_CF'] == {}:
         if debug:
@@ -650,8 +550,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                    ('MJD', 'MJD')]:
                         res['OI_T3'][k][k1] = np.append(res['OI_T3'][k][k1],
                                                          hdu.data[k2][w])
-                    # -- commented for MATISSE, otherwise things get screwed
-
+                    # -- commented for MATISSE, otherwise things get screwed?
                     # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                     #                                         ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                     # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
@@ -672,10 +571,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                        'FLAG':hdu.data['FLAG'][w].reshape(w.sum(), -1)
                                         }
                 if any(w):
-                    res['OI_T3'][k]['B1'] = np.sqrt(res['OI_T3'][k]['u1']**2+
-                                                    res['OI_T3'][k]['v1']**2)
-                    res['OI_T3'][k]['B2'] = np.sqrt(res['OI_T3'][k]['u2']**2+
-                                                    res['OI_T3'][k]['v2']**2)
+                    res['OI_T3'][k]['B1'] = np.sqrt(res['OI_T3'][k]['u1']**2+res['OI_T3'][k]['v1']**2)
+                    res['OI_T3'][k]['B2'] = np.sqrt(res['OI_T3'][k]['u2']**2+res['OI_T3'][k]['v2']**2)
                     res['OI_T3'][k]['B3'] = np.sqrt((res['OI_T3'][k]['u1']+res['OI_T3'][k]['u2'])**2+
                                                     (res['OI_T3'][k]['v1']+res['OI_T3'][k]['v2'])**2)
                     bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
@@ -688,7 +585,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                             res['OI_T3'][k]['B3'])/3
 
                     res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
-                    res['OI_T3'][k]['Bmin/wl'] = bmax[:,None]/res['WL'][None,:]
+                    res['OI_T3'][k]['Bmin/wl'] = bmin[:,None]/res['WL'][None,:]
                     res['OI_T3'][k]['Bavg/wl'] = bavg[:,None]/res['WL'][None,:]
 
                     # -- commented for MATISSE, otherwise things get screwed
@@ -696,32 +593,6 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     #                                        ~np.isfinite(res['OI_T3'][k]['T3AMP']))
                     # res['OI_T3'][k]['FLAG'] = np.logical_or(res['OI_T3'][k]['FLAG'],
                     #                                         ~np.isfinite(res['OI_T3'][k]['ET3AMP']))
-                    if not binning is None:
-                        pass
-                        # _w = ~res['OI_T3'][k]['FLAG']
-                        # res['OI_T3'][k]['T3AMP'], flag = \
-                        #                             binOI(res['WL'], _WL,
-                        #                                   res['OI_T3'][k]['T3AMP'],
-                        #                                   res['OI_T3'][k]['FLAG'],
-                        #                                   res['OI_T3'][k]['ET3AMP'],
-                        #                                   medFilt=medFilt,
-                        #                                   retFlag=True)
-                        # res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
-                        #                                  res['OI_T3'][k]['T3PHI'],
-                        #                                  res['OI_T3'][k]['FLAG'],
-                        #                                  res['OI_T3'][k]['ET3PHI'],
-                        #                                  medFilt=medFilt, phase=True)
-                        # res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
-                        #                                    1/res['OI_T3'][k]['ET3AMP'],
-                        #                                    res['OI_T3'][k]['FLAG'],
-                        #                                    res['OI_T3'][k]['ET3AMP'],
-                        #                                    medFilt=medFilt)
-                        # res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
-                        #                                    1/res['OI_T3'][k]['ET3PHI'],
-                        #                                    res['OI_T3'][k]['FLAG'],
-                        #                                    res['OI_T3'][k]['ET3PHI'],
-                        #                                    medFilt=medFilt)
-                        # res['OI_T3'][k]['FLAG'] = flag
                 res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
 
     if not binning is None:
@@ -897,18 +768,18 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                                                     np.array([np.ones(len(res['WL']), dtype=bool)]), axis=0)
                     #if key=='OI_VIS':
                     res['OI_VIS'][t[1]]['|V|'] = np.append(res['OI_VIS'][t[1]]['|V|'],
-                                            np.array([res['WL']*0]), axis=0)
+                                                           np.array([res['WL']*0]), axis=0)
                     res['OI_VIS'][t[1]]['E|V|'] = np.append(res['OI_VIS'][t[1]]['E|V|'],
-                                             np.array([res['WL']*0+1]), axis=0)
+                                                           np.array([res['WL']*0+1]), axis=0)
                     res['OI_VIS'][t[1]]['PHI'] = np.append(res['OI_VIS'][t[1]]['PHI'],
-                                            np.array([res['WL']*0]), axis=0)
+                                                           np.array([res['WL']*0]), axis=0)
                     res['OI_VIS'][t[1]]['EPHI'] = np.append(res['OI_VIS'][t[1]]['EPHI'],
-                                            np.array([res['WL']*0+1]), axis=0)
+                                                           np.array([res['WL']*0+1]), axis=0)
                     #else:
                     res['OI_VIS2'][t[1]]['V2'] = np.append(res['OI_VIS2'][t[1]]['V2'],
-                                            np.array([res['WL']*0]), axis=0)
+                                                           np.array([res['WL']*0]), axis=0)
                     res['OI_VIS2'][t[1]]['EV2'] = np.append(res['OI_VIS2'][t[1]]['EV2'],
-                                            np.array([res['WL']*0+1]), axis=0)
+                                                           np.array([res['WL']*0+1]), axis=0)
                     if debug:
                         print(' test:', mjd, t[1], res['OI_VIS'][t[1]]['MJD'], w1)
 
@@ -1031,7 +902,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         Paranal = EarthLocation.of_site('Paranal')
         if 'RA' in h[0].header and 'DEC'  in h[0].header:
             sc = SkyCoord(ra=h[0].header['RA']*aU.deg,
-                        dec=h[0].header['DEC']*aU.deg)
+                          dec=h[0].header['DEC']*aU.deg)
             # -- correction in m/s
             barycorr = sc.radial_velocity_correction(location=Paranal,
                         obstime=Time(h[0].header['DATE-OBS']))
@@ -1083,27 +954,53 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     except:
         if verbose:
             print('WARNING: error while reading ESO pipelines parameters')
+
+    if orderedWl:
+        # == order by increasing WL:
+        wls = np.argsort(res['WL'])
+        res['WL'] = res['WL'][wls]
+        res['dWL'] = res['dWL'][wls]
+        res['TELLURICS'] = res['TELLURICS'][wls]
+        O = {'OI_VIS2':['V2', 'EV2', 'u/wl', 'v/wl', 'B/wl', 'FLAG', 'MJD2', 'PA'],
+            'OI_VIS': ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'B/wl', 'FLAG', 'MJD2', 'PA'],
+            'OI_CF':  ['CF', 'ECF', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'B/wl', 'FLAG', 'MJD2', 'PA'],
+            'OI_T3':  ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG', 'MJD2'],
+            }
+        for o in O:
+            if not o in res:
+                continue
+            for k in res[o]:
+                for e in O[o]:
+                    if e in res[o][k]:
+                        res[o][k][e] = res[o][k][e][:,wls]
     return res
 
-
-def _binOI(res, binning=None, medFilt=None):
+def _binOI(res, binning=None, medFilt=None, noError=False):
     """
     binning: number of spectral channels to bin (>2, None or 1 does nothing).
     """
-    if binning is None or binning==1:
+    if binning is None and not 'binWL' in res:
         return res
+
     # -- keep track of true wavelength
     _WL = res['WL']*1.0
-    _dWL = res['dWL']*1.0
-    res['WL'] = np.linspace(res['WL'].min(),
-                            res['WL'].max(),
-                            len(res['WL'])//binning)
-    res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
+    if 'dWL' in res:
+        _dWL = res['dWL']*1.0
+    else:
+        _dWL = np.gradient(res['WL'])
+    if 'binWL' in res:
+        res['WL'] = res['binWL']*1.0
+        res['dWL'] = np.gradient(res['WL'])
+    else:
+        res['WL'] = np.linspace(res['WL'].min(),
+                                res['WL'].max(),
+                                len(res['WL'])//binning)
+        res['dWL'] = binning*np.interp(res['WL'], _WL, _dWL)
 
     if 'TELLURICS' in res:
-        res['TELLURICS'] = binOI(res['WL'], _WL,
-                             res['TELLURICS'],
-                             res['TELLURICS']<0,
+        res['TELLURICS'] =_binVec_flag(res['WL'], _WL,
+                             np.array([res['TELLURICS']]),
+                             np.array([res['TELLURICS']<0]),
                              medFilt=medFilt,
                              retFlag=False)[0]
     if 'OI_FLUX' in res:
@@ -1111,11 +1008,12 @@ def _binOI(res, binning=None, medFilt=None):
         # -- it would make the tellurics correction incorrect
         # -- overwise
         for k in res['OI_FLUX']:
-            res['OI_FLUX'][k]['FLUX'], flag = binOI(res['WL'], _WL,
+            #print(res['OI_FLUX'][k].keys())
+            res['OI_FLUX'][k]['FLUX'], flag =_binVec_flag(res['WL'], _WL,
                                             res['OI_FLUX'][k]['FLUX'],
                                             res['OI_FLUX'][k]['FLAG'],
                                             medFilt=medFilt, retFlag=True)
-            res['OI_FLUX'][k]['EFLUX'] = 1/binOI(res['WL'], _WL,
+            res['OI_FLUX'][k]['EFLUX'] = 1/_binVec_flag(res['WL'], _WL,
                                                 1/res['OI_FLUX'][k]['EFLUX'],
                                                 res['OI_FLUX'][k]['FLAG'],
                                                 medFilt=medFilt)
@@ -1124,18 +1022,21 @@ def _binOI(res, binning=None, medFilt=None):
 
     if 'OI_VIS2' in res:
         for k in res['OI_VIS2']:
+            #print('OI_VIS', k, res['WL'].shape, _WL.shape, res['OI_VIS2'][k]['V2'].shape,
+            #    res['OI_VIS2'][k]['FLAG'].shape)
             res['OI_VIS2'][k]['V2'], flag =\
-                                    binOI(res['WL'], _WL,
+                                   _binVec_flag(res['WL'], _WL,
                                             res['OI_VIS2'][k]['V2'],
                                             res['OI_VIS2'][k]['FLAG'],
-                                            res['OI_VIS2'][k]['EV2'],
+                                            None if noError else res['OI_VIS2'][k]['EV2'] ,
                                             medFilt=medFilt,
                                             retFlag=True)
-            res['OI_VIS2'][k]['EV2'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_VIS2'][k]['EV2'],
-                                            res['OI_VIS2'][k]['FLAG'],
-                                            res['OI_VIS2'][k]['EV2'],
-                                            medFilt=medFilt)
+            if not noError:
+                res['OI_VIS2'][k]['EV2'] = 1/_binVec_flag(res['WL'], _WL,
+                                                1/res['OI_VIS2'][k]['EV2'],
+                                                res['OI_VIS2'][k]['FLAG'],
+                                                res['OI_VIS2'][k]['EV2'],
+                                                medFilt=medFilt)
             res['OI_VIS2'][k]['FLAG'] = flag
             res['OI_VIS2'][k]['MJD2'] = res['OI_VIS2'][k]['MJD'][:,None] + 0*res['WL'][None,:]
             res['OI_VIS2'][k]['u/wl'] = res['OI_VIS2'][k]['u'][:,None]/res['WL'][None,:]
@@ -1145,27 +1046,28 @@ def _binOI(res, binning=None, medFilt=None):
 
     if 'OI_VIS' in res:
         for k in res['OI_VIS']:
-            res['OI_VIS'][k]['|V|'],  flag = binOI(res['WL'], _WL,
+            res['OI_VIS'][k]['|V|'],  flag =_binVec_flag(res['WL'], _WL,
                                             res['OI_VIS'][k]['|V|'],
                                             res['OI_VIS'][k]['FLAG'],
-                                            res['OI_VIS'][k]['E|V|'],
+                                            None if noError else res['OI_VIS'][k]['E|V|'],
                                             medFilt=medFilt,
                                             retFlag=True)
-            res['OI_VIS'][k]['PHI'] = binOI(res['WL'], _WL,
+            res['OI_VIS'][k]['PHI'] =_binVec_flag(res['WL'], _WL,
                                             res['OI_VIS'][k]['PHI'],
                                             res['OI_VIS'][k]['FLAG'],
-                                            res['OI_VIS'][k]['EPHI'],
+                                            None if noError else res['OI_VIS'][k]['EPHI'],
                                             medFilt=medFilt)
-            res['OI_VIS'][k]['E|V|'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_VIS'][k]['E|V|'],
-                                            res['OI_VIS'][k]['FLAG'],
-                                            res['OI_VIS'][k]['E|V|'],
-                                            medFilt=medFilt)
-            res['OI_VIS'][k]['EPHI'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_VIS'][k]['EPHI'],
-                                            res['OI_VIS'][k]['FLAG'],
-                                            res['OI_VIS'][k]['EPHI'],
-                                            medFilt=medFilt)
+            if not noError:
+                res['OI_VIS'][k]['E|V|'] = 1/_binVec_flag(res['WL'], _WL,
+                                                1/res['OI_VIS'][k]['E|V|'],
+                                                res['OI_VIS'][k]['FLAG'],
+                                                res['OI_VIS'][k]['E|V|'],
+                                                medFilt=medFilt)
+                res['OI_VIS'][k]['EPHI'] = 1/_binVec_flag(res['WL'], _WL,
+                                                1/res['OI_VIS'][k]['EPHI'],
+                                                res['OI_VIS'][k]['FLAG'],
+                                                res['OI_VIS'][k]['EPHI'],
+                                                medFilt=medFilt)
             res['OI_VIS'][k]['FLAG'] = flag
             res['OI_VIS'][k]['MJD2'] = res['OI_VIS'][k]['MJD'][:,None] + 0*res['WL'][None,:]
             res['OI_VIS'][k]['u/wl'] = res['OI_VIS'][k]['u'][:,None]/res['WL'][None,:]
@@ -1175,74 +1077,93 @@ def _binOI(res, binning=None, medFilt=None):
 
     if 'OI_CF' in res:
         for k in res['OI_CF']:
-            res['OI_CF'][k]['CF'],  flag = binOI(res['WL'], _WL,
-                                            res['OI_CF'][k]['|V|'],
+            res['OI_CF'][k]['CF'],  flag =_binVec_flag(res['WL'], _WL,
+                                            res['OI_CF'][k]['CF'],
                                             res['OI_CF'][k]['FLAG'],
-                                            res['OI_CF'][k]['ECF'],
+                                            None if noError else res['OI_CF'][k]['ECF'],
                                             medFilt=medFilt,
                                             retFlag=True)
-            res['OI_CF'][k]['PHI'] = binOI(res['WL'], _WL,
+            res['OI_CF'][k]['PHI'] =_binVec_flag(res['WL'], _WL,
                                             res['OI_CF'][k]['PHI'],
                                             res['OI_CF'][k]['FLAG'],
-                                            res['OI_CF'][k]['EPHI'],
+                                            None if noError else res['OI_CF'][k]['EPHI'],
                                             medFilt=medFilt)
-            res['OI_CF'][k]['ECF'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_CF'][k]['ECF'],
-                                            res['OI_CF'][k]['FLAG'],
-                                            res['OI_CF'][k]['ECF'],
-                                            medFilt=medFilt)
-            res['OI_CF'][k]['EPHI'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_CF'][k]['EPHI'],
-                                            res['OI_CF'][k]['FLAG'],
-                                            res['OI_CF'][k]['EPHI'],
-                                            medFilt=medFilt)
+            if not noError:
+                res['OI_CF'][k]['ECF'] = 1/_binVec_flag(res['WL'], _WL,
+                                                1/res['OI_CF'][k]['ECF'],
+                                                res['OI_CF'][k]['FLAG'],
+                                                res['OI_CF'][k]['ECF'],
+                                                medFilt=medFilt)
+                res['OI_CF'][k]['EPHI'] = 1/_binVec_flag(res['WL'], _WL,
+                                                1/res['OI_CF'][k]['EPHI'],
+                                                res['OI_CF'][k]['FLAG'],
+                                                res['OI_CF'][k]['EPHI'],
+                                                medFilt=medFilt)
             res['OI_CF'][k]['FLAG'] = flag
             res['OI_CF'][k]['MJD2'] = res['OI_CF'][k]['MJD'][:,None] + 0*res['WL'][None,:]
             res['OI_VIS'][k]['u/wl'] = res['OI_VIS'][k]['u'][:,None]/res['WL'][None,:]
             res['OI_VIS'][k]['v/wl'] = res['OI_VIS'][k]['v'][:,None]/res['WL'][None,:]
             res['OI_VIS'][k]['B/wl'] = np.sqrt(res['OI_VIS'][k]['u'][:,None]**2+
-                res['OI_VIS'][k]['v'][:,None]**2)/res['WL'][None,:]
+                                               res['OI_VIS'][k]['v'][:,None]**2)/res['WL'][None,:]
 
     if 'OI_T3' in res:
         for k in res['OI_T3']:
-            res['OI_T3'][k]['T3AMP'], flag = \
-                                        binOI(res['WL'], _WL,
-                                            res['OI_T3'][k]['T3AMP'],
-                                            res['OI_T3'][k]['FLAG'],
-                                            res['OI_T3'][k]['ET3AMP'],
-                                            medFilt=medFilt,
-                                            retFlag=True)
-            res['OI_T3'][k]['T3PHI'] = binOI(res['WL'], _WL,
-                                            res['OI_T3'][k]['T3PHI'],
-                                            res['OI_T3'][k]['FLAG'],
-                                            res['OI_T3'][k]['ET3PHI'],
-                                            medFilt=medFilt, phase=True)
-            res['OI_T3'][k]['ET3AMP'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_T3'][k]['ET3AMP'],
-                                            res['OI_T3'][k]['FLAG'],
-                                            res['OI_T3'][k]['ET3AMP'],
-                                            medFilt=medFilt)
-            res['OI_T3'][k]['ET3PHI'] = 1/binOI(res['WL'], _WL,
-                                            1/res['OI_T3'][k]['ET3PHI'],
-                                            res['OI_T3'][k]['FLAG'],
-                                            res['OI_T3'][k]['ET3PHI'],
-                                            medFilt=medFilt)
+            if 'T3AMP' in res['OI_T3'][k]:
+                res['OI_T3'][k]['T3AMP'] =_binVec_flag(res['WL'], _WL,
+                                                res['OI_T3'][k]['T3AMP'],
+                                                res['OI_T3'][k]['FLAG'],
+                                                None if noError else res['OI_T3'][k]['ET3AMP'],
+                                                medFilt=medFilt)
+            if 'T3PHI' in res['OI_T3'][k]:
+                res['OI_T3'][k]['T3PHI'], flag =_binVec_flag(res['WL'], _WL,
+                                                res['OI_T3'][k]['T3PHI'],
+                                                res['OI_T3'][k]['FLAG'],
+                                                None if noError else res['OI_T3'][k]['ET3PHI'],
+                                                medFilt=medFilt, retFlag=True, phase=True)
+            if not noError:
+                if 'T3AMP' in res['OI_T3'][k]:
+                    res['OI_T3'][k]['ET3AMP'] = 1/_binVec_flag(res['WL'], _WL,
+                                                    1/res['OI_T3'][k]['ET3AMP'],
+                                                    res['OI_T3'][k]['FLAG'],
+                                                    res['OI_T3'][k]['ET3AMP'],
+                                                    medFilt=medFilt)
+                if 'T3PHI' in res['OI_T3'][k]:
+                    res['OI_T3'][k]['ET3PHI'] = 1/_binVec_flag(res['WL'], _WL,
+                                                    1/res['OI_T3'][k]['ET3PHI'],
+                                                    res['OI_T3'][k]['FLAG'],
+                                                    res['OI_T3'][k]['ET3PHI'],
+                                                    medFilt=medFilt)
             res['OI_T3'][k]['FLAG'] = flag
             res['OI_T3'][k]['MJD2'] = res['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
             res['OI_T3'][k]['u1/wl'] = res['OI_T3'][k]['u1'][:,None]/res['WL'][None,:]
             res['OI_T3'][k]['v1/wl'] = res['OI_T3'][k]['v1'][:,None]/res['WL'][None,:]
             res['OI_T3'][k]['u2/wl'] = res['OI_T3'][k]['u2'][:,None]/res['WL'][None,:]
             res['OI_T3'][k]['v2/wl'] = res['OI_T3'][k]['v2'][:,None]/res['WL'][None,:]
-            res['OI_T3'][k]['Bmax/wl'] = np.maximum(res['OI_T3'][k]['B1'][:,None],
-                                                    res['OI_T3'][k]['B2'][:,None],
-                                                    res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]
-            res['OI_T3'][k]['Bmin/wl'] = np.minimum(res['OI_T3'][k]['B1'][:,None],
-                                                    res['OI_T3'][k]['B2'][:,None],
-                                                    res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]
+            bmax = np.maximum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
+            bmax = np.maximum(res['OI_T3'][k]['B3'], bmax)
+            bmin = np.minimum(res['OI_T3'][k]['B1'], res['OI_T3'][k]['B2'])
+            bmin = np.minimum(res['OI_T3'][k]['B3'], bmin)
+            res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['Bmin/wl'] = bmin[:,None]/res['WL'][None,:]
             res['OI_T3'][k]['Bavg/wl'] = (res['OI_T3'][k]['B1'][:,None]+
                                           res['OI_T3'][k]['B2'][:,None]+
                                           res['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]/3
-        return res
+    if 'MODEL' in res:
+        if 'totalflux' in res['MODEL']:
+            res['MODEL']['totalflux'] =_binVec_flag(res['WL'], _WL,
+                                            np.array([res['MODEL']['totalflux']]),
+                                            np.bool([0*res['MODEL']['totalflux']]),
+                                            0.0*np.array([res['MODEL']['totalflux']])+1,
+                                            medFilt=medFilt)[0]
+        if 'totalnflux' in res['MODEL']:
+            res['MODEL']['totalnflux'] =_binVec_flag(res['WL'], _WL,
+                                            res['MODEL']['totalnflux'],
+                                            np.bool(0*res['MODEL']['totalnflux']),
+                                            0.0*res['MODEL']['totalflux']+1,
+                                            medFilt=medFilt)
+        #print('MODEL:', res['MODEL'].keys())
+
+    return res
 
 
 def splitOIbyMJD(oi, dMJD=0):
@@ -1516,7 +1437,7 @@ def wTarg(hdu, targname, targets):
     else:
         return hdu.data['TARGET_ID']==targets[targname]
 
-def binOI(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False):
+def _binVec_flag(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False):
     """
     _wl: new WL vector
     WL: actual WL vector
@@ -1895,10 +1816,9 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                                                 'MJD ranges', 'continuum ranges', 'prior',
                                                 'Nr', 'DPHI order', 'N|V| order',
                                                 'NFLUX order', 'ignore negative flux',
-                                                'correlations']
+                                                'correlations', 'wl kernel', 'spatial kernel', 'smear']
                         if k in r['fit']}
             r['fit'].update(tmp)
-
 
     for r in res:
         if 'configurations per MJD' in r:

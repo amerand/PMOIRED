@@ -377,7 +377,7 @@ class OI:
 
         'Nr':int, number of points to compute radial profiles (default=100)
 
-        'spec res pix':float, spectral resolution spread in pixel
+        'wl kernel':float, spectral resolution spread in pixel
             (e.g. for GRAVITY, use 1.4)
 
         'continuum ranges':list of ranges where continuum need to be computed,
@@ -2264,7 +2264,7 @@ def _checkSetupFit(fit):
             'wl ranges':list,
             'baseline ranges':list,
             'MJD ranges':list,
-            'Nr':int, 'spec res pix':float,
+            'Nr':int, 'wl kernel':(float,int),
             'continuum ranges':list,
             'ignore negative flux':bool,
             'prior':list,
@@ -2273,6 +2273,7 @@ def _checkSetupFit(fit):
             'NFLUX order': int,
             'correlations': (bool, dict),
             'spatial kernel': float,
+            'smear':(int),
             }
 
     ok = True

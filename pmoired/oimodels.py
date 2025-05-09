@@ -23,6 +23,7 @@ import scipy.stats
 
 import pmoired.dpfit as dpfit
 import pmoired.dw as dw
+import pmoired.oifits as oifits
 # import pmoired.ulensBin2 as ulensBin2
 
 from astropy import constants
@@ -414,10 +415,36 @@ def _orbit(t, P, Vrad=False, verbose=False, withZ=False):
         else:
             return (x,y)
 
-# def showOrbit(mjds, P, fig=0):
-#     """
-#     """
-#     pass
+def _expandVec(x, n:int, dx=None):
+    """
+    x : vector of increasing values
+    n : expansion factor (integer) should be >1
+    dx: full width at value x, used incase x is scalar
+
+    add n values in between values of x using linear interpolation, and n values before
+    and after the first and last values
+
+    return vector of length 2n+1 for the scalar case (from x=dx/2 to x+dx/2)
+    and len(x)*(n+1) + n in case x is a vector.
+
+    examples:
+
+    _expandVec([0, 0.3, 0.9], 2)
+    > array([-0.2, -0.1,  0. ,  0.1,  0.2,  0.3,  0.5,  0.7,  0.9,  1.1,  1.3])
+
+    _expandVec(0.4, 4, dx=0.1)
+    > array([0.35 , 0.375, 0.4  , 0.425, 0.45 ])
+
+    """
+    if dx is None:
+        res = np.interp(np.linspace(0, 1, (n+1)*(len(x)-1)+1), np.linspace(0, 1, len(x)), x)
+        t = np.linspace(0, 1, n+2)
+        res = np.append(res, (x[-1]+t*(x[-1]-x[-2]))[1:-1])
+        res = np.append(res[::-1], (x[0]-t*(x[1]-x[0]))[1:-1])[::-1]
+    elif type(x) == float or len(x)==1:
+        res = np.linspace(x-dx/2, x+dx/2, 2*n+1)
+    return res
+
 
 def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD=None,
               timeit=False, indent=0, _ffrac=1.0, _dwl=0.0, fullOutput=False):
@@ -523,6 +550,85 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     # -- scaling
     cwl = 1.0 + _dwl/np.mean(res['WL'])
 
+    if 'fit' in oi and 'smear' in oi['fit']:
+        smear = oi['fit']['smear']
+    else:
+        smear = None
+
+    _debug = False
+    # -- copy u,v, etc, exampdin WL range in case of smearing
+
+    if not smear is None:
+        _debug = False
+        if _debug:
+            print('DBG> VsingleOI: init smearing')
+        # expand the WL table -> re bin *after* combining components!
+        res['binWL'] = res['WL']*1.0
+        #res['WL'] = np.linspace(res['WL'].min(), res['WL'].max(), len(res['WL'])*smear)
+        #res['WL'] = np.linspace(res['WL'][0], res['WL'][-1], len(res['WL'])*smear)
+        if len(res['WL'])==1:
+            res['WL'] = _expandVec(res['WL'][0], smear-1, dx=res['dWL'][0])
+        else:
+            res['WL'] = _expandVec(res['WL'], smear-1)
+
+        if _debug:
+            print('DBG> old', _WL.shape, 'new', res['WL'].shape)
+            #print('')
+        if not 'dWL' in res:
+            res['dWL'] = np.gradient(res['WL'])
+        else:
+            res['dWL'] = np.interp(res['WL'], _WL, res['dWL'])
+
+    if 'OI_FLUX' in oi:
+        res['OI_FLUX'] = {}
+        for k in oi['OI_FLUX']:
+            res['OI_FLUX'][k] = {}
+            res['OI_FLUX'][k]['MJD'] = oi['OI_FLUX'][k]['MJD']
+            res['OI_FLUX'][k]['MJD2'] = oi['OI_FLUX'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_FLUX'][k]['FLAG'] = np.bool(0.0*res['OI_FLUX'][k]['MJD2'])
+            res['OI_FLUX'][k]['FLUX'] = 1+0.0*res['OI_FLUX'][k]['MJD2']
+            res['OI_FLUX'][k]['EFLUX'] = 1+0.0*res['OI_FLUX'][k]['MJD2']
+
+    for e in ['OI_VIS', 'OI_VIS2', 'OI_CF']:
+        if e in oi:
+            res[e] = {}
+            for k in oi[e]:
+                res[e][k] = {}
+                res[e][k]['MJD'] = oi[e][k]['MJD']
+                res[e][k]['MJD2'] = oi[e][k]['MJD'][:,None] + 0*res['WL'][None,:]
+                res[e][k]['FLAG'] = np.bool(0.0*res[e][k]['MJD2'])
+                res[e][k]['u/wl'] = oi[e][k]['u'][:,None]/res['WL'][None,:]
+                res[e][k]['v/wl'] = oi[e][k]['v'][:,None]/res['WL'][None,:]
+                res[e][k]['B/wl'] = np.sqrt(oi[e][k]['u'][:,None]**2+
+                                            oi[e][k]['v'][:,None]**2)/res['WL'][None,:]
+    if 'OI_T3' in oi:
+        res['OI_T3'] = {}
+        for k in oi['OI_T3']:
+            res['OI_T3'][k] = {}
+            res['OI_T3'][k]['MJD'] = oi['OI_T3'][k]['MJD']
+            res['OI_T3'][k]['u1'] = oi['OI_T3'][k]['u1']
+            res['OI_T3'][k]['u2'] = oi['OI_T3'][k]['u2']
+            res['OI_T3'][k]['v1'] = oi['OI_T3'][k]['v1']
+            res['OI_T3'][k]['v2'] = oi['OI_T3'][k]['v2']
+            res['OI_T3'][k]['B1'] = oi['OI_T3'][k]['B1']
+            res['OI_T3'][k]['B2'] = oi['OI_T3'][k]['B2']
+            res['OI_T3'][k]['B3'] = oi['OI_T3'][k]['B3']
+            res['OI_T3'][k]['MJD2'] = oi['OI_T3'][k]['MJD'][:,None] + 0*res['WL'][None,:]
+            res['OI_T3'][k]['FLAG'] = np.bool(0.0*res['OI_T3'][k]['MJD2'])
+            res['OI_T3'][k]['u1/wl'] = oi['OI_T3'][k]['u1'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['v1/wl'] = oi['OI_T3'][k]['v1'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['u2/wl'] = oi['OI_T3'][k]['u2'][:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['v2/wl'] = oi['OI_T3'][k]['v2'][:,None]/res['WL'][None,:]
+            bmax = np.maximum(oi['OI_T3'][k]['B1'], oi['OI_T3'][k]['B2'])
+            bmax = np.maximum(oi['OI_T3'][k]['B3'], bmax)
+            bmin = np.minimum(oi['OI_T3'][k]['B1'], oi['OI_T3'][k]['B2'])
+            bmin = np.minimum(oi['OI_T3'][k]['B3'], bmin)
+            res['OI_T3'][k]['Bmax/wl'] = bmax[:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['Bmin/wl'] = bmin[:,None]/res['WL'][None,:]
+            res['OI_T3'][k]['Bavg/wl'] = (oi['OI_T3'][k]['B1'][:,None]+
+                                        oi['OI_T3'][k]['B2'][:,None]+
+                                        oi['OI_T3'][k]['B3'][:,None])/res['WL'][None,:]/3
+
     # -- model -> no telluric features
     res['TELLURICS'] = np.ones(res['WL'].shape)
 
@@ -577,7 +683,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     # -- max baseline
     Bwlmax = 0.0
     for k in baselines:
-        Bwlmax = max(Bwlmax, np.max(oi[key][k]['B/wl']/cwl))
+        Bwlmax = max(Bwlmax, np.max(res[key][k]['B/wl']/cwl))
     if Bwlmax==0:
         Bwlmax = 50.0
 
@@ -591,7 +697,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
             x = lambda o: _orbit(o['MJD2'], oP)[0]
         else:
-            x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*oi['WL'][None,:]
+            x = lambda o: np.ones(len(o['MJD']))[:,None]*_xs+0*res['WL'][None,:]
 
         if type(_ys)==str and '$MJD' in _ys:
             y = lambda o: eval(_ys.replace('$MJD', "o['MJD2']"))
@@ -600,12 +706,12 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             oP = {k.split('orb ')[1]:_param[k] for k in _param if k.startswith('orb ')}
             y = lambda o: _orbit(o['MJD2'], oP)[1]
         else:
-            y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*oi['WL'][None,:]
+            y = lambda o: np.ones(len(o['MJD']))[:,None]*_ys+0*res['WL'][None,:]
 
     else:
         _xs, _ys = 0, 0
-        x = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
-        y = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*oi['WL'][None,:]
+        x = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*res['WL'][None,:]
+        y = lambda o: np.ones(len(o['MJD']))[:,None]*0+0*res['WL'][None,:]
 
     #print('debug:', x, y)
     # -- 'slant' i.e. linear variation of flux
@@ -621,12 +727,12 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
     if 'fit' in oi and 'wl ranges' in oi['fit']:
         WLR = oi['fit']['wl ranges']
     else:
-        WLR = [(min(oi['WL']), max(oi['WL']))]
-    wwl = np.zeros(oi['WL'].shape)
+        WLR = [(min(res['WL']), max(res['WL']))]
+    wwl = np.zeros(res['WL'].shape)
     for wlr in WLR:
         # -- compute a bit larger, to avoid border effects
-        wwl += (oi['WL']>=wlr[0]-0.05*(wlr[1]-wlr[0]))*\
-               (oi['WL']<=wlr[1]+0.05*(wlr[1]-wlr[0]))
+        wwl += (res['WL']>=wlr[0]-0.05*(wlr[1]-wlr[0]))*\
+               (res['WL']<=wlr[1]+0.05*(wlr[1]-wlr[0]))
     wwl = np.bool_(wwl)
 
     # -- do we need to apply a stretch?
@@ -654,10 +760,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if not I is None:
             if len(baselines):
-                _X = (np.cos(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                       np.sin(rot)*(Y-np.mean(y(oi[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
-                _Y = -np.sin(rot)*(X-np.mean(x(oi[key][baselines[0]]))) + \
-                       np.cos(rot)*(Y-np.mean(y(oi[key][baselines[0]])))
+                _X = (np.cos(rot)*(X-np.mean(x(res[key][baselines[0]]))) + \
+                       np.sin(rot)*(Y-np.mean(y(res[key][baselines[0]]))))/np.cos(_param['incl']*np.pi/180)
+                _Y = -np.sin(rot)*(X-np.mean(x(res[key][baselines[0]]))) + \
+                       np.cos(rot)*(Y-np.mean(y(res[key][baselines[0]])))
             else:
                 _X = (np.cos(rot)*(X-_xs) + np.sin(rot)*(Y-_ys))/np.cos(_param['incl']*np.pi/180)
                 _Y = -np.sin(rot)*(X-_xs) + np.cos(rot)*(Y-_ys)
@@ -677,7 +783,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if not I is None:
             if len(baselines):
-                _X, _Y = X-np.mean(x(oi[key][baselines[0]])), Y-np.mean(y(oi[key][baselines[0]]))
+                _X, _Y = X-np.mean(x(res[key][baselines[0]])), Y-np.mean(y(res[key][baselines[0]]))
             else:
                 _X, _Y = X-_xs, Y-_ys
 
@@ -823,8 +929,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                                    Ir, _r, _n, _phi, _amp, stretch=stretch)
             if not I is None:
                 if len(baselines):
-                    XY = (X-np.mean(x(oi[key][baselines[0]])),
-                          Y-np.mean(y(oi[key][baselines[0]])))
+                    XY = (X-np.mean(x(res[key][baselines[0]])),
+                          Y-np.mean(y(res[key][baselines[0]])))
                 else:
                     XY = (X-_xs, Y-_ys)
 
@@ -898,9 +1004,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             #print('diamin', diamin, 'diamout', diamout, 'Nr', Nr,
             #      'int(r*Ir)', f)
             if not '$WL' in _param['surf bri']:
-                flux *= np.ones(len(oi['WL']))*_param['surf bri']
+                flux *= np.ones(len(res['WL']))*_param['surf bri']
             else:
-                flux *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+                flux *= eval(_param['surf bri'].replace('$WL', 'res["WL"]'))
             if any(flux>0):
                 # -- check negativity of spectrum
                 negativity = np.sum(flux[flux<0])/np.sum(flux[flux>=0])
@@ -982,9 +1088,9 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             # -- use this to compute flux, can be function of wavelength
             flux = 2*np.pi*np.trapezoid(Ir*_r, _r)*_ffrac
             if not '$WL' in _param['surf bri']:
-                flux *= np.ones(len(oi['WL']))*_param['surf bri']
+                flux *= np.ones(len(res['WL']))*_param['surf bri']
             else:
-                flux *= eval(_param['surf bri'].replace('$WL', 'oi["WL"]'))
+                flux *= eval(_param['surf bri'].replace('$WL', 'res["WL"]'))
             if any(flux>0):
                 # -- check negativity of spectrum
                 negativity += np.sum(flux[flux<0])/np.sum(flux[flux>=0])
@@ -1011,8 +1117,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             Vfdv = lambda z: _Vazvar(_udv(z), _vdv(z), Ir, _r, _n, _phi, _amp,)
         if not I is None:
             if len(baselines):
-                XY = (X-np.mean(x(oi[key][baselines[0]])),
-                      Y-np.mean(y(oi[key][baselines[0]])))
+                XY = (X-np.mean(x(res[key][baselines[0]])),
+                      Y-np.mean(y(res[key][baselines[0]])))
             else:
                 XY = (X-_xs, Y-_ys)
 
@@ -1116,42 +1222,42 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         kfwhm = None
 
     # == build observables: ===================================
-    res['OI_VIS'] = {}
-    res['OI_VIS2'] = {}
-    if 'OI_CF' in oi:
-        res['OI_CF'] = {}
+    # res['OI_VIS'] = {}
+    # res['OI_VIS2'] = {}
+    # if 'OI_CF' in oi:
+    #     res['OI_CF'] = {}
     tv = time.time()
     for k in baselines: # -- for each baseline
         tmp = {}
         #print('debug', oi[key][k]['u/wl'].shape)
-        V = np.zeros((oi[key][k]['u/wl'].shape[0],
-                      oi[key][k]['u/wl'].shape[1]), dtype=complex)
+        V = np.zeros((res[key][k]['u/wl'].shape[0],
+                      res[key][k]['u/wl'].shape[1]), dtype=complex)
         if du: # -- for slanted
             V[:,wwl] = Vf(oi[key][k])
             # -- compute slant from derivative of visibility
-            dVdu = (Vfdu(oi[key][k]) - V[:,wwl])/du
-            dVdv = (Vfdv(oi[key][k]) - V[:,wwl])/dv
+            dVdu = (Vfdu(res[key][k]) - V[:,wwl])/du
+            dVdv = (Vfdv(res[key][k]) - V[:,wwl])/dv
             dVdu /= 2*_c/res['WL'][wwl]
             dVdv /= 2*_c/res['WL'][wwl]
             # -- see https://en.wikipedia.org/wiki/Fourier_transform#Tables_of_important_Fourier_transforms
             # -- relations 106 and 107
             V[:,wwl] = V[:,wwl]+1j*(np.sin(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdu +
-                       np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
-            V[:,wwl] *= PHI(oi[key][k])
+                                    np.cos(_param['slant projang']*np.pi/180)*_param['slant']/Rout*dVdv)
+            V[:,wwl] *= PHI(res[key][k])
         else:
             #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
-            V[:,wwl] = Vf(oi[key][k]) * PHI(oi[key][k])
+            V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
 
         if not kfwhm is None:
-            V *= (1+0j)*np.exp(-(oi[key][k]['B/wl'])**2/_ka)
+            V *= (1+0j)*np.exp(-(res[key][k]['B/wl'])**2/_ka)
 
         tmp['|V|'] = np.abs(V)
         #print(k, Vf(oi[key][k]), tmp['|V|'])
         # -- force -180 -> 180
         tmp['PHI'] = (np.angle(V)*180/np.pi+180)%360-180
         # -- not needed, strictly speaking, takes a long time!
-        for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
+        for l in ['u', 'v', 'MJD',]: #'FLAG', 'MJD2' # 'B/wl']
             if '/wl' in l and cwl!=1:
                 tmp[l] = oi[key][k][l].copy()/cwl
             else:
@@ -1161,19 +1267,19 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         if fullOutput or not imFov is None:
             # -- slow down the code!
-            for l in ['u', 'v', 'u/wl', 'v/wl']:
+            for l in ['u', 'v',]:# 'u/wl', 'v/wl']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi[key][k][l].copy()/cwl
                 else:
                     tmp[l] = oi[key][k][l].copy()
             tmp['E|V|'] = np.zeros(tmp['|V|'].shape) + modErr
             tmp['EPHI'] = np.zeros(tmp['PHI'].shape) + modErr
-        res['OI_VIS'][k] = tmp
+        res['OI_VIS'][k].update(tmp)
 
         if 'OI_VIS2' in oi.keys():
             tmp = {}
             # -- not needed, strictly speaking, takes a long time!
-            for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
+            for l in ['u', 'v', 'MJD',]: #  'FLAG', 'MJD2', # 'B/wl']:
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi['OI_VIS2'][k][l]/cwl
                 else:
@@ -1184,16 +1290,16 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             tmp['V2'] = np.abs(V)**2
             if fullOutput or not imFov is None:
                 # -- slow down the code!
-                for l in ['u', 'v', 'u/wl', 'v/wl']:
+                for l in ['u', 'v', ]: #'u/wl', 'v/wl']:
                     if '/wl' in l and cwl!=1:
                         tmp[l] = oi['OI_VIS2'][k][l]/cwl
                     else:
                         tmp[l] = oi['OI_VIS2'][k][l].copy()
                 tmp['EV2'] = np.zeros(tmp['V2'].shape) + modErr
-            res['OI_VIS2'][k] = tmp
+            res['OI_VIS2'][k].update(tmp)
         if 'OI_CF' in oi.keys() and k in oi['OI_CF']:
             tmp = {}
-            for l in ['B/wl', 'FLAG', 'MJD', 'MJD2']:
+            for l in [ 'u', 'v', 'MJD', ]:# 'FLAG', 'MJD2', #'B/wl',
                 if '/wl' in l and cwl!=1:
                     tmp[l] = oi['OI_CF'][k][l]/cwl
                 else:
@@ -1204,23 +1310,23 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             tmp['CF'] = np.abs(flux[None,:]*V)
             if fullOutput or not imFov is None:
                 # -- slow down the code!
-                for l in ['u', 'v', 'u/wl', 'v/wl']:
+                for l in ['u', 'v',]:# 'u/wl', 'v/wl']:
                     if '/wl' in l and cwl!=1:
                         tmp[l] = oi['OI_CF'][k][l]/cwl
                     else:
                         tmp[l] = oi['OI_CF'][k][l].copy()
                 tmp['ECF'] = np.zeros(tmp['CF'].shape) + modErr
-            res['OI_CF'][k] = tmp
+            res['OI_CF'][k].update(tmp)
 
     if timeit:
         print(' '*indent+'VsingleOI > complex vis %.3fms'%(1000*(time.time()-tv)))
     if 'OI_T3' in oi.keys() and not noT3:
         t3 = time.time()
-        res['OI_T3'] = {}
+        # res['OI_T3'] = {}
         for k in oi['OI_T3'].keys():
-            res['OI_T3'][k] = {}
-            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', 'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2',
-                'B1', 'B2', 'B3']:
+            #res['OI_T3'][k] = {}
+            for l in ['u1', 'u2', 'v1', 'v2', 'MJD', 'formula', #'FLAG', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl', 'MJD2',
+                      'B1', 'B2', 'B3']:
                 if '/wl' in l and cwl!=1:
                     res['OI_T3'][k][l] = oi['OI_T3'][k][l]/cwl
                 else:
@@ -1242,10 +1348,14 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             #print('X', X.shape, 'I', I.shape, 'image', np.mean(I, axis=0).shape)
     else:
         res['MODEL'] = {}
-    res['MODEL']['totalflux'] = flux
     res['MODEL']['negativity'] = negativity # 0 is image is >=0, 0<p<=1 otherwise
-    if False:
-        # -- this is not working properly :(
+    res['MODEL']['totalflux'] = flux
+    if 'OI_FLUX' in res:
+        for k in res['OI_FLUX']:
+            #print('@@@', res['OI_FLUX'][k]['FLUX'].shape, flux.shape)
+            res['OI_FLUX'][k]['FLUX'] = 0*res['OI_FLUX'][k]['MJD'][:,None] + flux[None,:]
+
+    if False: # -- this is not working properly :(
         if 'spectrum(mjd)' in _param:
             # WARNING: this will ignore any other "flux" or "spectrum" definition!!!
             tmp = _param['spectrum(mjd)']
@@ -1266,6 +1376,18 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             # -- this works (I think)
             res['MODEL']['totalflux(MJD)'] = '$TFLUX[None,:] + 0*$MJD'
     res['param'] = param
+
+    if not smear is None:
+        if _debug:
+            print('DBG> closing smearing')
+            if not k in res['OI_VIS2'].keys():
+                k = list(res['OI_VIS2'].keys())[0]
+            print('DBG> OI_VIS2[V2]', k, res['OI_VIS2'][k]['V2'].shape, np.min(res['OI_VIS2'][k]['V2']))
+            print('DBG> res.keys()', res.keys())
+        # -- should de-bin after combining components!
+        res['smear'] = smear
+        if _debug:
+            print('DBG> OI_VIS2[V2]', k, res['OI_VIS2'][k]['V2'].shape, np.min(res['OI_VIS2'][k]['V2']))
     return res
 
 _sparse_image_file = ""
@@ -1882,7 +2004,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
              v2smear=True, fullOutput=False, debug=False):
     modErr = 1
     global SMEA
-    #display(param)
     if type(oi) == list:
         # -- iteration on "oi" if a list
         _param = [computeLambdaParams(p, MJD=np.mean(o['MJD'])) for o in oi]
@@ -1897,9 +2018,11 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     if len(comp)==0:
         # -- assumes single component
         res = VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-                         timeit=timeit, indent=indent+1, fullOutput=fullOutput)
-        #print(res.keys())
+                        timeit=timeit, indent=indent+1, fullOutput=fullOutput)
         res = _applyTF(res)
+        res = _applyWlKernel(res, debug=debug)
+        if 'smear' in res:
+            res = oifits._binOI(res, binning=res['smear'], noError=True)
         return res
 
     # -- multiple components:
@@ -1971,13 +2094,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         except:
             n = 1
 
-        # @@@@@@@ KLUDGE!!!!! @@@@@@@@@@
-        #if c=='c':
-        #    n = 2*SMEA+1
-        #else:
-        #    n = 1
-        # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
         n = 1 # not working?
         smearing[c] = n
 
@@ -1990,7 +2106,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             for k in kz:
                 for x in np.linspace(-0.5,0.5,n+2)[1:-1]:
                     tmp[c+'&dwl%.7f&ffrac%.7f,'%(x*dwl, 1/n)+k.split(',')[1]] = param[k]
-
     if debug:
         print('VmodelOI: R, _bwlmax, _sep=', R, _bwlmax, _sep)
         print('VmodelOI: smearing=', smearing)
@@ -2054,9 +2169,13 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             if 'totalflux(MJD)' in res['MODEL']:
                 res['MODEL'][c+',flux(MJD)'] = res['MODEL']['totalflux(MJD)']
 
-            res['MODEL'][c+',vis'] = res['OI_VIS'].copy()
+            if 'OI_VIS' in res:
+                res['MODEL'][c+',vis'] = res['OI_VIS'].copy()
+            else:
+                res['MODEL'][c+',vis'] = {}
+
             res['MODEL'][c+',negativity'] = res['MODEL']['negativity']
-            # -- smearing
+            # -- OLD smearing
             if '&dwl' in c:
                 # -- TODO: flux(MJD)
                 res['MODEL'][c.split('&dwl')[0]+',flux'] = res['MODEL']['totalflux'].copy()
@@ -2065,7 +2184,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             # -- total complex visibility
             res['MODEL']['WL'] = res['WL']
             res['MOD_VIS'] = {}
-            for k in res['OI_VIS'].keys(): # for each baseline
+            for k in res['MODEL'][c+',vis'].keys(): # for each baseline
                 # TODO: flux as function of time!
                 if 'totalflux(MJD)' in res['MODEL']:
                     tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
@@ -2077,7 +2196,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                     res['MOD_VIS'][k] = res['MODEL']['totalflux'][None,:]*\
                                         res['OI_VIS'][k]['|V|']*\
                                         np.exp(1j*np.pi*res['OI_VIS'][k]['PHI']/180)
-
             m = {}
         else:
             # -- combine model with other components
@@ -2105,7 +2223,10 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res['MODEL'][c+',flux'] = m['MODEL']['totalflux']
             if 'totalflux(MJD)' in m['MODEL']:
                 res['MODEL'][c+',flux(MJD)'] =  m['MODEL']['totalflux(MJD)']
-            res['MODEL'][c+',vis'] = m['OI_VIS'].copy()
+            if 'OI_VIS' in m:
+                res['MODEL'][c+',vis'] = m['OI_VIS'].copy()
+            else:
+                res['MODEL'][c+',vis'] = {}
             res['MODEL'][c+',negativity'] = m['MODEL']['negativity']
             if '&dwl' in c:
                 # -- TODO: flux(MJD)
@@ -2122,7 +2243,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             res['MODEL']['negativity'] += m['MODEL']['negativity']
 
             # -- total complex Visibility
-            for k in res['OI_VIS'].keys(): # for each baseline
+            for k in res['MODEL'][c+',vis'].keys(): # for each baseline
                 if 'totalflux(MJD)' in res['MODEL']:
                     tmp = m['MODEL']['totalflux(MJD)'].replace('$WL', "m['MODEL']['WL']")
                     tmp = tmp.replace('$MJD', "m['OI_VIS']['%s']['MJD2']"%k)
@@ -2176,27 +2297,32 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             # -- assume OI_VIS and OI_VIS2 have same structure!!!
             res['OI_VIS2'][b]['V2'] = np.abs(res['MOD_VIS'][b])**2
 
-    res['OI_FLUX'] = {}
     if 'OI_FLUX' in oi.keys():
         for k in oi['OI_FLUX'].keys():
             if 'totalflux(MJD)' in res['MODEL']:
                 tmp = res['MODEL']['totalflux(MJD)'].replace('$WL', "res['MODEL']['WL']")
-                tmp = tmp.replace('$MJD', "oi['OI_FLUX']['%s']['MJD2']"%k)
+                tmp = tmp.replace('$MJD', "res['OI_FLUX']['%s']['MJD2']"%k)
                 tmp = tmp.replace('$TFLUX', "res['MODEL']['totalflux']")
                 totalflux = eval(tmp)
             else:
-                totalflux = oi['OI_FLUX'][k]['FLUX']*0 + res['MODEL']['totalflux'][None,:]
+                totalflux = res['OI_FLUX'][k]['FLUX']*0 + res['MODEL']['totalflux'][None,:]
 
             res['OI_FLUX'][k] = {'FLUX':  totalflux,
                                  'RFLUX': totalflux,
-                                 'EFLUX': oi['OI_FLUX'][k]['FLUX']*0 + modErr,
-                                 'FLAG':  oi['OI_FLUX'][k]['FLAG'],
-                                 'MJD':   oi['OI_FLUX'][k]['MJD'],
-            }
+                                 'EFLUX': totalflux*0 + modErr,
+                                 'FLAG':  res['OI_FLUX'][k]['FLAG'],
+                                 'MJD':   oi['OI_FLUX'][k]['MJD'],}
         if timeit:
             print(' '*indent+'VmodelOI > fluxes %.3fms'%(1000*(time.time()-t0)))
-
     t0 = time.time()
+
+    if 'smear' in res:
+        # needs to happen before T3PHI, differential phase and normalise flux
+        if debug:
+            print('VmodelOI: closing smearing (binning)')
+        #print('smear: binning', res['WL'].shape, '->', end=' ')
+        res = oifits._binOI(res, noError=True)
+        #print(res['WL'].shape)
 
     if 'OI_T3' in oi.keys():
         res['OI_T3'] = {}
@@ -2211,32 +2337,16 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
                     res['OI_T3'][k][l] = None
             if 'NAME' in oi['OI_T3'][k]:
                 res['OI_T3'][k]['NAME'] = oi['OI_T3'][k]['NAME'].copy()
+            res['OI_T3'][k]['FLAG'] = np.bool(0*res['OI_T3'][k]['MJD'][:,None]+0*res['WL'][None,:])
 
-        # if debug:
-        #     for k in res['OI_T3']:
-        #         wwl = np.abs(res['WL']-2.1667)<0.005
-        #         s,t,w0,w1,w2=res['OI_T3'][k]['formula']
-        #         print(' PHI for k', k,
-        #             s[0]*np.mean(res['OI_VIS'][t[0]]['PHI'][w0][:,wwl]),
-        #             s[1]*np.mean(res['OI_VIS'][t[1]]['PHI'][w1][:,wwl]),
-        #             s[2]*np.mean(res['OI_VIS'][t[2]]['PHI'][w2][:,wwl]),
-        #             )
         if debug:
             print('VmodelOI: computing T3')
 
         res = computeT3fromVisOI(res)
 
-        # if debug:
-        #     for k in res['OI_T3']:
-        #         s,t,w0,w1,w2=res['OI_T3'][k]['formula']
-        #         print(' PHI: for', k,
-        #             s[0]*np.mean(res['OI_VIS'][t[0]]['PHI'][w0][:,wwl]),
-        #             s[1]*np.mean(res['OI_VIS'][t[1]]['PHI'][w1][:,wwl]),
-        #             s[2]*np.mean(res['OI_VIS'][t[2]]['PHI'][w2][:,wwl]),
-        #             '=', np.mean(res['OI_T3'][k]['T3PHI'][:,wwl]))
-
         if timeit:
             print(' '*indent+'VmodelOI > T3 %.3fms'%(1000*(time.time()-t0)))
+
 
     t0 = time.time()
     if 'fit' in oi and 'obs' in oi['fit'] and \
@@ -2257,6 +2367,8 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         if timeit:
             print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
+    res = _applyWlKernel(res, debug=debug)
+
     for k in['telescopes', 'baselines', 'triangles']:
         if k in oi:
             res[k] = oi[k]
@@ -2264,129 +2376,54 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     res['param'] = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
 
     t0 = time.time()
-    if 'fit' in res and 'spec res pix' in res['fit']:
-        # -- convolve by spectral Resolution
-        N = 2*int(2*oi['fit']['spec res pix'])+3
-        x = np.arange(N)
-        ker = np.exp(-(x-np.mean(x))**2/(2.*(oi['fit']['spec res pix']/2.35482)**2))
-        ker /= np.sum(ker)
-        if 'NFLUX' in res.keys():
-            for k in res['NFLUX'].keys():
-                for i in range(res['NFLUX'][k]['NFLUX'].shape[0]):
-                    res['NFLUX'][k]['NFLUX'][i] = np.convolve(
-                                res['NFLUX'][k]['NFLUX'][i], ker, mode='same')
-        for k in res['OI_VIS'].keys():
-            for i in range(res['OI_VIS'][k]['|V|'].shape[0]):
-                res['OI_VIS'][k]['|V|'][i] = np.convolve(
-                            res['OI_VIS'][k]['|V|'][i], ker, mode='same')
-                res['OI_VIS'][k]['PHI'][i] = np.convolve(
-                            res['OI_VIS'][k]['PHI'][i], ker, mode='same')
-                if 'DPHI' in res.keys():
-                    res['DVIS'][k]['DPHI'][i] = np.convolve(
-                                res['DVIS'][k]['DPHI'][i], ker, mode='same')
-        if 'OI_CF' in res:
-            for k in res['OI_CF'].keys():
-                for i in range(res['OI_CF'][k]['CF'].shape[0]):
-                    res['OI_CF'][k]['CF'][i] = np.convolve(
-                                res['OI_CF'][k]['CF'][i], ker, mode='same')
-                    res['OI_CF'][k]['PHI'][i] = np.convolve(
-                                res['OI_CF'][k]['PHI'][i], ker, mode='same')
-
-        for k in res['OI_VIS2'].keys():
-            for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
-                res['OI_VIS2'][k]['V2'][i] = np.convolve(
-                            res['OI_VIS2'][k]['V2'][i], ker, mode='same')
-        for k in res['OI_T3'].keys():
-            for i in range(res['OI_T3'][k]['MJD'].shape[0]):
-                res['OI_T3'][k]['T3PHI'][i] = np.convolve(
-                            res['OI_T3'][k]['T3PHI'][i], ker, mode='same')
-                res['OI_T3'][k]['T3AMP'][i] = np.convolve(
-                            res['OI_T3'][k]['T3AMP'][i], ker, mode='same')
-        if timeit:
-            print(' '*indent+'VmodelOI > convolve %.3fms'%(1000*(time.time()-t0)))
     if timeit:
         print(' '*indent+'VmodelOI > total %.3fms'%(1000*(time.time()-tinit)))
-    res['smearing'] = smearing
-
-    # -- V2 smearing:
-    # == THIS DOES NOT WORK !!! ============================
-    if False and 'OI_VIS2' in res and v2smear and\
-                any([smearing[k]>1 for k in smearing.keys()]):
-        verbose = False
-        #verbose = True
-
-        if verbose:
-            print('VmodelOI: V2 smearing!', end=' ')
-        t0 = time.time()
-        # -- sorted components, most smeared first
-        C = sorted(smearing.keys(), key=lambda x: -smearing[x])
-        # -- dwl offsets, for each components
-        DWL = {}
-        for k in C:
-            try:
-                tmp = filter(lambda x: x.endswith(',vis') and
-                                       x.startswith(k), res['MODEL'].keys())
-                tmp = [float(x.split('&dwl')[1].split('&ffrac')[0]) for x in tmp]
-                DWL[k] = np.array(sorted(tmp))
-            except:
-                DWL[k] = None
-        #print(DWL)
-        # -- sum of V2
-        V2tot = {}
-        if verbose:
-            print('-')
-        for ix, x0 in enumerate(DWL[C[0]]): # spectral offset
-            # -- V2 for this spectral channel
-            Vtmp = {}
-            Ftmp = 0.0
-            if verbose:
-                print(x0, end=' | ')
-            for c in C: # for each component in the field
-                if not DWL[c] is None:
-                    # -- closest spectral channel for this component
-                    x1 = DWL[c][np.argmin(np.abs(DWL[c]-x0))]
-                    #x1 = 0 # !!!!!!!!!!!!!! KLUDGE !!!!!!!!!!!!!!
-                    k = list(filter(lambda x: x.endswith(',vis') and
-                                        '&dwl%.7f'%x1 in x and
-                                         x.startswith(c), res['MODEL'].keys()))[0]
-                    nf = 1/float(k.split('ffrac')[1].split(',')[0])
-                else:
-                    # -- no smearing for this component
-                    k = c+',vis'
-                    nf = 1.0
-
-                if verbose:
-                    print(k, end=' | ')
-                # -- flux normalisation
-                Ftmp += res['MODEL'][k.replace(',vis', ',flux')]*nf
-                # -- for each baselines, add individual visibilities
-                for i,b in enumerate(res['OI_VIS2'].keys()):
-                    if not b in Vtmp:
-                        Vtmp[b] = res['MODEL'][k][b]['|V|']*\
-                                  np.exp(1j*res['MODEL'][k][b]['PHI']*np.pi/180)*\
-                                  res['MODEL'][k.replace(',vis', ',flux')]*nf
-                    else:
-                        Vtmp[b] += res['MODEL'][k][b]['|V|']*\
-                                   np.exp(1j*res['MODEL'][k][b]['PHI']*np.pi/180)*\
-                                   res['MODEL'][k.replace(',vis', ',flux')]*nf
-            if verbose:
-                print()
-            # -- compute V2 as average
-            for b in res['OI_VIS2'].keys():
-                # -- normalise by total flux
-                Vtmp[b] /= Ftmp
-                # -- increment the averaged V2
-                if not b in V2tot:
-                    V2tot[b] = np.abs(Vtmp[b])**2/len(DWL[C[0]])
-                else:
-                    V2tot[b] += np.abs(Vtmp[b])**2/len(DWL[C[0]])
-        # -- store data in 'res'
-        for b in res['OI_VIS2'].keys():
-            res['OI_VIS2'][b]['V2'] = V2tot[b]
-
-        #print('done in %.3fs'%(time.time()-t0))
 
     res = _applyTF(res)
+    return res
+
+def _applyWlKernel(res, debug=False):
+    if not ('fit' in res and 'wl kernel' in res['fit']):
+        return res
+
+    #print('wl kernel!')
+    # -- convolve by spectral Resolution
+    N = 2*int(2*res['fit']['wl kernel'])+3
+    x = np.arange(N)
+    ker = np.exp(-(x-np.mean(x))**2/(2.*(res['fit']['wl kernel']/2.35482)**2))
+    ker /= np.sum(ker)
+    if 'NFLUX' in res.keys():
+        for k in res['NFLUX'].keys():
+            for i in range(res['NFLUX'][k]['NFLUX'].shape[0]):
+                res['NFLUX'][k]['NFLUX'][i] = np.convolve(
+                            res['NFLUX'][k]['NFLUX'][i], ker, mode='same')
+    for k in res['OI_VIS'].keys():
+        for i in range(res['OI_VIS'][k]['|V|'].shape[0]):
+            res['OI_VIS'][k]['|V|'][i] = np.convolve(
+                        res['OI_VIS'][k]['|V|'][i], ker, mode='same')
+            res['OI_VIS'][k]['PHI'][i] = np.convolve(
+                        res['OI_VIS'][k]['PHI'][i], ker, mode='same')
+            if 'DPHI' in res.keys():
+                res['DVIS'][k]['DPHI'][i] = np.convolve(
+                            res['DVIS'][k]['DPHI'][i], ker, mode='same')
+    if 'OI_CF' in res:
+        for k in res['OI_CF'].keys():
+            for i in range(res['OI_CF'][k]['CF'].shape[0]):
+                res['OI_CF'][k]['CF'][i] = np.convolve(
+                            res['OI_CF'][k]['CF'][i], ker, mode='same')
+                res['OI_CF'][k]['PHI'][i] = np.convolve(
+                            res['OI_CF'][k]['PHI'][i], ker, mode='same')
+
+    for k in res['OI_VIS2'].keys():
+        for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
+            res['OI_VIS2'][k]['V2'][i] = np.convolve(
+                        res['OI_VIS2'][k]['V2'][i], ker, mode='same')
+    for k in res['OI_T3'].keys():
+        for i in range(res['OI_T3'][k]['MJD'].shape[0]):
+            res['OI_T3'][k]['T3PHI'][i] = np.convolve(
+                        res['OI_T3'][k]['T3PHI'][i], ker, mode='same')
+            res['OI_T3'][k]['T3AMP'][i] = np.convolve(
+                        res['OI_T3'][k]['T3AMP'][i], ker, mode='same')
     return res
 
 def _applyTF(res):
@@ -3543,7 +3580,6 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
     fit['sparse'] = sparse
     return fit
 
-
 def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
                 significance=4, fitOnly=None, doNotFit=None,
                 maxfev=5000, ftol=1e-6, epsfcn=1e-6, prior=[]):
@@ -3657,7 +3693,6 @@ def _nSigmas(chi2r_TEST, chi2r_TRUE, NDOF):
     # elif p<1e-15:
     #     nsigma = np.sqrt(scipy.stats.chi2.ppf(1-1e-15, 1))
     # return nsigma
-
 
 def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
     """
@@ -4351,7 +4386,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
             print('  few unique minima -> grid too fine / Nfits too large?')
         elif len(tmp)<=len(res)/2:
             print('  number of minima is OK compared to grid coarseness')
-    if len(tmp)>len(res)/2:
+    if len(tmp)>len(res)/2 and verbose:
         print('  \033[43mWARNING!\033[0m: too many unique minima -> grid too coarse / Nfits too small?', end=' ')
         print(' \033[33mfinding the global minimum may be unreliable\033[0m')
 
@@ -4538,7 +4573,7 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
         grP = np.array([(x[i], y[i]) for i in range(len(x))])
         gr = np.array([IX, IY]).reshape(2, -1).T
         tmp = scipy.interpolate.RBFInterpolator(grP, c,
-                                                kernel='linear', neighbors=2,
+                                                kernel='linear', neighbors=4,
                                                 #kernel='thin_plate_spline',
                                                 #kernel='cubic',
                                                 #kernel='gaussian', epsilon=.15*np.sqrt(dx*dy),
@@ -5193,8 +5228,14 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             print(' computing Vmodel')
         #if 'fit' in oi and 'Nr' in oi['fit']:
         #    print('model Nr:', oi['fit']['Nr'])
+        #print('showOI:', oi['fit'] )
         m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
             debug=debug)
+
+        #for k in oi['OI_T3']:
+            #print(k, np.sum(np.isnan(m['OI_T3'][k]['T3PHI'])))
+            #print(k, m['OI_T3'][k]['FLAG'])
+
         if remObs:
             oi['fit'].pop('obs')
         # if not imFov is None and checkImVis:
@@ -5743,6 +5784,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
 
                     # -- computed chi2 *in the displayed window*
                     maskc2 = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
+
+                    #print('dbg>', oi['WL'].min(), oi['WL'].max())
+                    #print('   >', m['WL'].min(), m['WL'].max())
+
                     err[err<=0] = 1
                     if 'PHI' in l:
                         _resi = ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2]
