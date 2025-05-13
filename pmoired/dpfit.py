@@ -472,8 +472,11 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
         delta = np.array(pfit)-np.array(plsq)
         for i,k in enumerate(fitOnly):
             if 'fjac' in info:
-                #test = max(np.abs(info['fjac'][i,:]))==0
-                _i = list(info['ipvt']).index(i+1)
+                #print("info['ipvt']", info['ipvt'])
+                if max(info['ipvt'])<len(info['ipvt']):
+                    _i = list(info['ipvt']).index(i)
+                else:
+                    _i = list(info['ipvt']).index(i+1)
                 test = max(np.abs(info['fjac'][_i,:]))==0
             else:
                 test = np.abs(delta[i])<=epsfcn
