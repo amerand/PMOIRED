@@ -2047,7 +2047,8 @@ class OI:
                 tmp['OI_T3'] = {}
                 for k in d['OI_T3']:
                     tmp['OI_T3'][k] = { x: d['OI_T3'][k][x].copy() for x in
-                        ['formula', 'MJD', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG', 'MJD2']}
+                        ['formula', 'MJD', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG', 'MJD2']
+                        if x in d['OI_T3'][k]}
             tmp = oimodels.computeT3fromVisOI(tmp)
 
             if 'OI_FLUX' in d:
@@ -2059,10 +2060,12 @@ class OI:
                                         np.sum(res['cube'], axis=(1,2))[None,:],
                                         'MJD':d['OI_FLUX'][k]['MJD'],
                                         'FLAG':d['OI_FLUX'][k]['FLAG'],
-                                        'MJD2':d['OI_FLUX'][k]['MJD2'],
+                                        #'MJD2':d['OI_FLUX'][k]['MJD2'],
                                         }
             tmp = oimodels.computeNormFluxOI(tmp, param=model)
             syn.append(tmp)
+        if debug:
+            print('D> saving synth obs')
         self.vfromim = syn
         return
 

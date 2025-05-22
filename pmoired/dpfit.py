@@ -1043,7 +1043,6 @@ def _fitFunc2(x, *pfit, verbose=True, follow=[], errs=None):
         else:
             _follow = list(filter(lambda x: x in params.keys(), follow))
             print(' '.join([k+'='+'%5.2e'%params[k] for k in _follow]))
-
     return res
 
 def errorEllipse(fit, p1, p2, n=100):
