@@ -3341,14 +3341,13 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                             else:
                                 mask *= (oi[ext[f]][k]['B/wl']*oi['WL']<=bmax)*\
                                         (oi[ext[f]][k]['B/wl']*oi['WL']>=bmin)
-                    mjdmask = np.ones(mask.shape, dtype=bool)
                     if 'MJD ranges' in oi['fit']:
                         mjdmask = np.zeros(mask.shape, dtype=bool)
                         for mjdmin, mjdmax in oi['fit']['MJD ranges']:
                             mjdmask = np.logical_or(mjdmask,
                                 (oi[ext[f]][k]['MJD2']<=mjdmax)*\
                                 (oi[ext[f]][k]['MJD2']>=mjdmin))
-                    mask *= mjdmask
+                        mask *= mjdmask
 
                     if 'max error' in oi['fit'] and f in oi['fit']['max error']:
                         # -- ignore data with large error bars
@@ -3372,7 +3371,10 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                                          np.abs(oi[ext[f]][k][f]), err)
 
                     if ext[f] in oi and ext[f] in m:
-                        tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])
+                        try:
+                            tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])
+                        except:
+                            print('!', oi[ext[f]][k][f].shape, mask.shape, m[ext[f]][k][f].shape)
                         if not ignoreErr is None:
                             _i = i+np.arange(len(tmp))
                             tmp /= (err[mask]*(1-ignoreErr[_i]) + ignoreErr[_i])
@@ -5669,14 +5671,13 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 #     for mjdmin, mjdmax in oi['fit']['MJD ranges']:
                 #         mask *= (oi[data[l]['ext']][k]['MJD2'][j,:]<=mjdmax)*\
                 #                 (oi[data[l]['ext']][k]['MJD2'][j,:]>=mjdmin)
-                mjdmask = np.ones(mask.shape, dtype=bool)
                 if 'MJD ranges' in oi['fit']:
                     mjdmask = np.zeros(mask.shape, dtype=bool)
                     for mjdmin, mjdmax in oi['fit']['MJD ranges']:
                         mjdmask = np.logical_or(mjdmask,
                             (oi[data[l]['ext']][k]['MJD2'][j,:]<=mjdmax)*\
                             (oi[data[l]['ext']][k]['MJD2'][j,:]>=mjdmin))
-                mask *= mjdmask
+                    mask *= mjdmask
 
                 if 'max error' in oi['fit'] and \
                         data[l]['var'] in oi['fit']['max error']:
