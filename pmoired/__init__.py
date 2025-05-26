@@ -1839,7 +1839,7 @@ class OI:
         return
 
     def computeHalfLightRadiiFromImages(self, incl=0, projang=0, x0=0, y0=0,
-                                        excludeCentralPix=True):
+                                        excludeCentralPix=True, maxRadius=None):
         """
         use models' synthetic images (self.images) to compute half-ligh radii (HLR)
         as function of wavelength.
@@ -1871,18 +1871,21 @@ class OI:
         R = np.sqrt((Xp-x0)**2+(Yp-y0)**2).flatten()
         PA = np.arctan2(Yp-y0, Xp-x0)
 
+        if maxRadius is None:
+            maxRadius = np.max(R)
+
         if excludeCentralPix:
-            r = np.linspace(scale, np.max(R), 2*int(np.max(R)/scale))
+            r = np.linspace(scale, maxRadius, 2*int(maxRadius/scale))
         else:
-            r = np.linspace(0, np.max(R), 2*int(np.max(R)/scale))
+            r = np.linspace(0, maxRadius, 2*int(maxRadius/scale))
         res['R'] = r
 
         for i, wl in enumerate(res['WL']):
             tmp = self.images['cube'][i].flatten()
             if excludeCentralPix:
-                I = [tmp[(R<=x)*(R>scale)].sum() for x in r]
+                I = [tmp[(R<=x)*(R>scale)*(R<=maxRadius)].sum() for x in r]
             else:
-                I = [tmp[R<=x].sum() for x in r]
+                I = [tmp[(R<=x)*(R<=maxRadius)].sum() for x in r]
             res['I'].append(np.array(I))
             res['HLR'].append(np.interp(I[-1]/2, I, r))
         res['HLR'] = np.array(res['HLR'])
