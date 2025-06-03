@@ -1048,7 +1048,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             _param['profile'] = 'uniform'
         if '$' in _param['profile']:
             # -- generic formula
-            tmp = _param['profile'].replace('$R', '_r')
+            tmp = _param['profile'].replace('$RMIN', str(np.min(_r)))
+            tmp = tmp.replace('$RMAX', str(np.max(_r)))
+            tmp = tmp.replace('$R', '_r')
+            tmp = tmp.replace('$DMIN', str(np.min(_d)))
+            tmp = tmp.replace('$DMAX', str(np.max(_d)))
             tmp = tmp.replace('$D', '_d')
 
             tmp = tmp.replace('$MU', '_mu')
@@ -3331,16 +3335,28 @@ def residualsOI(oi, param, timeit=False, what=False, debug=False, fullOutput=Fal
                     err = oi[ext[f]][k]['E'+f].copy()
                     if 'baseline ranges' in oi['fit']:
                         #print('debug: baseline ranges')
+                        bmask = np.zeros(mask.shape, dtype=bool)
                         for bmin, bmax in oi['fit']['baseline ranges']:
                             if 'FLUX' in ext[f]:
-                                pass
+                                bmask = np.ones(mask.shape, dtype=bool)
                             elif 'T3' in ext[f]:
+                                tmpmask = np.ones(mask.shape, dtype=bool)
                                 for b in ['B1', 'B2', 'B3']:
-                                    mask *= ((oi[ext[f]][k][b]<=bmax)*
-                                             (oi[ext[f]][k][b]>=bmin))
+                                    try:
+                                        tmpmask = np.logical_and(tmpmask,
+                                            (oi[ext[f]][k][b]<=bmax)*
+                                            (oi[ext[f]][k][b]>=bmin))
+                                    except:
+                                        tmpmask = np.logical_and(tmpmask,
+                                               ((oi[ext[f]][k][b]<=bmax)*
+                                                (oi[ext[f]][k][b]>=bmin))[:,None])
+                                bmask = np.logical_or(bmask, tmpmask)
                             else:
-                                mask *= (oi[ext[f]][k]['B/wl']*oi['WL']<=bmax)*\
-                                        (oi[ext[f]][k]['B/wl']*oi['WL']>=bmin)
+                                bmask = np.logical_or(bmask,
+                                        (oi[ext[f]][k]['B/wl']*oi['WL']<=bmax)*
+                                        (oi[ext[f]][k]['B/wl']*oi['WL']>=bmin))
+                        mask *= bmask
+
                     if 'MJD ranges' in oi['fit']:
                         mjdmask = np.zeros(mask.shape, dtype=bool)
                         for mjdmin, mjdmax in oi['fit']['MJD ranges']:
@@ -3723,20 +3739,21 @@ def limitOI(oi, firstGuess, p, nsigma=3, chi2Ref=None, NDOF=None, debug=False):
 
     ftol = 1e-2
     fact = 0.5
-
+    i = 0
+    imax= 256
     tmp = _nSigmas(np.sum(residualsOI(oi, firstGuess)**2)/NDOF, chi2Ref, NDOF)
     if debug:
         print(firstGuess[p], tmp, fact)
-    while np.abs(tmp-nsigma)>ftol:
+    while np.abs(tmp-nsigma)>ftol and i<imax:
         if (tmp<nsigma and fact<1) or (tmp>nsigma and fact>1):
             fact = 1/np.sqrt(fact)
-
-
         firstGuess[p] *= fact
         tmp = _nSigmas(np.sum(residualsOI(oi, firstGuess)**2)/NDOF, chi2Ref, NDOF)
         if debug:
             print(firstGuess[p], tmp, fact)
-
+        i+=1
+    if i==imax:
+        print('!')
     return firstGuess
 
 def tryfitOI(oi, firstGuess, fitOnly=None, doNotFit=None, verbose=3,
@@ -5657,16 +5674,39 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 ign = (~mask).copy()
                 showIgn = False
                 if 'baseline ranges' in oi['fit']:
+                    # for bmin, bmax in oi['fit']['baseline ranges']:
+                    #     if 'FLUX' in data[l]['ext']:
+                    #         pass
+                    #     elif 'T3' in data[l]['ext']:
+                    #         for b in ['B1', 'B2', 'B3']:
+                    #             mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
+                    #                         (oi[data[l]['ext']][k][b][j]>=bmin))
+                    #     else:
+                    #         mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
+                    #                 (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
+
+                    bmask = np.zeros(mask.shape, dtype=bool)
                     for bmin, bmax in oi['fit']['baseline ranges']:
                         if 'FLUX' in data[l]['ext']:
-                            pass
+                            bmask = np.ones(mask.shape, dtype=bool)
                         elif 'T3' in data[l]['ext']:
+                            tmpmask = np.ones(mask.shape, dtype=bool)
                             for b in ['B1', 'B2', 'B3']:
-                                mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
-                                            (oi[data[l]['ext']][k][b][j]>=bmin))
+                                try:
+                                    tmpmask = np.logical_and(tmpmask,
+                                        (oi[data[l]['ext']][k][b][j]<=bmax)*
+                                        (oi[data[l]['ext']][k][b][j]>=bmin))
+                                except:
+                                    tmpmask = np.logical_and(tmp,
+                                           ((oi[data[l]['ext']][k][b][j]<=bmax)*
+                                            (oi[data[l]['ext']][k][b][j]>=bmin))[:,None])
+                            bmask = np.logical_or(bmask, tmpmask)
                         else:
-                            mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
-                                    (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
+                            bmask = np.logical_or(bmask,
+                                (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*
+                                (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin))
+                    mask *= bmask
+
                 # if 'MJD ranges' in oi['fit']:
                 #     for mjdmin, mjdmax in oi['fit']['MJD ranges']:
                 #         mask *= (oi[data[l]['ext']][k]['MJD2'][j,:]<=mjdmax)*\
@@ -6436,8 +6476,16 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         _p = np.ones(len(_r))
     else:
         tmp = param[comp+',profile']
+        if '$RMIN' in tmp:
+            tmp = tmp.replace('$RMIN', str(np.min(_r)))
+        if '$RMAX' in tmp:
+            tmp = tmp.replace('$RMAX', str(np.max(_r)))
         if '$R' in tmp:
             tmp = tmp.replace('$R', '_r')
+        if '$DMIN' in tmp:
+            tmp = tmp.replace('$DMIN', str(np.min(_d)))
+        if '$DMAX' in tmp:
+            tmp = tmp.replace('$DMAX', str(np.max(_d)))
         if '$D' in tmp:
             tmp = tmp.replace('$D', '_d')
         _p = eval(tmp)
