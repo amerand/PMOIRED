@@ -149,7 +149,7 @@ def removeTellurics(filename):
     return
 
 def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
-            fig=None, force=False):
+            fig=None, force=False, MR=True):
     """
     avoid: list of tuple of wlmin, wlmax to avoid in the fit (known) line
     """
@@ -166,14 +166,14 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         print('use "force=True" to recompute')
         f.close()
         return
-
-    if 'MED' in f[0].header['ESO INS SPEC RES']:
-        MR = True
-    elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
-        MR = False
-    else:
-        print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
-        return
+    if 'ESO INS SPEC RES' in f[0].header:
+        if 'MED' in f[0].header['ESO INS SPEC RES']:
+            MR = True
+        elif 'HIGH' in f[0].header['ESO INS SPEC RES']:
+            MR = False
+        else:
+            print('Nothing to do for resolution', f[0].header['ESO INS SPEC RES'])
+            return
 
     # -- init plot ----------------------------------------
     if not fig is None:
@@ -187,9 +187,12 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         plt.subplots_adjust(right=0.99, left=0.05)
 
     # -- HARDWIRED, DANGEROUS!!! -> works for POLA and JOINED
-    wl = f[4].data['EFF_WAVE']*1e6
-    if len(wl)<10:
-        wl = f[3].data['EFF_WAVE']*1e6
+    try:
+        wl = f[4].data['EFF_WAVE']*1e6
+        if len(wl)<10:
+            wl = f[3].data['EFF_WAVE']*1e6
+    except:
+        wl = f['OI_WAVELENGTH'].data['EFF_WAVE']*1e6
 
     if not quiet:
         print('WL (all):', wl.shape)
@@ -200,7 +203,10 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     if wlmax is None:
         wlmax = 2.5
 
-    pola = f[0].header['HIERARCH ESO FT POLA MODE'].strip()=='SPLIT'
+    try:
+        pola = f[0].header['HIERARCH ESO FT POLA MODE'].strip()=='SPLIT'
+    except:
+        pola = False
 
     # -- sum of fluxes, remove outliers -----------------------------
     sp, n = 0.0, 3
