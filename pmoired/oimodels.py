@@ -5292,29 +5292,29 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     ax0 = None
     data = {'FLUX':{'ext':'OI_FLUX', 'var':'FLUX', 'unit':'detector counts'},
             'NFLUX':{'ext':'NFLUX', 'var':'NFLUX', 'unit':'normalised'},
-            'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
-            'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
+            'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl', 'xunit':'1e6'},
+            'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bmax/wl', 'xunit':'1e6'},
             #'T3PHI':{'ext':'OI_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
             #'T3AMP':{'ext':'OI_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
-            'DPHI':{'ext':'DVIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-            'PHI':{'ext':'OI_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-            '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
-            'N|V|':{'ext':'DVIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
-            'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA'},
-            'CF':{'ext':'OI_CF', 'var':'CF', 'X':'B/wl', 'C':'PA'},
+            'DPHI':{'ext':'DVIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+            'PHI':{'ext':'OI_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+            '|V|':{'ext':'OI_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+            'N|V|':{'ext':'DVIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+            'V2':{'ext':'OI_VIS2', 'var':'V2', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+            'CF':{'ext':'OI_CF', 'var':'CF', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
             }
     imdata = {'FLUX':{'ext':'IM_FLUX', 'var':'FLUX', 'unit':'detector counts'},
              'NFLUX':{'ext':'IM_FLUX', 'var':'NFLUX', 'unit':'normalised'},
-             'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl'},
-             'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl'},
+             'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bmax/wl', 'xunit':'1e6'},
+             'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bmax/wl', 'xunit':'1e6'},
              #'T3PHI':{'ext':'IM_T3', 'var':'T3PHI', 'unit':'deg', 'X':'Bavg/wl'},
              #'T3AMP':{'ext':'IM_T3', 'var':'T3AMP', 'X':'Bavg/wl'},
-             'DPHI':{'ext':'IM_VIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-             'PHI':{'ext':'IM_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA'},
-             '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA'},
-             'N|V|':{'ext':'IM_VIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA'},
-             'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA'},
-             'CF':{'ext':'IM_VIS', 'var':'CF', 'X':'B/wl', 'C':'PA'},
+             'DPHI':{'ext':'IM_VIS', 'var':'DPHI', 'unit':'deg', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+             'PHI':{'ext':'IM_VIS', 'var':'PHI', 'unit':'deg', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+             '|V|':{'ext':'IM_VIS', 'var':'|V|', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+             'N|V|':{'ext':'IM_VIS', 'var':'N|V|', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+             'V2':{'ext':'IM_VIS', 'var':'V2', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
+             'CF':{'ext':'IM_VIS', 'var':'CF', 'X':'B/wl', 'C':'PA', 'xunit':'1e6'},
              }
     if US_SPELLING:
         data['NFLUX']['unit'] = 'normalized'
@@ -5571,6 +5571,10 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 if 'X' in data[l]:
                     X = lambda _r, _j: _r[data[l]['ext']][k][data[l]['X']][_j,:]
                     Xlabel = data[l]['X']
+                    if '/wl' in Xlabel:
+                        Xlabel = Xlabel.replace('/wl', r'/$\lambda$')
+                    if 'xunit' in data[l]:
+                        Xlabel += ' (%s)'%data[l]['xunit']
                     if logB:
                         Xscale = 'log'
                 yoffset = 0.0
