@@ -1171,7 +1171,7 @@ class OI:
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                alternateParameterNames=alternateParameterNames,
                                showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping,
-                               ignore=ignore, densify=1)
+                               ignore=ignore, densify=densify)
         self._bootAxes = oimodels._bootAxes
         self._bootFig = oimodels._bootFig
 
