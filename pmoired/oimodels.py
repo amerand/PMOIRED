@@ -4983,6 +4983,7 @@ ai1mcB = {'i':0} # initialize global marker/color for baselines
 ai1mcT = {'i':0} # initialize global marker/color for triangles
 ai1ax = {} # initialise global list of axes
 ai1i = [] # initialise global list of axes position
+ai1fig = None
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -5018,7 +5019,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         imY: center of FoV (in mas, default:0.0)
     """
     #print('debug', checkImVis)
-    global ai1ax, ai1mcB, ai1mcT, ai1i, US_SPELLING
+    global ai1ax, ai1mcB, ai1mcT, ai1i, ai1fig, US_SPELLING
 
     if type(oi)==list:
         # -- multiple data sets -> recursive call
@@ -5364,7 +5365,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         figHeight =  max(figWidth/ncol, FIG_MAX_HEIGHT)
     if not allInOne or ai1ax == {}:
         plt.close(fig)
-        plt.figure(fig, figsize=(figWidth, figHeight))
+        ai1fig = plt.figure(fig, figsize=(figWidth, figHeight))
+
     i_flux = 0
     i_col = 0
     yoffset = 0

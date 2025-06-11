@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.3.1'
+__version__= '1.3.2'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -1360,6 +1360,8 @@ class OI:
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
                         barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
                 self._dataAxes[perSetup[j]] = oimodels.ai1ax
+                self._dataFig = oimodels.ai1fig
+
                 self.fig+=1
                 if type(perSetup)==list:
                     plt.suptitle(perSetup[j])
@@ -1420,6 +1422,8 @@ class OI:
                     debug=self.debug, bckgGrid=bckgGrid,
                     barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
             self._dataAxes['ALL'] = oimodels.ai1ax
+            self._dataFig = oimodels.ai1fig
+
             if allInOne:
                 self.fig += 1
             else:
@@ -1460,6 +1464,8 @@ class OI:
                         barycentric=barycentric, autoLimV=autoLimV, t3B=t3B))
                 self.fig += 1
                 self._dataAxes[i] = oimodels.ai1ax
+                self._dataFig = oimodels.ai1fig
+
             if not imFov is None or showSED:
                 self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
