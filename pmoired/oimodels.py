@@ -4470,12 +4470,17 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
     color: color for the plot (default is chi2)
 
     """
+    global _gridAxes, _gridFig
     #print('debug sG:', '"'+px+'"', '"'+py+'"')
     plt.close(fig)
-    plt.figure(fig)
+    _gridFig = plt.figure(fig)
+
 
     if not aspect is None:
-        ax = plt.subplot(111, aspect=aspect)
+        _gridAxes = plt.subplot(111, aspect=aspect)
+    else:
+        _gridAxes = plt.subplot(111)
+
     if not significance is False:
         c = np.array([_nSigmas(significance, r['chi2'], r['ndof'])
                         for r in res if ~r['bad']])
@@ -4587,14 +4592,6 @@ def showGrid(res, px, py, color='chi2', logV=False, fig=0, aspect=None,
                 resi = '('+form+'-'+str(val)+')/abs('+str(p[3])+')'
             if p[1]=='<' or p[1]=='<=' or p[1]=='>' or p[1]=='>=':
                 resi = '%s if 0'%resi+p[1]+'%s else 0'%resi
-            #print(resi)
-            #print(eval(resi)==0)
-
-            # try:
-            #     res.append(eval(resi))
-            # except:
-            #     print('WARNING: could not compute constraint "'+resi+'"')
-
 
         grP = np.array([(x[i], y[i]) for i in range(len(x))])
         gr = np.array([IX, IY]).reshape(2, -1).T
@@ -6579,7 +6576,6 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
         plt.tight_layout()
     return rh
 
-
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
                   combParam=None, sigmaClipping=None, showChi2=False,
                   alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
@@ -6590,7 +6586,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
     """
     symUncer = False
     global _AX, _AY
-    global _bootAxes
+    global _bootAxes, _bootFig
     #t0 = time.time()
     boot = copy.deepcopy(b)
     #print('deep copy', time.time()-t0, 's')
@@ -6639,7 +6635,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
 
     fontsize = max(min(9*figWidth/len(showP), 14), 6)
     plt.close(fig)
-    plt.figure(fig, figsize=(figWidth, figWidth))
+    _bootFig = plt.figure(fig, figsize=(figWidth, figWidth))
     _AX = {}
 
     if showChi2:

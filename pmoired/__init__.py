@@ -132,6 +132,14 @@ class OI:
         else:
             self.data = []
         self._merged = []
+        self._modelFig = None
+        self._modelAxes = {}
+        self._dataFig = None
+        self._dataAxes = {}
+        self._bootFig = None
+        self._bootAxes = {}
+        self._gridFig = None
+        self._gridAxes = {}
     def __del__(self):
         """not doing anything"""
         self.data = []
@@ -1063,6 +1071,9 @@ class OI:
                           expl=self._expl, tight=tight, significance=significance,
                           #constrain=self.bestfit['constrain']
                           )
+        self._gridFig = oimodels._gridFig
+        self._gridAxes = oimodels._gridAxes
+
         if xy:
             # -- usual x axis inversion when showing coordinates on sky
             plt.gca().invert_xaxis()
@@ -1153,6 +1164,9 @@ class OI:
                                alternateParameterNames=alternateParameterNames,
                                showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping,
                                ignore=ignore)
+        self._bootAxes = oimodels._bootAxes
+        self._bootFig = oimodels._bootFig
+
         return
 
     def showTellurics(self, fig=None):
@@ -1572,7 +1586,7 @@ class OI:
         if not figWidth is None and figHeight is None:
             figHeight =  max(figWidth/nplot, FIG_MAX_HEIGHT)
         plt.close(fig)
-        plt.figure(fig, figsize=(figWidth, figHeight))
+        self._modelFig = plt.figure(fig, figsize=(figWidth, figHeight))
         i = -1 # default, in case only SED
         self._modelAxes = {}
         for i,wl0 in enumerate(imWl0):
