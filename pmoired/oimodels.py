@@ -6578,7 +6578,8 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
 
 def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
                   combParam=None, sigmaClipping=None, showChi2=False,
-                  alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None):
+                  alternateParameterNames=None, showSingleFit=True,
+                  chi2MaxClipping=None, densify=1):
     """
     you can look at combination of parameters:
 
@@ -6818,7 +6819,7 @@ def showBootstrap(b, fig=0, figWidth=None, showRejected=False, ignore=None,
                           alpha=np.sqrt(2/len(boot['mask'])), color=c)
             else:
                 plt.hist2d(amps[k1]*(X1-offs[k1]), amps[k2]*(X2-offs[k2]),
-                           cmap='bone_r', bins=int(np.sqrt(len(boot['mask'])/3))
+                           cmap='bone_r', bins=int(np.sqrt(len(boot['mask'])/densify))
                          )
 
             if showRejected:

@@ -1138,11 +1138,19 @@ class OI:
 
     def showBootstrap(self, sigmaClipping=None, combParam={}, showChi2=False, fig=None,
                       alternateParameterNames=None, showSingleFit=True, chi2MaxClipping=None,
-                      ignore=None):
+                      ignore=None, densify=1):
         """
-        example:
-        combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
-                   'PA':'np.arctan2($c,x, $c,y)*180/np.pi'}
+        sigmaClipping: apply sigma clipping to parameters (default: None)
+
+        combParam: combine parameters
+            example:
+                combParam={'SEP':'np.sqrt($c,x**2+$c,y**2)',
+                           'PA':'np.arctan2($c,x, $c,y)*180/np.pi'}
+        showChi2: show also chi2 distribution (default=False)
+
+        alternateParameterNames: give a dictionnary to change the names of parameters on the plot
+
+        densify: increase density of bins for 2D histograms
 
         See Also: bootstrapFit
         """
@@ -1163,7 +1171,7 @@ class OI:
                                combParam=combParam, sigmaClipping=sigmaClipping,
                                alternateParameterNames=alternateParameterNames,
                                showSingleFit=showSingleFit, chi2MaxClipping=chi2MaxClipping,
-                               ignore=ignore)
+                               ignore=ignore, densify=1)
         self._bootAxes = oimodels._bootAxes
         self._bootFig = oimodels._bootFig
 
