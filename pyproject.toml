@@ -9,7 +9,9 @@ exclude = ["banner"]
 [tool.setuptools.package-data]
 pmoired = ["newVltiHzn_obsDoors.txt",
            "transir_gravity.pckl",
-           "Model definitions and examples.ipynb"]
+           "Model definitions and examples.ipynb",
+           "Rosseland_SATLAS_giants.dat",
+           "Rosseland_SATLAS_dwarfs.dat"]
 
 [tool.setuptools.dynamic]
 version = {attr='pmoired.__version__'}
