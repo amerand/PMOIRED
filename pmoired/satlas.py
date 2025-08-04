@@ -40,22 +40,29 @@ def getClosestModel(Teff, logg, mass, localdir=None, verbose=False):
     """
     get closest SALTAS model based on Teff (K), logg (log cgs) and mass (Msun).
 
-    downloaded on local directory
+    downloaded on local directory.
+
+    Models from Neilson 2013 and 2014:
+        https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/554/A98
+        https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/556/A86
     """
-    global rossTable
-    #Teff, logg, mass = 7600, 1.9, 9.7
+    global rossTable, _ross, _i
 
     dist = [((rossTable['Teff'][i]-Teff)/100)**2 +
             (10*(rossTable['logg'][i]-logg))**2 +
             (rossTable['mass'][i]-mass)**2 for i in range(len(rossTable['Teff']))]
-    i = np.argmin(dist)
-    if verbose:
-        print('closest model:', i,
-                f'Teff={rossTable['Teff'][i]}K',
-                f'logg={rossTable['logg'][i]}',
-                f'Mass={rossTable['mass'][i]}Msun')
 
-    localfilename = os.path.basename(rossTable['file'][i])
+    # -- index of model in table
+    _i = np.argmin(dist)
+
+    if verbose:
+        print('closest model: #%d'%_i,
+                f'Teff={rossTable["Teff"][_i]:.0f}K',
+                f'logg={rossTable["logg"][_i]:.2f}',
+                f'Mass={rossTable["mass"][_i]:.1f}Msun')
+
+    localfilename = os.path.basename(rossTable['file'][_i])
+    _ross = rossTable["Ross/Outer"][_i]
     if not localdir is None:
         if os.path.isdir(localdir):
             localfilename = os.path.join(localdir, localfilename)
@@ -66,25 +73,41 @@ def getClosestModel(Teff, logg, mass, localdir=None, verbose=False):
         if verbose:
             print('downloading and creating', localfilename)
         with open(localfilename, 'w') as f:
-            for l in urlopen(rossTable['file'][i]).readlines():
+            for l in urlopen(rossTable['file'][_i]).readlines():
                 f.write(l.decode())
     else:
         if verbose:
             print(localfilename, 'already exists')
     return localfilename
 
-def readFile(filename, band, component=None):
-    global rossTable, rossFiles
+def readFile(filename, band, component=None, verbose=False):
+    """
+    returns PMOIRED limbdarkened model (optionaly for a named component)
+    based on SATLAS model stored in "filename", in a given band ("B", "V",
+    "R", "I", "H" or "K").
+
+    Models from Neilson 2013 and 2014:
+    https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/554/A98
+    https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/556/A86
+
+    """
+    global rossTable, rossFiles, _data
     # -- read file:
+    if verbose:
+        print('opening', filename)
     f = open(filename)
     cols = ['mu','B','V','R','I','H','K']
     wl_b = {'B':0.45, 'V':0.55, 'R':0.65, 'I':1.0, 'H':1.65, 'K':2.2}
-    data = {c:[] for c in cols}
+    _data = {c:[] for c in cols}
+    n=0
     for l in f.readlines():
+        n+=1
         for k,c in enumerate(cols):
-            data[c].append(float(l.split()[k]))
+            _data[c].append(float(l.split()[k]))
+    if verbose:
+        print('read', n, 'lines')
     for c in cols:
-        data[c] = np.array(data[c])
+        _data[c] = np.array(_data[c])
     f.close()
 
     ic = 0
@@ -97,16 +120,15 @@ def readFile(filename, band, component=None):
 
     i = rossFiles.index(os.path.basename(filename))
 
-    print(rossTable['Ross/Outer'][i])
     if component is None:
         c = ''
     else:
         c = component+','
     P = {c+'ROSS':1.0,
          c+'diam': f'${c}ROSS/{rossTable['Ross/Outer'][i]:f}', # outer diam
-         c+'profile':f'np.interp($R/(0.5*${c}diam), '+\
-                        str([float(x) for x in list(np.sqrt(1-data['mu']**2)[::-1])])+\
-                        ',          '+str([float(x) for x in list(data[cols[ic]][::-1])])+', left=1.0, right=0.0)'
-        }
-
+         c+'profile':f'np.interp($MU, '+\
+                       str([float(x) for x in list(_data['mu'])])+\
+                       ', '+str([float(x) for x in list(_data[cols[ic]])])+\
+                       ', left=0.0, right=1.0)'
+    }
     return P
