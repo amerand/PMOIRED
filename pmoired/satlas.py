@@ -22,21 +22,28 @@ def createRossTable():
                 rossTable[c].append(float(l.split()[i]))
     f.close()
 
-    rossTable['file'] = []
+    rossTable['spheric'] = []
+    rossTable['planar'] = []
+
     for i in range(len(rossTable['Teff'])):
         if rossTable["logg"][i]<4:
-            d = 'https://cdsarc.u-strasbg.fr/ftp/J/A+A/554/A98/spheric/'
+            d = 'https://cdsarc.u-strasbg.fr/ftp/J/A+A/554/A98/'
         else:
-            d = 'https://cdsarc.u-strasbg.fr/ftp/J/A+A/556/A86/spheric/'
-        rossTable['file'].append(d+f'ld_satlas_surface.2t{rossTable["Teff"][i]:.0f}'+
+            d = 'https://cdsarc.u-strasbg.fr/ftp/J/A+A/556/A86/'
+        rossTable['spheric'].append(d+f'spheric/ld_satlas_surface.2t{rossTable["Teff"][i]:.0f}'+
                                         f'g{100*rossTable["logg"][i]:.0f}'+
                                         f'm{10*rossTable["mass"][i]:.0f}.dat')
+        rossTable['planar'].append(d+f'planar/ld_t{rossTable["Teff"][i]:.0f}'+
+                                        f'g{100*rossTable["logg"][i]:.0f}_surface.dat')
+
+
     return rossTable
 # == init
 rossTable = createRossTable()
-rossFiles = [os.path.basename(f) for f in rossTable['file']]
+rossFilesSph = [os.path.basename(f) for f in rossTable['spheric']]
+rossFilesPla = [os.path.basename(f) for f in rossTable['spheric']]
 
-def getClosestModel(Teff, logg, mass, localdir=None, verbose=False):
+def getClosestModel(Teff, logg, mass=None, localdir=None, verbose=False, modeltype='spheric'):
     """
     get closest SALTAS model based on Teff (K), logg (log cgs) and mass (Msun).
 
@@ -48,20 +55,29 @@ def getClosestModel(Teff, logg, mass, localdir=None, verbose=False):
     """
     global rossTable, _ross, _i
 
-    dist = [((rossTable['Teff'][i]-Teff)/100)**2 +
-            (10*(rossTable['logg'][i]-logg))**2 +
-            (rossTable['mass'][i]-mass)**2 for i in range(len(rossTable['Teff']))]
+    if modeltype == 'spheric':
+        dist = [((rossTable['Teff'][i]-Teff)/100)**2 +
+                (10*(rossTable['logg'][i]-logg))**2 +
+                (rossTable['mass'][i]-mass)**2 for i in range(len(rossTable['Teff']))]
+    else:
+        dist = [((rossTable['Teff'][i]-Teff)/100)**2 +
+                (10*(rossTable['logg'][i]-logg))**2 for i in range(len(rossTable['Teff']))]
 
     # -- index of model in table
     _i = np.argmin(dist)
 
     if verbose:
-        print('closest model: #%d'%_i,
-                f'Teff={rossTable["Teff"][_i]:.0f}K',
-                f'logg={rossTable["logg"][_i]:.2f}',
-                f'Mass={rossTable["mass"][_i]:.1f}Msun')
+        if modeltype=='spheric':
+            print('closest model: #%d'%_i,
+                    f'Teff={rossTable["Teff"][_i]:.0f}K',
+                    f'logg={rossTable["logg"][_i]:.2f}',
+                    f'Mass={rossTable["mass"][_i]:.1f}Msun')
+        else:
+            print('closest model: #%d'%_i,
+                    f'Teff={rossTable["Teff"][_i]:.0f}K',
+                    f'logg={rossTable["logg"][_i]:.2f}')
 
-    localfilename = os.path.basename(rossTable['file'][_i])
+    localfilename = os.path.basename(rossTable[modeltype][_i])
     _ross = rossTable["Ross/Outer"][_i]
     if not localdir is None:
         if os.path.isdir(localdir):
@@ -73,7 +89,7 @@ def getClosestModel(Teff, logg, mass, localdir=None, verbose=False):
         if verbose:
             print('downloading and creating', localfilename)
         with open(localfilename, 'w') as f:
-            for l in urlopen(rossTable['file'][_i]).readlines():
+            for l in urlopen(rossTable[modeltype][_i]).readlines():
                 f.write(l.decode())
     else:
         if verbose:
@@ -86,12 +102,11 @@ def readFile(filename, band, component=None, verbose=False):
     based on SATLAS model stored in "filename", in a given band ("B", "V",
     "R", "I", "H" or "K").
 
-    Models from Neilson 2013 and 2014:
+    Models from Neilson & Lester 2013a and 2013b:
     https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/554/A98
     https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/556/A86
-
     """
-    global rossTable, rossFiles, _data
+    global rossTable, rossFilesSph, rossFilesPla, _data, _i
     # -- read file:
     if verbose:
         print('opening', filename)
@@ -118,16 +133,23 @@ def readFile(filename, band, component=None, verbose=False):
         _d = [np.abs(wl_b[k]-band) for k in wl_b.keys()]
         ic = cols.index(list(wl_b.keys())[np.argmin(_d)])
 
-    i = rossFiles.index(os.path.basename(filename))
+    # if 'satlas' in filename:
+    #     i = rossFilesSph.index(os.path.basename(filename))
+    # else:
+    #     i = rossFilesPla.index(os.path.basename(filename))
 
     if component is None:
         c = ''
     else:
         c = component+','
     P = {c+'ROSSDIAM':1.0,
-         c+'diam': f'${c}ROSSDIAM/{rossTable['Ross/Outer'][i]:f}', # outer diam
-         c+'_MUtab': str([float(x) for x in list(_data['mu'])]),
-         c+'_Itab':str([float(x) for x in list(_data[cols[ic]])]),
-         c+'profile':f'np.interp($MU, $'+c+'_MUtab, $'+c+'_Itab, left=0.0, right=1.0)'
-    }
+        c+'_MUtab': str([float(x) for x in list(_data['mu'])]),
+        c+'_Itab':str([float(x) for x in list(_data[cols[ic]])]),
+        c+'profile':f'np.interp($MU, $'+c+'_MUtab, $'+c+'_Itab, left=0.0, right=1.0)'
+        }
+    if 'satlas' in filename:
+        P.update({c+'diam': f'${c}ROSSDIAM/{rossTable['Ross/Outer'][_i]:f}'})
+    else:
+        # -- by definition
+        P.update({c+'diam': f'${c}ROSSDIAM'})
     return P
