@@ -124,11 +124,10 @@ def readFile(filename, band, component=None, verbose=False):
         c = ''
     else:
         c = component+','
-    P = {c+'ROSS':1.0,
-         c+'diam': f'${c}ROSS/{rossTable['Ross/Outer'][i]:f}', # outer diam
-         c+'profile':f'np.interp($MU, '+\
-                       str([float(x) for x in list(_data['mu'])])+\
-                       ', '+str([float(x) for x in list(_data[cols[ic]])])+\
-                       ', left=0.0, right=1.0)'
+    P = {c+'ROSSDIAM':1.0,
+         c+'diam': f'${c}ROSSDIAM/{rossTable['Ross/Outer'][i]:f}', # outer diam
+         c+'_MUtab': str([float(x) for x in list(_data['mu'])]),
+         c+'_Itab':str([float(x) for x in list(_data[cols[ic]])]),
+         c+'profile':f'np.interp($MU, $'+c+'_MUtab, $'+c+'_Itab, left=0.0, right=1.0)'
     }
     return P

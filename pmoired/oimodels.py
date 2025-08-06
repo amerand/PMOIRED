@@ -3608,6 +3608,7 @@ def sparseFitOI(oi, firstGuess, sparse=[], significance=4, fitOnly=None,
 def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
                 significance=4, fitOnly=None, doNotFit=None,
                 maxfev=5000, ftol=1e-6, epsfcn=1e-6, prior=[]):
+    # TODO: make sure priors are taken into account!
     """
     use discrete wavelets (WVL) to model spectra of different components.
 
@@ -3675,8 +3676,8 @@ def sparseFitFluxes(oi, firstGuess, N={}, initFlux={}, refFlux=None,
                         sparse.append(k)
         print('   adding', len(_fitOnly), 'parameters to the fit')
         fit = sparseFitOI(oi, param, sparse, ftol=ftol,
-                        significance=significance, fitOnly=fitOnly+_fitOnly,
-                        maxfev=maxfev, epsfcn=epsfcn)
+                          significance=significance, fitOnly=fitOnly+_fitOnly,
+                          maxfev=maxfev, epsfcn=epsfcn)
         for k in sparse:
             if fit['uncer'][k]==0:
                 #print(k, 'should be 0!')
