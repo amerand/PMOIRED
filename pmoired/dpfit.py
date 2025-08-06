@@ -1088,8 +1088,12 @@ def _ellParam(sA2, sB2, sAB):
     sma = np.sqrt(1/2.*(sA2+sB2+np.sqrt((sA2-sB2)**2+4*sAB**2)))
 
     return sMa, sma, a
-
+__MAX_STR_LEN = 120
 def dispBest(fit, pre='', asStr=False, asDict=True, color=True, showOnly=None):
+    """
+    shorten: shorten strings longer than "shorten" characters
+    """
+    global __MAX_STR_LEN
     #tmp = sorted(fit['best'].keys())
     # -- fitted param:
     tmp = sorted(fit['fitOnly'])
@@ -1176,14 +1180,19 @@ def dispBest(fit, pre='', asStr=False, asDict=True, color=True, showOnly=None):
             else:
                 col = ('', '')
             if isinstance(pfix[k], str):
-                #print(formatS%k , "'"+pfix[k]+"'", ',')
-                res += col[0]+formatS%k+"'"+pfix[k]+"',"+col[1]+'\n'
+                if len(pfix[k])>__MAX_STR_LEN:
+                    res += col[0]+formatS%k+"'"+pfix[k][:__MAX_STR_LEN]+'\u2026'+"',"+col[1]+'\n'
+                else:
+                    res += col[0]+formatS%k+"'"+pfix[k]+"',"+col[1]+'\n'
             else:
                 #print(formatS%k , pfix[k], ',')
                 res += col[0]+formatS%k+str(pfix[k])+','+col[1]+'\n'
         else:
             #print(formatS%k , pfix[k], end='')
-            res += formatS%k+pfix[k]
+            if isinstance(pfix[k], str) and len(pfix[k])>__MAX_STR_LEN:
+                res += formatS%k+pfix[k][:__MAX_STR_LEN]+'\u2026'
+            else:
+                res += formatS%k+pfix[k]
             if asDict:
                 #print(', # +/-', uncer[k])
                 res += '# +/- '+str(uncer[k])+'\n'
