@@ -282,6 +282,137 @@ class OI:
         self._merged = []
         return
 
+    def _groupGravityPola(self):
+        INS = []
+        for d in self.data:
+            INS.append('_'.join([f'{d['WL'].min():.4f}', f'{d['WL'].max():.4f}',
+                                 str(len(d['WL'])), f'{d['MJD'].min():.4f}', f'{d['MJD'].max():.4f}', d['insname']]))
+        POL = {'P1':[i for i in INS if 'GRAVITY' in i and '_P1' in i],
+               'P2':[i for i in INS if 'GRAVITY' in i and '_P2' in i]}
+        GR = []
+        for p1 in POL['P1']:
+            p2 = p1.replace('_P1', '_P2')
+            if p2 in POL['P2']:
+                GR.append((INS.index(p1), INS.index(p2)))
+        return GR
+
+    def avgGravityPola(self, info=False):
+        """
+        averages "_P1" and "_P2" for the same setups (spectro and dates) for GRAVITY.
+
+        eg.
+        > oi = pmoired.OI(filename, insname='GRAVITY_SC_P1')
+        > oi.addData(filename, insname='GRAVITY_SC_P2')
+        will have 2 data dict (len(oi.data)==2)
+        > oi.avgGravityPola()
+        will have 1 data dict (len(oi.data)==1)
+
+        new instruments will wil "GRAVITY_SC_COMBINED" (and "GRAVITY_FT_COMBINED")
+
+        """
+        tmp = self._groupGravityPola()
+        if len(tmp)==0:
+            if info:
+                print('\033[33mPolarisations of same setups averaged:\033[0m')
+                self.info()
+                #print('\033[0m')
+            return
+        else:
+            self._avgData(tmp[0][0], tmp[0][1])
+            self.avgGravityPola(info=True)
+        return
+
+    def _avgData(self, i1, i2):
+        """
+        """
+        for k in self.data[i1]['OI_FLUX']: # for telescope
+            f1 = self.data[i1]['OI_FLUX'][k]['FLAG']
+            f2 = self.data[i2]['OI_FLUX'][k]['FLAG']
+            f12 = np.logical_or(f1, f2)
+            f1n2 = np.logical_and(f1, ~f2)
+            # -- weighted average where data are common
+            self.data[i1]['OI_FLUX'][k]['FLUX'][~f12] = (self.data[i1]['OI_FLUX'][k]['FLUX'][~f12]/self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12] +
+            self.data[i2]['OI_FLUX'][k]['FLUX'][~f12]/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12])/\
+                        (1/self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12] + 1/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12])
+            self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12] = 1/(1/self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12]**2 +
+                1/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12]**2)**0.5
+            self.data[i1]['OI_FLUX'][k]['FLUX'][f1n2] = self.data[i2]['OI_FLUX'][k]['FLUX'][f1n2]
+            self.data[i1]['OI_FLUX'][k]['EFLUX'][f1n2] = self.data[i2]['OI_FLUX'][k]['EFLUX'][f1n2]
+
+
+        for k in self.data[i1]['OI_VIS2']: # for each V / V2 baseline
+            # == V2
+            f1 = self.data[i1]['OI_VIS2'][k]['FLAG']
+            f2 = self.data[i2]['OI_VIS2'][k]['FLAG']
+            f12 = np.logical_or(f1, f2)
+            f1n2 = np.logical_and(f1, ~f2)
+            # -- weighted average where data are common
+            self.data[i1]['OI_VIS2'][k]['V2'][~f12] = (self.data[i1]['OI_VIS2'][k]['V2'][~f12]/self.data[i1]['OI_VIS2'][k]['EV2'][~f12] +
+            self.data[i2]['OI_VIS2'][k]['V2'][~f12]/self.data[i2]['OI_VIS2'][k]['EV2'][~f12])/\
+                        (1/self.data[i1]['OI_VIS2'][k]['EV2'][~f12] + 1/self.data[i2]['OI_VIS2'][k]['EV2'][~f12])
+            self.data[i1]['OI_VIS2'][k]['EV2'][~f12] = 1/(1/self.data[i1]['OI_VIS2'][k]['EV2'][~f12]**2 +
+                                                          1/self.data[i2]['OI_VIS2'][k]['EV2'][~f12]**2)**0.5
+            # -- data valid in 2 but not in 1
+            self.data[i1]['OI_VIS2'][k]['V2'][f1n2] = self.data[i2]['OI_VIS2'][k]['V2'][f1n2]
+            self.data[i1]['OI_VIS2'][k]['EV2'][f1n2] = self.data[i2]['OI_VIS2'][k]['EV2'][f1n2]
+            self.data[i1]['OI_VIS2'][k]['FLAG'] = ~np.logical_or(~f12, f1n2)
+
+            # == VIS
+            f1 = self.data[i1]['OI_VIS'][k]['FLAG']
+            f2 = self.data[i2]['OI_VIS'][k]['FLAG']
+            f12 = np.logical_or(f1, f2)
+            f1n2 = np.logical_and(f1, ~f2)
+
+            # -- weighted average where data are common
+            self.data[i1]['OI_VIS'][k]['|V|'][~f12] = (self.data[i1]['OI_VIS'][k]['|V|'][~f12]/self.data[i1]['OI_VIS'][k]['E|V|'][~f12] +
+                                                       self.data[i2]['OI_VIS'][k]['|V|'][~f12]/self.data[i2]['OI_VIS'][k]['E|V|'][~f12])/\
+                                                    (1/self.data[i1]['OI_VIS'][k]['E|V|'][~f12] + 1/self.data[i2]['OI_VIS'][k]['E|V|'][~f12])
+            self.data[i1]['OI_VIS'][k]['E|V|'][~f12] = 1/(1/self.data[i1]['OI_VIS'][k]['E|V|'][~f12]**2 +
+                                                          1/self.data[i2]['OI_VIS'][k]['E|V|'][~f12]**2)**0.5
+
+            self.data[i1]['OI_VIS'][k]['PHI'][~f12] = (self.data[i1]['OI_VIS'][k]['PHI'][~f12]/self.data[i1]['OI_VIS'][k]['EPHI'][~f12] +
+                                                     self.data[i2]['OI_VIS'][k]['PHI'][~f12]/self.data[i2]['OI_VIS'][k]['EPHI'][~f12])/\
+                        (1/self.data[i1]['OI_VIS'][k]['EPHI'][~f12] + 1/self.data[i2]['OI_VIS'][k]['EPHI'][~f12])
+            self.data[i1]['OI_VIS'][k]['EPHI'][~f12] = 1/(1/self.data[i1]['OI_VIS'][k]['EPHI'][~f12]**2 +
+                                                          1/self.data[i2]['OI_VIS'][k]['EPHI'][~f12]**2)**0.5
+
+            # -- data valid in 2 but not in 1
+            self.data[i1]['OI_VIS'][k]['|V|'][f1n2] = self.data[i2]['OI_VIS'][k]['|V|'][f1n2]
+            self.data[i1]['OI_VIS'][k]['E|V|'][f1n2] = self.data[i2]['OI_VIS'][k]['E|V|'][f1n2]
+            self.data[i1]['OI_VIS'][k]['PHI'][f1n2] = self.data[i2]['OI_VIS'][k]['PHI'][f1n2]
+            self.data[i1]['OI_VIS'][k]['EPHI'][f1n2] = self.data[i2]['OI_VIS'][k]['EPHI'][f1n2]
+            self.data[i1]['OI_VIS'][k]['FLAG'] = ~np.logical_or(~f12, f1n2)
+
+        for k in self.data[i1]['OI_T3']: # for each triangle
+            f1 = self.data[i1]['OI_T3'][k]['FLAG']
+            f2 = self.data[i2]['OI_T3'][k]['FLAG']
+            f12 = np.logical_or(f1, f2)
+            f1n2 = np.logical_and(f1, ~f2)
+            # -- weighted average where data are common
+            self.data[i1]['OI_T3'][k]['T3AMP'][~f12] = (self.data[i1]['OI_T3'][k]['T3AMP'][~f12]/self.data[i1]['OI_T3'][k]['ET3AMP'][~f12]+
+                                                        self.data[i2]['OI_T3'][k]['T3AMP'][~f12]/self.data[i2]['OI_T3'][k]['ET3AMP'][~f12])/\
+                                                (1/self.data[i1]['OI_T3'][k]['ET3AMP'][~f12] + 1/self.data[i2]['OI_T3'][k]['ET3AMP'][~f12])
+            self.data[i1]['OI_T3'][k]['ET3AMP'][~f12] = 1/(1/self.data[i1]['OI_T3'][k]['ET3AMP'][~f12]**2 +
+                                                            1/self.data[i2]['OI_T3'][k]['ET3AMP'][~f12]**2)**0.5
+
+            self.data[i1]['OI_T3'][k]['T3PHI'][~f12] = (self.data[i1]['OI_T3'][k]['T3PHI'][~f12]/self.data[i1]['OI_T3'][k]['ET3PHI'][~f12]+
+                                                        self.data[i2]['OI_T3'][k]['T3PHI'][~f12]/self.data[i2]['OI_T3'][k]['ET3PHI'][~f12])/\
+                                                        (1/self.data[i1]['OI_T3'][k]['ET3PHI'][~f12] + 1/self.data[i2]['OI_T3'][k]['ET3PHI'][~f12])
+            self.data[i1]['OI_T3'][k]['ET3PHI'][~f12] = 1/(1/self.data[i1]['OI_T3'][k]['ET3PHI'][~f12]**2 +
+                                                           1/self.data[i2]['OI_T3'][k]['ET3PHI'][~f12]**2)**0.5
+
+            # -- data valid in 2 but not in 1
+            self.data[i1]['OI_T3'][k]['T3AMP'][f1n2] = self.data[i2]['OI_T3'][k]['T3AMP'][f1n2]
+            self.data[i1]['OI_T3'][k]['ET3AMP'][f1n2] = self.data[i2]['OI_T3'][k]['ET3AMP'][f1n2]
+            self.data[i1]['OI_T3'][k]['T3PHI'][f1n2] = self.data[i2]['OI_T3'][k]['T3PHI'][f1n2]
+            self.data[i1]['OI_T3'][k]['ET3PHI'][f1n2] = self.data[i2]['OI_T3'][k]['ET3PHI'][f1n2]
+            self.data[i1]['OI_T3'][k]['FLAG'] = ~np.logical_or(~f12, f1n2)
+
+        self.data[i1]['insname'] = self.data[i1]['insname'].replace('P1', 'COMBINED')
+        self.data.pop(i2)
+        return
+
+
     def getESOPipelineParams(self, verbose=True):
         for i,d in enumerate(self.data):
             if 'header' in d:
