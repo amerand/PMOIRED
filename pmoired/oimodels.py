@@ -1253,10 +1253,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         else:
             #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
-            try:
-                V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
-            except:
-                print('-debug-', res[key][k].keys())
+            V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
 
         if not kfwhm is None:
             V *= (1+0j)*np.exp(-(res[key][k]['B/wl'])**2/_ka)
