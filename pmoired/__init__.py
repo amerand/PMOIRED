@@ -227,7 +227,7 @@ class OI:
         # -- data
         print('== DATA', '='*5)
         for i,d in enumerate(self.data):
-            print(' >', i, 'file="'+d['filename']+'"', '\n ', '"'+d['insname']+'"',
+            print(' >', i, '"'+d['filename']+'"', '\n ', '"'+d['insname']+'"',
                 '-'.join(d['telescopes']),
                 f"{len(d['MJD'])}xMJD={min(d['MJD']):.4f}..{max(d['MJD']):.4f}"
                 if len(d['MJD'])>1 else f"1xMJD={d['MJD'][0]:.4f}",
@@ -1846,6 +1846,20 @@ class OI:
                         plt.plot(x, y, symbols[c]['m'],
                                 color=symbols[c]['c'], label=c,
                                 markersize=symbols[c]['s'])
+                    elif type(x)==str and '$MJD' in x:
+                        _MJD = []
+                        for d in self.data:
+                            _MJD += list(d['MJD'])
+                        _MJD = sorted(_MJD)
+                        x = eval(x.replace('$MJD', 'np.array('+str(_MJD)+')'))
+                        y = eval(y.replace('$MJD', 'np.array('+str(_MJD)+')'))
+                        print('debug x:', x)
+                        print('debug y:', y)
+
+                        plt.plot(x, y, symbols[c]['m'],
+                                color=symbols[c]['c'], label=c,
+                                markersize=symbols[c]['s'])
+
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
                 if i==0 and len(comps)>0:
