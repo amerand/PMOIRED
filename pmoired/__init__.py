@@ -1853,10 +1853,7 @@ class OI:
                         _MJD = sorted(_MJD)
                         x = eval(x.replace('$MJD', 'np.array('+str(_MJD)+')'))
                         y = eval(y.replace('$MJD', 'np.array('+str(_MJD)+')'))
-                        print('debug x:', x)
-                        print('debug y:', y)
-
-                        plt.plot(x, y, symbols[c]['m'],
+                        plt.plot(x, y, ':'+symbols[c]['m'],
                                 color=symbols[c]['c'], label=c,
                                 markersize=symbols[c]['s'])
 
