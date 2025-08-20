@@ -1758,6 +1758,13 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     P = np.array(P)
     t1 = time.time()
     c = np.pi/180/3600/1000/1e-6 # mas*m.um -> radians
+
+    # -- not sure why, but seems to be required...
+    if len(u.shape)>1:
+        u = u.flatten()
+    if len(v.shape)>1:
+        v = v.flatten()
+
     Vpoints = np.exp(-2j*np.pi*c*(u[:,None,None]*P[:,0][None,None,:]+
                                   v[:,None,None]*P[:,1][None,None,:])/wl[None,:,None])
     #print(P.shape, Vpoints.shape)
