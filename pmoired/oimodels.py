@@ -597,6 +597,8 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
                 res[e][k]['MJD'] = oi[e][k]['MJD']
                 res[e][k]['MJD2'] = oi[e][k]['MJD'][:,None] + 0*res['WL'][None,:]
                 res[e][k]['FLAG'] = np.bool(0.0*res[e][k]['MJD2'])
+                res[e][k]['u'] = oi[e][k]['u'][:,None]
+                res[e][k]['v'] = oi[e][k]['v'][:,None]
                 res[e][k]['u/wl'] = oi[e][k]['u'][:,None]/res['WL'][None,:]
                 res[e][k]['v/wl'] = oi[e][k]['v'][:,None]/res['WL'][None,:]
                 res[e][k]['B/wl'] = np.sqrt(oi[e][k]['u'][:,None]**2+
@@ -1251,7 +1253,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         else:
             #print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
-            V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
+            try:
+                V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
+            except:
+                print('-debug-', res[key][k].keys())
 
         if not kfwhm is None:
             V *= (1+0j)*np.exp(-(res[key][k]['B/wl'])**2/_ka)
