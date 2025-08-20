@@ -227,10 +227,13 @@ class OI:
         # -- data
         print('== DATA', '='*5)
         for i,d in enumerate(self.data):
-            print(' >', i, 'file="'+d['filename']+'"', 'ins="'+d['insname']+'"',
+            print(' >', i, 'file="'+d['filename']+'"', '\n ', '"'+d['insname']+'"',
                 '-'.join(d['telescopes']),
-                '%dxWL=%.2f..%.2fum [R~%.0f]'%(len(d['WL']), d['WL'].min(), d['WL'].max(),
-                                            np.mean(d['WL']/np.gradient(d['WL']))))
+                f"{len(d['MJD'])}xMJD={min(d['MJD']):.4f}..{max(d['MJD']):.4f}"
+                if len(d['MJD'])>1 else f"1xMJD={d['MJD'][0]:.4f}",
+                '%dxWL=%.3f..%.3fum [R~%.0f P~%.0f]'%(len(d['WL']), d['WL'].min(), d['WL'].max(),
+                                            np.mean(d['WL']/d['dWL']), np.mean(d['WL']/np.gradient(d['WL']))
+                                            ))
         if not self.bestfit == {}:
             print('== FIT', '='*40)
             self.showBestfit()
@@ -313,7 +316,7 @@ class OI:
         tmp = self._groupGravityPola()
         if len(tmp)==0:
             if info:
-                print('\033[33mPolarisations of same setups averaged:\033[0m')
+                print('\033[34mPolarisations of same setups averaged. New data structure:\033[0m')
                 self.info()
                 #print('\033[0m')
             return
@@ -335,7 +338,7 @@ class OI:
             self.data[i2]['OI_FLUX'][k]['FLUX'][~f12]/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12])/\
                         (1/self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12] + 1/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12])
             self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12] = 1/(1/self.data[i1]['OI_FLUX'][k]['EFLUX'][~f12]**2 +
-                1/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12]**2)**0.5
+                                                            1/self.data[i2]['OI_FLUX'][k]['EFLUX'][~f12]**2)**0.5
             self.data[i1]['OI_FLUX'][k]['FLUX'][f1n2] = self.data[i2]['OI_FLUX'][k]['FLUX'][f1n2]
             self.data[i1]['OI_FLUX'][k]['EFLUX'][f1n2] = self.data[i2]['OI_FLUX'][k]['EFLUX'][f1n2]
 
