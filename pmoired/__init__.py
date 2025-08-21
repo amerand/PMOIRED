@@ -125,10 +125,13 @@ class OI:
             print('loading session saved in', filenames)
             self.load(filenames)
         elif not filenames is None:
-            self.addData(filenames, insname=insname, targname=targname,
-                            verbose=verbose, withHeader=withHeader, medFilt=medFilt,
-                            tellurics=tellurics, binning=binning,
-                            useTelluricsWl=useTelluricsWl, wlOffset=wlOffset)
+            if type(insname)==str:
+                insname = [insname]
+            for ins in insname:
+                self.addData(filenames, insname=ins, targname=targname,
+                                verbose=verbose, withHeader=withHeader, medFilt=medFilt,
+                                tellurics=tellurics, binning=binning,
+                                useTelluricsWl=useTelluricsWl, wlOffset=wlOffset)
         else:
             self.data = []
         self._merged = []
