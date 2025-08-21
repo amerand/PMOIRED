@@ -1213,7 +1213,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         print(' '*indent+'VsingleOI > setup %.3fms'%(1000*(time.time()-ts)))
 
     if 'spatial kernel' in _param:
-        kfwhm = _param['spatial kernel']
+        kfwhm = np.abs(_param['spatial kernel'])
         s = kfwhm/(2*np.sqrt(2*np.log(2)))
 
         # -- multiply complex visibilities by spatial kernel's visibility
@@ -1222,7 +1222,21 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
 
         # -- convolve image by spatial kernel
         if not imFov is None:
-            ker = np.exp(-((X-imX)**2+(Y-imY)**2)/(2*s**2))/(s*np.sqrt(2*np.pi))
+            r2 = (X-imX)**2 + (Y-imY)**2
+            ker = np.exp(-r2/(2*s**2))/(s*np.sqrt(2*np.pi))
+
+        if 'spatial kernel frac lorentzian' in _param:
+            fLor = _param['spatial kernel frac lorentzian']
+            _kl = np.pi*np.abs(kfwhm)/np.sqrt(3)
+            _kl *= (np.pi**2/180/3600/1000*1e6)
+
+            # -- convolve image by spatial kernel
+            if not imFov is None:
+                ker = (1-fLor)*ker + fLor*kfwhm/(2*np.pi*np.sqrt(3))*(kfwhm**2/3+r2)**(-3/2)
+        else:
+            fLor = 0
+            _kl = 1
+        if not imFov is None:
             I = scipy.signal.fftconvolve(I, ker, mode='same')
     else:
         kfwhm = None
@@ -1256,7 +1270,10 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             V[:,wwl] = Vf(res[key][k]) * PHI(res[key][k])
 
         if not kfwhm is None:
-            V *= (1+0j)*np.exp(-(res[key][k]['B/wl'])**2/_ka)
+            ker = (1-fLor)*np.exp(-(res[key][k]['B/wl'])**2/_ka)
+            if fLor > 0:
+                ker += fLor*np.exp(-(res[key][k]['B/wl'])*_kl)
+            V *= (1+0j)*ker
 
         tmp['|V|'] = np.abs(V)
         #print(k, Vf(oi[key][k]), tmp['|V|'])
