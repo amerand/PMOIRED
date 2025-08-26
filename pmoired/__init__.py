@@ -291,8 +291,9 @@ class OI:
     def _groupGravityPola(self):
         INS = []
         for d in self.data:
-            INS.append('_'.join([f'{d['WL'].min():.4f}', f'{d['WL'].max():.4f}',
-                                 str(len(d['WL'])), f'{d['MJD'].min():.4f}', f'{d['MJD'].max():.4f}', d['insname']]))
+            INS.append('_'.join([f"{d['WL'].min():.4f}", f"{d['WL'].max():.4f}",
+                                 str(len(d['WL'])), f"{d['MJD'].min():.4f}",
+                                 f"{d['MJD'].max():.4f}", d['insname']]))
         POL = {'P1':[i for i in INS if 'GRAVITY' in i and '_P1' in i],
                'P2':[i for i in INS if 'GRAVITY' in i and '_P2' in i]}
         GR = []
