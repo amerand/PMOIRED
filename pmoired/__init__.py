@@ -125,7 +125,7 @@ class OI:
             print('loading session saved in', filenames)
             self.load(filenames)
         elif not filenames is None:
-            if type(insname)==str:
+            if type(insname)==str or insname is None:
                 insname = [insname]
             for ins in insname:
                 self.addData(filenames, insname=ins, targname=targname,
@@ -486,10 +486,11 @@ class OI:
         'obs': list of observables in
             'FLUX': Flux
             'NFLUX': Flux normalised to continuum
-            'V2': sqared Visibility
+            'V2': squared Visibility
             '|V|': visibility modulus
             'DPHI': differential phase (wrt continuum)
-            'N|V|': differential visibility (wrt continuum)
+            'N|V|': normalised visibility (wrt continuum)
+            'NV2': normalised squared visibility (wrt continuum)
             'T3PHI': closure phases
             'T3AMP': closure amplitude
             'CF': correlated flux
@@ -2423,12 +2424,12 @@ def _checkObs(data, obs):
     """
     data: OI dict
     obs: list of observable in ['|V|', 'V2', 'DPHI', 'N|V|', 'T3PHI', 'FLUX',
-                                'NFLUX', 'CF']
+                                'NFLUX', 'CF', 'NV2']
 
     returns list of obs actually in data
     """
     ext = {'|V|':'OI_VIS', 'N|V|':'OI_VIS', 'DPHI':'OI_VIS', 'PHI':'OI_VIS',
-           'V2':'OI_VIS2',
+           'V2':'OI_VIS2', 'NV2':'OI_VIS2',
            'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
            'FLUX':'OI_FLUX',
            'NFLUX':'OI_FLUX',
@@ -2462,7 +2463,7 @@ def _checkSetupFit(fit):
     ok = True
     if not 'obs' in fit:
         raise Exception('list of observables should be defined (see method setupFit)')
-    knownObs =  ['V2', '|V|', 'N|V|', 'PHI', 'DPHI', 'T3PHI', 'T3AMP', 'FLUX', 'NFLUX', 'CF']
+    knownObs =  ['V2', 'NV2', '|V|', 'N|V|', 'PHI', 'DPHI', 'T3PHI', 'T3AMP', 'FLUX', 'NFLUX', 'CF']
     for k in fit['obs']:
         if k not in knownObs:
             raise Exception("Unknown observable '"+k+"', not in "+str(knownObs) )

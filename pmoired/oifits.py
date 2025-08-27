@@ -1803,7 +1803,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
             tmp = {}
             for k in r['fit'].keys():
                 # -- for differential quantities, these are globally defined
-                for p in ['DPHI', 'NFLUX', 'N|V|']:
+                for p in ['DPHI', 'NFLUX', 'N|V|', 'NV2']:
                     if type(r['fit'][k]) is dict and p in r['fit'][k].keys():
                         if k in tmp:
                             if p in tmp[k] and tmp[k][p]!=r['fit'][k][p]:
@@ -1814,7 +1814,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                             tmp[k] = {p:r['fit'][k][p]}
             r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges',
                                                 'MJD ranges', 'continuum ranges', 'prior',
-                                                'Nr', 'DPHI order', 'N|V| order',
+                                                'Nr', 'DPHI order', 'N|V| order', 'NV2 order',
                                                 'NFLUX order', 'ignore negative flux',
                                                 'correlations', 'wl kernel', 'spatial kernel', 'smear']
                         if k in r['fit']}
