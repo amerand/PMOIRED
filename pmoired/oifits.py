@@ -965,6 +965,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             'OI_VIS': ['|V|', 'E|V|', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'B/wl', 'FLAG', 'MJD2', 'PA'],
             'OI_CF':  ['CF', 'ECF', 'PHI', 'EPHI', 'u/wl', 'v/wl', 'B/wl', 'FLAG', 'MJD2', 'PA'],
             'OI_T3':  ['T3AMP', 'ET3AMP', 'T3PHI', 'ET3PHI', 'Bmin/wl', 'Bmax/wl', 'Bavg/wl', 'FLAG', 'MJD2'],
+            'OI_FLUX': ['FLUX', 'EFLUX', 'FLAG', 'MJD2', 'RFLUX'],
             }
         for o in O:
             if not o in res:
