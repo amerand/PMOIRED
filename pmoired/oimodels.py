@@ -2050,8 +2050,26 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # -- assumes single component
         res = VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent+1, fullOutput=fullOutput)
-        res = _applyTF(res)
+        # -- aren't we missing computeNormFluxOI and computeDiffPhiOI?!?
+        if 'fit' in oi and 'obs' in oi['fit'] and \
+            ('DPHI' in oi['fit']['obs'] or 
+             'N|V|' in oi['fit']['obs'] or 
+             'NV2' in oi['fit']['obs']):
+            if debug:
+                print('VmodelOI: differential phase')
+            res = computeDiffPhiOI(res, param, debug=debug)
+            if timeit:
+                print(' '*indent+'VmodelOI > dPHI %.3fms'%(1000*(time.time()-t0)))
+                t0 = time.time()
+
+        if 'fit' in oi and 'obs' in oi['fit'] and 'NFLUX' in oi['fit']['obs']:
+            #print('normalised fluxes')
+            res = computeNormFluxOI(res, param, debug=debug)
+            if timeit:
+                print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
+
         res = _applyWlKernel(res, debug=debug)
+        res = _applyTF(res)
         if 'smear' in res:
             res = oifits._binOI(res, binning=res['smear'], noError=True)
         return res
@@ -2379,19 +2397,17 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         if timeit:
             print(' '*indent+'VmodelOI > T3 %.3fms'%(1000*(time.time()-t0)))
 
-
     t0 = time.time()
     if 'fit' in oi and 'obs' in oi['fit'] and \
-            ('DPHI' in oi['fit']['obs'] or 'N|V|' in oi['fit']['obs'] or 'NV2' in oi['fit']['obs']):
+            ('DPHI' in oi['fit']['obs'] or 
+             'N|V|' in oi['fit']['obs'] or 
+             'NV2' in oi['fit']['obs']):
         if debug:
             print('VmodelOI: differential phase')
         res = computeDiffPhiOI(res, param, debug=debug)
         if timeit:
             print(' '*indent+'VmodelOI > dPHI %.3fms'%(1000*(time.time()-t0)))
             t0 = time.time()
-    else:
-        if debug:
-            print('VmodelOI: NO NEED for differential phase', oi['fit'])
 
     if 'fit' in oi and 'obs' in oi['fit'] and 'NFLUX' in oi['fit']['obs']:
         #print('normalised fluxes')
@@ -2399,6 +2415,7 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         if timeit:
             print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
+    # -- must be after computeDiffPhiOI and computeNormFluxOI
     res = _applyWlKernel(res, debug=debug)
 
     for k in['telescopes', 'baselines', 'triangles']:
@@ -2424,11 +2441,19 @@ def _applyWlKernel(res, debug=False):
     x = np.arange(N)
     ker = np.exp(-(x-np.mean(x))**2/(2.*(res['fit']['wl kernel']/2.35482)**2))
     ker /= np.sum(ker)
+    for k in res['OI_FLUX'].keys():
+        for i in range(res['OI_FLUX'][k]['FLUX'].shape[0]):
+            res['OI_FLUX'][k]['FLUX'][i] = np.convolve(
+                        res['OI_FLUX'][k]['FLUX'][i], ker, mode='same')
+            res['OI_FLUX'][k]['RFLUX'][i] = np.convolve(
+                        res['OI_FLUX'][k]['RFLUX'][i], ker, mode='same')
+
     if 'NFLUX' in res.keys():
         for k in res['NFLUX'].keys():
             for i in range(res['NFLUX'][k]['NFLUX'].shape[0]):
                 res['NFLUX'][k]['NFLUX'][i] = np.convolve(
                             res['NFLUX'][k]['NFLUX'][i], ker, mode='same')
+
     for k in res['OI_VIS'].keys():
         for i in range(res['OI_VIS'][k]['|V|'].shape[0]):
             res['OI_VIS'][k]['|V|'][i] = np.convolve(
