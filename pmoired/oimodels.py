@@ -4734,7 +4734,9 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
                 'T3AMP':'OI_T3',
                 'T3PHI':'OI_T3',
                 'NFLUX':'NFLUX', # flux normalised to continuum
-                'FLUX':'OI_FLUX' # flux corrected from tellurics
+                'FLUX':'OI_FLUX', # flux corrected from tellurics
+                'N|V|':'DVIS',
+                'NV2':'DVIS2',
                 }
         if type(oi)==dict:
             oi = [oi]
