@@ -2435,9 +2435,13 @@ def _applyWlKernel(res, debug=False):
                         res['OI_VIS'][k]['|V|'][i], ker, mode='same')
             res['OI_VIS'][k]['PHI'][i] = np.convolve(
                         res['OI_VIS'][k]['PHI'][i], ker, mode='same')
-            if 'DPHI' in res.keys():
+            if 'DVIS' in res.keys() and 'DPHI' in res['DVIS'][k]:
                 res['DVIS'][k]['DPHI'][i] = np.convolve(
                             res['DVIS'][k]['DPHI'][i], ker, mode='same')
+            if 'DVIS' in res.keys() and '|V|' in res['DVIS'][k]:                
+                res['DVIS'][k]['|V|'][i] = np.convolve(
+                            res['DVIS'][k]['N|V|'][i], ker, mode='same')
+                
     if 'OI_CF' in res:
         for k in res['OI_CF'].keys():
             for i in range(res['OI_CF'][k]['CF'].shape[0]):
@@ -2445,11 +2449,15 @@ def _applyWlKernel(res, debug=False):
                             res['OI_CF'][k]['CF'][i], ker, mode='same')
                 res['OI_CF'][k]['PHI'][i] = np.convolve(
                             res['OI_CF'][k]['PHI'][i], ker, mode='same')
-
+                
     for k in res['OI_VIS2'].keys():
         for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
             res['OI_VIS2'][k]['V2'][i] = np.convolve(
                         res['OI_VIS2'][k]['V2'][i], ker, mode='same')
+            if 'DVIS2' in res.keys() and 'NV2' in res['DVIS2'][k]:
+                res['DVIS2'][k]['NV2'][i] = np.convolve(
+                            res['DVIS2'][k]['NV2'][i], ker, mode='same')
+                
     for k in res['OI_T3'].keys():
         for i in range(res['OI_T3'][k]['MJD'].shape[0]):
             res['OI_T3'][k]['T3PHI'][i] = np.convolve(
@@ -4189,52 +4197,6 @@ _prog_Nmax = 0
 _prog_t0 = time.time()
 _prog_last = time.time()
 _prog_neo = 0
-
-def neoPixProgress(port=None, n=12, pin=1, debug=False):
-    global _prog_N, _prog_Nmax, _prog_neo
-    prog = _prog_N/_prog_Nmax
-
-    if int(n*prog)<1:
-        _prog_neo=0
-        return
-    if n*prog<_prog_neo:
-        if debug:
-            print('nothing...')
-        return
-    _prog_neo += 1
-    if debug:
-        print('prog, n*prog:', prog, n*prog)
-        print('_prog_neo:', _prog_neo)
-    if port is None:
-        if os.uname().sysname == 'Darwin':
-            ports = [os.path.join('/dev', x) for x in os.listdir('/dev/')
-                        if x.startswith('tty') and '.usbmodem' in x]
-            if len(ports)==1:
-                port = ports[0]
-                if debug:
-                    print('found nopixel board on', port)
-    if port is None:
-        return
-    ser = serial.Serial(port, 115200, timeout=1)
-    prog = _prog_N/_prog_Nmax
-    code = ['import machine, neopixel',
-            'np = neopixel.NeoPixel(machine.Pin(%d, machine.Pin.OUT), %d)'%(pin, n),
-            'for i in range(np.n):',
-            '   if i <= int(%f*np.n):'%prog,
-            '       np[i]=(30,10,20)',
-            '   else:',
-            '       np[i]=(0,0,0)',
-            '',
-            'np.write()']
-    code = '\n'.join(code)
-    if debug:
-        print(code)
-    code = code.replace('\n', '\r')
-    #ser.write( b'\x04') # ctrl+d
-    #time.sleep(1) # give time for board to reset
-    ser.write(bytes(code + '\r', 'utf8'))
-    ser.close()
-    return
 
 def progress(results=None, finish=False):
     global _prog_N, _prog_last
