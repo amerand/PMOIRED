@@ -2454,6 +2454,7 @@ def _checkSetupFit(fit):
             'prior':list,
             'DPHI order':int,
             'N|V| order':int,
+            'NV2 order':int,
             'NFLUX order': int,
             'correlations': (bool, dict),
             'spatial kernel': float,

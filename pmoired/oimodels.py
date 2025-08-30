@@ -2050,7 +2050,11 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         # -- assumes single component
         res = VsingleOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
                         timeit=timeit, indent=indent+1, fullOutput=fullOutput)
-        # -- aren't we missing computeNormFluxOI and computeDiffPhiOI?!?
+
+        # -- apply before differential computations:
+        res = _applyWlKernel(res, debug=debug)        
+        res = _applyTF(res)
+        
         if 'fit' in oi and 'obs' in oi['fit'] and \
             ('DPHI' in oi['fit']['obs'] or 
              'N|V|' in oi['fit']['obs'] or 
@@ -2068,8 +2072,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             if timeit:
                 print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
-        res = _applyWlKernel(res, debug=debug)
-        res = _applyTF(res)
         if 'smear' in res:
             res = oifits._binOI(res, binning=res['smear'], noError=True)
         return res
@@ -2397,6 +2399,10 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
         if timeit:
             print(' '*indent+'VmodelOI > T3 %.3fms'%(1000*(time.time()-t0)))
 
+    # -- must be before computeDiffPhiOI and computeNormFluxOI
+    res = _applyWlKernel(res, debug=debug)
+    res = _applyTF(res)
+
     t0 = time.time()
     if 'fit' in oi and 'obs' in oi['fit'] and \
             ('DPHI' in oi['fit']['obs'] or 
@@ -2410,13 +2416,13 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
             t0 = time.time()
 
     if 'fit' in oi and 'obs' in oi['fit'] and 'NFLUX' in oi['fit']['obs']:
-        #print('normalised fluxes')
+        if debug:
+            print('VmodelOI: normalised fluxes')
         res = computeNormFluxOI(res, param, debug=debug)
         if timeit:
             print(' '*indent+'VmodelOI > normFlux %.3fms'%(1000*(time.time()-t0)))
 
-    # -- must be after computeDiffPhiOI and computeNormFluxOI
-    res = _applyWlKernel(res, debug=debug)
+    #res = _applyWlKernel(res, debug=debug)
 
     for k in['telescopes', 'baselines', 'triangles']:
         if k in oi:
@@ -2428,7 +2434,6 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     if timeit:
         print(' '*indent+'VmodelOI > total %.3fms'%(1000*(time.time()-tinit)))
 
-    res = _applyTF(res)
     return res
 
 def _applyWlKernel(res, debug=False):
@@ -2441,55 +2446,52 @@ def _applyWlKernel(res, debug=False):
     x = np.arange(N)
     ker = np.exp(-(x-np.mean(x))**2/(2.*(res['fit']['wl kernel']/2.35482)**2))
     ker /= np.sum(ker)
+
+    #conv = lambda x: np.convolve(x, ker, mode='same')
+    conv = lambda x: _convolve(x, ker)
+
     for k in res['OI_FLUX'].keys():
         for i in range(res['OI_FLUX'][k]['FLUX'].shape[0]):
-            res['OI_FLUX'][k]['FLUX'][i] = np.convolve(
-                        res['OI_FLUX'][k]['FLUX'][i], ker, mode='same')
-            res['OI_FLUX'][k]['RFLUX'][i] = np.convolve(
-                        res['OI_FLUX'][k]['RFLUX'][i], ker, mode='same')
+            res['OI_FLUX'][k]['FLUX'][i]  = conv(res['OI_FLUX'][k]['FLUX'][i])
 
     if 'NFLUX' in res.keys():
         for k in res['NFLUX'].keys():
             for i in range(res['NFLUX'][k]['NFLUX'].shape[0]):
-                res['NFLUX'][k]['NFLUX'][i] = np.convolve(
-                            res['NFLUX'][k]['NFLUX'][i], ker, mode='same')
+                res['NFLUX'][k]['NFLUX'][i] = conv(res['NFLUX'][k]['NFLUX'][i])
 
     for k in res['OI_VIS'].keys():
         for i in range(res['OI_VIS'][k]['|V|'].shape[0]):
-            res['OI_VIS'][k]['|V|'][i] = np.convolve(
-                        res['OI_VIS'][k]['|V|'][i], ker, mode='same')
-            res['OI_VIS'][k]['PHI'][i] = np.convolve(
-                        res['OI_VIS'][k]['PHI'][i], ker, mode='same')
+            res['OI_VIS'][k]['|V|'][i] = conv(res['OI_VIS'][k]['|V|'][i])
+            res['OI_VIS'][k]['PHI'][i] = conv(res['OI_VIS'][k]['PHI'][i])
             if 'DVIS' in res.keys() and 'DPHI' in res['DVIS'][k]:
-                res['DVIS'][k]['DPHI'][i] = np.convolve(
-                            res['DVIS'][k]['DPHI'][i], ker, mode='same')
+                res['DVIS'][k]['DPHI'][i] = conv(res['DVIS'][k]['DPHI'][i])
             if 'DVIS' in res.keys() and '|V|' in res['DVIS'][k]:                
-                res['DVIS'][k]['|V|'][i] = np.convolve(
-                            res['DVIS'][k]['N|V|'][i], ker, mode='same')
+                res['DVIS'][k]['|V|'][i] = conv(res['DVIS'][k]['N|V|'][i])
                 
     if 'OI_CF' in res:
         for k in res['OI_CF'].keys():
             for i in range(res['OI_CF'][k]['CF'].shape[0]):
-                res['OI_CF'][k]['CF'][i] = np.convolve(
-                            res['OI_CF'][k]['CF'][i], ker, mode='same')
-                res['OI_CF'][k]['PHI'][i] = np.convolve(
-                            res['OI_CF'][k]['PHI'][i], ker, mode='same')
+                res['OI_CF'][k]['CF'][i] = conv(res['OI_CF'][k]['CF'][i])
+                res['OI_CF'][k]['PHI'][i] = conv(res['OI_CF'][k]['PHI'][i])
                 
     for k in res['OI_VIS2'].keys():
         for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
-            res['OI_VIS2'][k]['V2'][i] = np.convolve(
-                        res['OI_VIS2'][k]['V2'][i], ker, mode='same')
+            res['OI_VIS2'][k]['V2'][i] = conv(res['OI_VIS2'][k]['V2'][i])
             if 'DVIS2' in res.keys() and 'NV2' in res['DVIS2'][k]:
-                res['DVIS2'][k]['NV2'][i] = np.convolve(
-                            res['DVIS2'][k]['NV2'][i], ker, mode='same')
+                res['DVIS2'][k]['NV2'][i] = conv(res['DVIS2'][k]['NV2'][i])
                 
     for k in res['OI_T3'].keys():
         for i in range(res['OI_T3'][k]['MJD'].shape[0]):
-            res['OI_T3'][k]['T3PHI'][i] = np.convolve(
-                        res['OI_T3'][k]['T3PHI'][i], ker, mode='same')
-            res['OI_T3'][k]['T3AMP'][i] = np.convolve(
-                        res['OI_T3'][k]['T3AMP'][i], ker, mode='same')
+            res['OI_T3'][k]['T3PHI'][i] = conv(res['OI_T3'][k]['T3PHI'][i])
+            res['OI_T3'][k]['T3AMP'][i] = conv(res['OI_T3'][k]['T3AMP'][i])
     return res
+
+def _convolve(y, ker):
+    k = len(ker)
+    _y = np.append(y, y[-k:][::-1])
+    _y = np.append(_y[::-1], y[:k])[::-1]
+    #print(len(y), len(_y), len(ker), len(y)+2*len(ker), )
+    return np.convolve(_y, ker, mode='same')[k:-k]
 
 def _applyTF(res):
     # == single target self-calibration -> assumes tel name have no '-'!!!
