@@ -1756,7 +1756,7 @@ def Vkepler(u, v, wl, param, plot=False, _fudge=1.5, _p=1.5, fullOutput=False,
     for i,r in enumerate(R):
         drt = dR[i] # step along the circle
         # -- PA angle (rad)
-        T = np.linspace(0, 2*np.pi, int(2*np.pi*r/drt))[:-1]
+        T = np.linspace(0, 2*np.pi, max(int(2*np.pi*r/drt), 3))[:-1]
 
         # -- avoid creating strong pattern in the mesh
         T += i*2*np.pi/len(R)
