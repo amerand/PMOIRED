@@ -29,6 +29,11 @@ import pmoired.oifits as oifits
 
 from astropy import constants
 
+try:
+    import pmoired.microprogress as microprogress
+except:
+    microprogress = None
+
 _c = np.pi**2/180/3600/1000*1e6
 
 # -- default max number of processes
@@ -4218,7 +4223,7 @@ def get_processor_info():
         return subprocess.check_output(command, shell=True).strip().decode()
     return "unknown processor"
 
-PROG_UPDATE = 1 # update period, in seconds
+PROG_UPDATE = 0.5 # update period, in seconds
 _prog_N = 1
 _prog_Nmax = 0
 _prog_t0 = time.time()
@@ -4227,9 +4232,12 @@ _prog_neo = 0
 
 def progress(results=None, finish=False):
     global _prog_N, _prog_last
-    #neoPixProgress() # does not play nice with multiprocessing...
     if finish:
         _prog_N = _prog_Nmax
+        if not microprogress is None:
+            microprogress.progress(1)
+            
+
     if finish or time.time()-_prog_last >= PROG_UPDATE:
         _nb = 60 # length of the progress bar
         tleft = (time.time()-_prog_t0)/max(_prog_N, 1)*(_prog_Nmax-_prog_N)
@@ -4245,7 +4253,12 @@ def progress(results=None, finish=False):
             fmt%(_prog_N, _prog_Nmax, tleft)+'\r'
         #print(res)
         sys.stdout.write(res)
+        if not microprogress is None:
+            microprogress.progress(_prog_N/_prog_Nmax)
         _prog_last = time.time()
+    if finish:
+        print()
+        microprogress.progress(0)
     _prog_N+=1
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
@@ -4843,9 +4856,6 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         for r in res:
             r['y'] = None
             r['y'] = None
-        if verbose:
-            # -- make sure the progress bar finishes
-            progress(finish=True)
     else:
         Np = 1
         t = time.time()
@@ -4859,10 +4869,9 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
             res.append(fitOI(oi, firstGuess, **kwargs))
             if verbose:
                 progress()
-        # -- make sure the progress bar finishes
-        if verbose:
-            progress(finish=True)
     if verbose:
+        # -- make sure the progress bar finishes
+        progress(finish=True)
         print(time.asctime()+': it took %.1fs, %.2fs per fit on average'%(time.time()-t,
                                                     (time.time()-t)/N),
                                                     end=' ')
