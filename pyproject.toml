@@ -44,7 +44,8 @@ dependencies = [
     "matplotlib >= 3.8.0",
     "astropy >= 6.0.0",
     "astroquery >= 0.4.4",
-    'importlib_resources; python_version < "3.9"'
+    'importlib_resources; python_version < "3.9"',
+    "pyserial >= 3.5",
 ]
 
 [project.urls]
