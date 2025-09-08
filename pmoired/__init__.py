@@ -1,4 +1,4 @@
-from pmoired import oimodels, oifits, oifake, oicorr #, chi2map
+from pmoired import oimodels, oifits, dpfit, oicorr #, chi2map
 
 import multiprocessing
 try:
@@ -23,7 +23,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.3.5'
+__version__= '1.3.6'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
