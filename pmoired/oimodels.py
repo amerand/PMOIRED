@@ -577,8 +577,6 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         else:
             res['WL'] = _expandVec(res['WL'], smear-1)
 
-        if _debug:
-            print('DBG> old', _WL.shape, 'new', res['WL'].shape)
             #print('')
         if not 'dWL' in res:
             res['dWL'] = np.gradient(res['WL'])
@@ -807,7 +805,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
         #dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
         PHIdu = lambda o: np.exp(-2j*_c*((o['u/wl'][:,wwl]/cwl +
                                          du/res['WL'][:,wwl])*x(o)[:,wwl] +
-                                          z['v/wl'][:,wwl]/cwl*y(o)[:,wwl]))
+                                          o['v/wl'][:,wwl]/cwl*y(o)[:,wwl]))
         PHIdv = lambda o: np.exp(-2j*_c*(o['u/wl'][:,wwl]/cwl*x(o)[:,wwl] +
                                         (o['v/wl'][:,wwl]/cwl+dv/res['WL'][wwl])*y(o)[:,wwl]))
 
@@ -1106,7 +1104,7 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             if any(flux>0):
                 # -- check negativity of spectrum
                 negativity += np.sum(flux[flux<0])/np.sum(flux[flux>=0])
-            elif all(f<0):
+            elif any(flux<0):
                 negativity += np.sum(flux[flux<0])
             else:
                 negativity += 0
@@ -2438,11 +2436,19 @@ def VmodelOI(oi, p, imFov=None, imPix=None, imX=0.0, imY=0.0, timeit=False, inde
     t0 = time.time()
     if timeit:
         print(' '*indent+'VmodelOI > total %.3fms'%(1000*(time.time()-tinit)))
-
     return res
+
+def _convolve(y, ker):
+    k = len(ker)
+    _y = np.append(y, y[-k:][::-1])
+    _y = np.append(_y[::-1], y[:k])[::-1]
+    #print(len(y), len(_y), len(ker), len(y)+2*len(ker), )
+    #print('!conv')
+    return np.convolve(_y, ker, mode='same')[k:-k]
 
 def _applyWlKernel(res, debug=False):
     if not ('fit' in res and 'wl kernel' in res['fit']):
+        print('no conv')
         return res
 
     #print('wl kernel!')
@@ -2454,49 +2460,53 @@ def _applyWlKernel(res, debug=False):
 
     #conv = lambda x: np.convolve(x, ker, mode='same')
     conv = lambda x: _convolve(x, ker)
+    #conv = lambda x: x
+
+    if 'fit' in res and 'wl ranges' in res['fit']:
+        # -- range(s) to take into consideration
+        w = np.zeros(res['WL'].shape, dtype=bool)
+        for WR in res['fit']['wl ranges']:
+            w += (res['WL']>=WR[0])*(res['WL']<=WR[1])
+    else:
+        w = res['WL']>0
 
     for k in res['OI_FLUX'].keys():
         for i in range(res['OI_FLUX'][k]['FLUX'].shape[0]):
-            res['OI_FLUX'][k]['FLUX'][i]  = conv(res['OI_FLUX'][k]['FLUX'][i])
+            print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
+            res['OI_FLUX'][k]['FLUX'][i][w]  = conv(res['OI_FLUX'][k]['FLUX'][i][w])
 
     if 'NFLUX' in res.keys():
         for k in res['NFLUX'].keys():
             for i in range(res['NFLUX'][k]['NFLUX'].shape[0]):
-                res['NFLUX'][k]['NFLUX'][i] = conv(res['NFLUX'][k]['NFLUX'][i])
+                res['NFLUX'][k]['NFLUX'][i][w] = conv(res['NFLUX'][k]['NFLUX'][i][w])
 
     for k in res['OI_VIS'].keys():
         for i in range(res['OI_VIS'][k]['|V|'].shape[0]):
-            res['OI_VIS'][k]['|V|'][i] = conv(res['OI_VIS'][k]['|V|'][i])
-            res['OI_VIS'][k]['PHI'][i] = conv(res['OI_VIS'][k]['PHI'][i])
+            res['OI_VIS'][k]['|V|'][i][w] = conv(res['OI_VIS'][k]['|V|'][i][w])
+            res['OI_VIS'][k]['PHI'][i][w] = conv(res['OI_VIS'][k]['PHI'][i][w])
             if 'DVIS' in res.keys() and 'DPHI' in res['DVIS'][k]:
-                res['DVIS'][k]['DPHI'][i] = conv(res['DVIS'][k]['DPHI'][i])
+                res['DVIS'][k]['DPHI'][i][w] = conv(res['DVIS'][k]['DPHI'][i][w])
             if 'DVIS' in res.keys() and '|V|' in res['DVIS'][k]:                
-                res['DVIS'][k]['|V|'][i] = conv(res['DVIS'][k]['N|V|'][i])
+                res['DVIS'][k]['|V|'][i][w] = conv(res['DVIS'][k]['N|V|'][i][w])
                 
     if 'OI_CF' in res:
         for k in res['OI_CF'].keys():
             for i in range(res['OI_CF'][k]['CF'].shape[0]):
-                res['OI_CF'][k]['CF'][i] = conv(res['OI_CF'][k]['CF'][i])
-                res['OI_CF'][k]['PHI'][i] = conv(res['OI_CF'][k]['PHI'][i])
+                res['OI_CF'][k]['CF'][i][w] = conv(res['OI_CF'][k]['CF'][i][w])
+                res['OI_CF'][k]['PHI'][i][w] = conv(res['OI_CF'][k]['PHI'][i][w])
                 
     for k in res['OI_VIS2'].keys():
         for i in range(res['OI_VIS2'][k]['V2'].shape[0]):
-            res['OI_VIS2'][k]['V2'][i] = conv(res['OI_VIS2'][k]['V2'][i])
+            res['OI_VIS2'][k]['V2'][i][w] = conv(res['OI_VIS2'][k]['V2'][i][w])
             if 'DVIS2' in res.keys() and 'NV2' in res['DVIS2'][k]:
-                res['DVIS2'][k]['NV2'][i] = conv(res['DVIS2'][k]['NV2'][i])
+                res['DVIS2'][k]['NV2'][i][w] = conv(res['DVIS2'][k]['NV2'][i][w])
                 
     for k in res['OI_T3'].keys():
         for i in range(res['OI_T3'][k]['MJD'].shape[0]):
-            res['OI_T3'][k]['T3PHI'][i] = conv(res['OI_T3'][k]['T3PHI'][i])
-            res['OI_T3'][k]['T3AMP'][i] = conv(res['OI_T3'][k]['T3AMP'][i])
+            res['OI_T3'][k]['T3PHI'][i][w] = conv(res['OI_T3'][k]['T3PHI'][i][w])
+            res['OI_T3'][k]['T3AMP'][i][w] = conv(res['OI_T3'][k]['T3AMP'][i][w])
     return res
 
-def _convolve(y, ker):
-    k = len(ker)
-    _y = np.append(y, y[-k:][::-1])
-    _y = np.append(_y[::-1], y[:k])[::-1]
-    #print(len(y), len(_y), len(ker), len(y)+2*len(ker), )
-    return np.convolve(_y, ker, mode='same')[k:-k]
 
 def _applyTF(res):
     # == single target self-calibration -> assumes tel name have no '-'!!!
@@ -3271,28 +3281,6 @@ def autoPrior(param):
             prior.append((k, '>', -1, 1e-6))
             prior.append((k, '<', 1, 1e-6))
     return prior
-
-def computePriorD(param, prior):
-    res = []
-    for p in prior.keys():
-        form = p+''
-        val = str(prior[p][1])+''
-        for i in range(3):
-            for k in tmp.keys():
-                if k in form:
-                    form = form.replace(k, '('+str(tmp[k])+')')
-                if k in val:
-                    val = val.replace(k, '('+str(tmp[k])+')')
-        # -- residual
-        if len(prior[p])==2:
-            resi = '('+form+'-'+str(val)+')'
-        elif len(prior[p])==3:
-            resi = '('+form+'-'+str(val)+')/abs('+str(prior[p][2])+')'
-
-        if prior[p][0]=='<' or prior[p][0]=='<=' or prior[p][0]=='>' or prior[p][0]=='>=':
-            resi = '%s if 0'%resi+prior[p][0]+'%s else 0'%resi
-        res.append(eval(resi))
-    return np.array(res)
 
 def computePriorL(param, prior, weight=1.0):
     res = []
@@ -4228,7 +4216,7 @@ _prog_N = 1
 _prog_Nmax = 0
 _prog_t0 = time.time()
 _prog_last = time.time()
-_prog_neo = 0
+#microprogress.progress(0)
 
 def progress(results=None, finish=False):
     global _prog_N, _prog_last
@@ -4236,7 +4224,6 @@ def progress(results=None, finish=False):
         _prog_N = _prog_Nmax
         if not microprogress is None:
             microprogress.progress(1)
-            
 
     if finish or time.time()-_prog_last >= PROG_UPDATE:
         _nb = 60 # length of the progress bar
@@ -4355,6 +4342,7 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     _prog_Nmax = N
     _prog_t0 = time.time()
     _prog_last = time.time()
+    microprogress.progress(0)
 
     if multi:
         if type(multi)!=int:
@@ -4503,6 +4491,7 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         _prog_Nmax = len(res)
         _prog_t0 = time.time()
         _prog_last = time.time()
+        microprogress.progress(0)
 
     mask = np.array([True for i in range(len(res))])
     keep = list(range(len(res)))
@@ -4832,6 +4821,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         _prog_Nmax = N
         _prog_t0 = time.time()
         _prog_last = time.time()
+        microprogress.progress(0)
 
         for i in range(N):
             kwargs['iter'] = i
@@ -4863,6 +4853,7 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         _prog_Nmax = N
         _prog_t0 = time.time()
         _prog_last = time.time()
+        microprogress.progress(0)
 
         for i in range(N):
             kwargs['iter'] = i
@@ -5025,14 +5016,14 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if ',' in k:
                     kv = k.split(',')[0]+','+'Vin'
                     fv = 1.5
-                    if kv.replace('Vin', 'incl') in _param:
-                        fv *= np.sin(_param[kv.replace('Vin', 'incl')]*np.pi/180)
+                    if kv.replace('Vin', 'incl') in param:
+                        fv *= np.sin(param[kv.replace('Vin', 'incl')]*np.pi/180)
 
                 else:
                     kv = 'Vin'
                     fv = 1.5
-                    if 'incl' in _param:
-                        fv *= np.sin(_param['incl']*np.pi/180)
+                    if 'incl' in param:
+                        fv *= np.sin(param['incl']*np.pi/180)
 
                 # if ',' in k:
                 #     kv = k.split(',')[0]+','+'Vin'
@@ -5040,24 +5031,24 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 # else:
                 #     kv = 'Vin'
                 #     fv = 1.0
-                if not kv in _param:
+                if not kv in param:
                     kv+='_Mm/s'
                     fv = 1000
 
-                if kv in _param:
-                    vel = np.abs(_param[kv]*fv)
+                if kv in param:
+                    vel = np.abs(param[kv]*fv)
                 else:
                     if ',' in k:
                         kv = k.split(',')[0]+','+'V1mas'
                     else:
                         kv = 'V1mas'
-                    if kv in _param:
-                        if 'Rin' in _param:
-                            vel = _param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
-                        elif 'diamin' in _param:
-                            vel = _param[kv]/np.sqrt(0.5*_param[kv.replace('V1mas', 'diamin')])
+                    if kv in param:
+                        if 'Rin' in param:
+                            vel = param[kv]/np.sqrt(param[kv.replace('V1mas', 'Rin')])
+                        elif 'diamin' in param:
+                            vel = param[kv]/np.sqrt(0.5*param[kv.replace('V1mas', 'diamin')])
 
-                dwl = np.sqrt(dwl**2 + (_param[k]*vel/2.998e5)**2)
+                dwl = np.sqrt(dwl**2 + (param[k]*vel/2.998e5)**2)
                 w *= (np.abs(oi['WL']-param[k])>=dwl)
     if np.sum(w)==0:
         print('WARNING: no continuum! using all wavelengths for clipping')
@@ -6584,7 +6575,8 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
         #res = {k:res[k] for k in ['best', 'uncer', 'covd', 'cord']}
         return res
     else:
-        param = computeLambdaParams(param, MJD=np.mean(oi['MJD']))
+        param = computeLambdaParams(param, #MJD=np.mean(oi['MJD'])
+                                    )
 
     if comp is None:
         C = filter(lambda x: x.endswith(',profile'), param.keys())
@@ -6647,7 +6639,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     x0, y0: keys to the center of rim (optional, wil assume 0,0 otherwise)
     """
     # -- interpret parameters
-    param = pmoired.oimodels.computeLambdaParams(oi._model['MODEL']['param'], MJD=np.mean(oi['MJD']))
+    param = computeLambdaParams(oi._model['MODEL']['param'], MJD=np.mean(oi['MJD']))
     incl = param[incl]*1.0
     projang = param[projang]*1.0
     if not x0 is None:
