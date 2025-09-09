@@ -6,6 +6,11 @@ import time
 from matplotlib import pyplot as plt
 from functools import reduce
 
+try:
+    import microprogress
+except:
+    microprogress = None
+
 """
 IDEA: fit Y = F(X,A) where A is a dictionnary describing the
 parameters of the function.
@@ -35,209 +40,6 @@ def polyN(x, params):
     res = 0
     for k in params.keys():
         res += params[k]*np.array(x)**float(k[1:])
-    return res
-
-def example():
-    """
-    very simple example
-    """
-    N = 50
-    # -- generate data set
-    X = np.linspace(-2,3,N)
-    Y = -0.7 - 0.4*X + 0.1*X**2 + .1*X**3
-
-    # -- error vector
-    E = np.ones(N)*0.3
-    np.random.seed(1234) # -- enure repeatibility
-    Y += E*np.random.randn(N) # -- random errors
-
-    # -- error covariance matrix
-    C = np.zeros((N, N))
-
-    for i in range(N):
-        for j in range(N):
-            if i==j:
-                C[i,j] = E[i]**2
-            else:
-                C[i,j] = 0.0*E[i]*E[j]
-
-    p0 = {'A0':0.0, 'A1':0., 'A2':0, 'A3':0.0}
-    m = ''
-    for k in sorted(p0.keys()):
-        i = int(k[1:])
-        if len(m)>0:
-            m+= ' + '
-        if i==0:
-            m+= k
-        else:
-            m+= k+'*X^%d'%i
-    print('model: Y = '+m)
-    # -- do the fit with simple error
-    fit = leastsqFit(dpfunc.polyN, X, p0, Y, err=E, verbose=2,
-                      doNotFit=[], ftol=1e-5, maxfev=500)
-
-    # -- display data and best fit model
-    plt.figure(1)
-    plt.clf()
-    plt.errorbar(X, Y, yerr=E, label='data', fmt='o')
-    plt.plot(X, fit['model'], '.-g', linewidth=2, label='fit')
-
-    # -- show uncertainties in the model, a bit oustside range
-    x = np.linspace(X.min()-0.1*X.ptp(), X.max()+0.1*X.ptp(), 100)
-    fit = randomParam(fit, N=100, x=x)
-    plt.fill_between(x, fit['r_ym1s'], fit['r_yp1s'], color='g',
-                     label='fit uncertainty', alpha=0.3)
-    plt.legend(loc='upper center')
-
-    # -- do the fit with covariance errors (uses curvefit)
-    fitc = leastsqFit(dpfunc.polyN, X, p0, Y, err=C, verbose=0,
-                      doNotFit=[], ftol=1e-5, maxfev=500)
-    print('nfev=', fitc['info']['nfev'])
-    test = 0.
-    for k in fitc['best'].keys():
-        test += (fit['best'][k]-fitc['best'][k])**2
-        test += (fit['uncer'][k]-fitc['uncer'][k])**2
-    print('difference leastsq / curve_fit:', test)
-    return
-
-def exampleBootstrap(centered=True):
-    x = np.linspace(-0.02,1.73,36)
-    if centered:
-        x0 = x.mean() # reduces correlations
-    else:
-        x0 = 0 # lead to correlations and biases
-
-    a = {'A0':9085., 'A1':-7736., 'A2':4781.0, 'A3':-1343.}
-    y = dpfunc.polyN(x,a)
-    a_ = leastsqFit(dpfunc.polyN, x-x0, a, y, verbose=0)['best']
-    fits = []
-    e = np.ones(len(x))*50
-    y += np.random.randn(len(x))*e
-
-    fits = bootstrap(dpfunc.polyN, x-x0, a_, y, err=e, verbose=1,
-                     fitOnly=['A0','A1','A2','A3'])
-
-    #-- all bootstraped fit, with average value and error bar:
-    plotCovMatrix(fits[1:], fig=0)
-
-    #-- first fit (with all data points), with error elipses:
-    plotCovMatrix(fits[0], fig=None)
-
-    #-- true value
-    N = len(fits[0]['fitOnly'])
-    for i,ki in enumerate(fits[0]['fitOnly']):
-        for j,kj in enumerate(fits[0]['fitOnly']):
-            plt.subplot(N,N,i+N*j+1)
-            xl = plt.xlim()
-            if i!=j:
-                plt.plot(a_[ki], a_[kj], 'oc', markersize=10, alpha=0.5,
-                         label='true')
-            else:
-                plt.vlines(a_[ki], 0, 0.99*plt.ylim()[1], color='c',
-                       linewidth=3, alpha=0.5, label='true')
-            plt.legend(loc='center right', prop={'size':7},
-                       numpoints=1)
-
-    plt.figure(1)
-    plt.clf()
-    label='bootstraping'
-    for f in fits[1:]:
-        plt.plot(x, dpfunc.polyN(x-x0,f['best']),'-', alpha=0.1, color='0.3',
-                 label=label)
-        label=''
-    plt.errorbar(x,y,marker='o',color='k',yerr=e, linestyle='none',
-                 label='data')
-    plt.plot(x,fits[0]['model'], '-b', linewidth=3, label='all points fit')
-    plt.plot(x,dpfunc.polyN(x-x0,a_), '-c', linewidth=3, label='true')
-
-    plt.legend()
-    return
-
-def exampleCorrelation():
-    """
-    very simple example with correlated error bars
-
-    """
-    # -- generate fake data:
-    N, noise, offset = 100, 0.2, 0.1
-    X = np.linspace(0,10,N)
-    Y = 0.0 + 1.0*np.sin(2*np.pi*X/1.2)
-    Y += noise*np.random.randn(N)
-    Y[:N//2] += offset
-    Y[N//2:] -= offset
-
-    # -- errors:
-    E = np.ones(N)*np.sqrt(noise**2+offset**2)
-
-    # -- covariance matric
-    C = np.zeros((N, N))
-    # -- diagonal = error
-    C[range(N), range(N)] = noise**2
-    rho = offset/np.sqrt(noise**2+offset**2)
-    # -- non-diag: correlations
-    for i in range(N):
-        for j in range(N):
-            if i!=j:
-                if i<N//2 and j<N//2:
-                    C[i,j] = rho*noise**2
-                elif i>=N//2 and j>=N//2:
-                    C[i,j] = rho*noise**2
-                else:
-                    C[i,j] = -0*rho*noise**2
-    #print(np.round(C, 3))
-    print('#'*12, 'without correlations', '#'*12)
-    E = np.ones(len(X), )*noise
-    fit=leastsqFit(dpfunc.fourier, X,
-                     {'A0':0.1, 'A1':1.,'PHI1':0., 'WAV':1.2},
-                     Y, err=E, verbose=1, normalizedUncer=0)
-    plt.figure(0)
-    plt.clf()
-    plt.errorbar(X,Y,yerr=E,linestyle='none', fmt='.')
-    plt.plot(X,fit['model'], color='r')
-    plt.title('without correlations')
-
-    print('#'*12, 'with correlations', '#'*12)
-
-    #print np.round(E, 2)
-    fit=leastsqFit(dpfunc.fourier, X,
-                     {'A0':0.1, 'A1':1.1,'PHI1':0., 'WAV':1.2},
-                     Y, err=linalg.inv(C), verbose=1, normalizedUncer=0)
-    plt.figure(1)
-    plt.clf()
-    plt.errorbar(X,Y,yerr=np.sqrt(np.diag(C)),linestyle='none', fmt='.')
-    plt.plot(X,fit['model'], color='r')
-    plt.title('with correlations')
-    return
-
-def meta(x, params):
-    """
-    allows to call any combination of function defines inside dpfunc:
-
-    params={'funcA;1:p1':, 'funcA;1:p2':,
-            'funcA;2:p1':, 'funcA;2:p2':,
-            'funcB:p1':, etc}
-
-    funcA and funcB should be defined in dpfunc.py. Allows to call many
-    instances of the same function (here funcA) and combine different functions.
-    Outputs of the difference functions will be sumed usinf operator '+'. """
-
-    # -- list of functions:
-    funcs = set([k.strip().split(':')[0].strip() for k in params.keys()])
-    #print funcs
-
-    res = 0
-    for f in funcs: # for each function
-        # -- keep only relevant keywords
-        kz = filter(lambda k: k.strip().split(':')[0].strip()==f, params.keys())
-        tmp = {}
-        for k in kz:
-            # -- build temporary dict pf parameters
-            tmp[k.split(':')[1].strip()]=params[k]
-        ff = f.split(';')[0].strip() # actual function name
-        if not ff in dpfunc.__dict__.keys():
-            raise NameError(ff+' not defined in dpfunc')
-        # -- add to result the function result
-        res += dpfunc.__dict__[ff](x, tmp)
     return res
 
 def invCOVconstRho(n,rho):
@@ -426,7 +228,8 @@ def leastsqFit(func, x, params, y, err=None, fitOnly=None,
             result = scipy.optimize.minimize(_fitFuncMin, pfit,
                             tol=ftol, options={'maxiter':maxfev, 'eps':epsfcn},
                             #bounds = Bounds, method=method,
-                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,correlations, addKwargs)
+                            args=(fitOnly,x,y,err,func,pfix,verbose,follow,
+                                  correlations,addKwargs)
                             )
             plsq = result.x
 
@@ -855,6 +658,7 @@ def _fitFunc(pfit, pfitKeys, x, y, err=None, func=None, pfix=None, verbose=False
             _follow = list(filter(lambda x: x in params.keys() and
                             type(params[x]) in [float, np.double], follow))
             print('|'.join([k+'='+'%5.2e'%params[k] for k in _follow]))
+        
     for i,k in enumerate(pfitKeys):
         if not k in trackP:
             trackP[k] = [pfit[i]]
@@ -1340,96 +1144,6 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False, maxlen=140):
         res += '</table>\n'
     if asStr:
         return res
-
-def plotCovMatrix(fit, fig=0):
-    if not fig is None:
-        plt.figure(fig)
-        plt.clf()
-    else:
-        # overplot
-        pass
-
-    t = np.linspace(0,2*np.pi,100)
-    if isinstance(fit , dict):
-        fitOnly = fit['fitOnly']
-        N = len(fit['fitOnly'])
-    else:
-        fitOnly = fit[0]['fitOnly']
-        N = len(fit[0]['fitOnly'])
-
-    for i in range(N):
-        for j in range(N):
-            if i!=j:
-                ax = plt.subplot(N, N, i+j*N+1)
-                if isinstance(fit , dict):
-                    sMa, sma, a = _ellParam(fit['cov'][i,i], fit['cov'][j,j], fit['cov'][i,j])
-                    X,Y = sMa*np.cos(t), sma*np.sin(t)
-                    X,Y = X*np.cos(a)+Y*np.sin(a),-X*np.sin(a)+Y*np.cos(a)
-                    plt.errorbar(fit['best'][fitOnly[i]],
-                                 fit['best'][fitOnly[j]],
-                                 xerr=np.sqrt(fit['cov'][i,i]),
-                                 yerr=np.sqrt(fit['cov'][j,j]), color='b',
-                                 linewidth=1, alpha=0.5, label='single fit')
-                    plt.plot(fit['best'][fitOnly[i]]+X,
-                                 fit['best'][fitOnly[j]]+Y,'-b',
-                                 label='cov. ellipse')
-                else: ## assumes case of bootstraping
-                    plt.plot([f['best'][fitOnly[i]] for f in fit],
-                             [f['best'][fitOnly[j]] for f in fit],
-                             '.', color='0.5', alpha=0.4, label='bootstrap')
-                    plt.errorbar(np.mean([f['best'][fitOnly[i]] for f in fit]),
-                                 np.mean([f['best'][fitOnly[j]] for f in fit]),
-                                 xerr=np.mean([f['uncer'][fitOnly[i]] for f in fit]),
-                                 yerr=np.mean([f['uncer'][fitOnly[j]] for f in fit]),
-                                 color='k', linewidth=1, alpha=0.5,
-                                 label='boot. avg')
-                #plt.legend(loc='upper right', prop={'size':7}, numpoints=1)
-                if not fig is None:
-                    if isinstance(fit , dict):
-                        if j==N-1 or j+1==i:
-                            plt.xlabel(fitOnly[i])
-                        if i==0 or j+1==i:
-                            plt.ylabel(fitOnly[j])
-                    else:
-                        if j==N-1:
-                            plt.xlabel(fitOnly[i])
-                        if i==0:
-                            plt.ylabel(fitOnly[j])
-
-            if i==j and not isinstance(fit , dict):
-                ax = plt.subplot(N, N, i+j*N+1)
-                X = [f['best'][fitOnly[i]] for f in fit]
-                h = plt.hist(X, color='0.8',bins=max(len(fit)/30, 3))
-                a = {'MU':np.median(X), 'SIGMA':np.std(X), 'AMP':len(X)/10.}
-                g = leastsqFit(dpfunc.gaussian, 0.5*(h[1][1:]+h[1][:-1]), a, h[0])
-                plt.plot(0.5*(h[1][1:]+h[1][:-1]), g['model'], 'r')
-                plt.errorbar(g['best']['MU'], g['best']['AMP']/2,
-                             xerr=g['best']['SIGMA'], color='r',
-                             marker='o', label='gauss fit')
-                plt.text(g['best']['MU'], 1.1*g['best']['AMP'],
-                         r'%s = %4.2e $\pm$ %4.2e'%(fitOnly[i],
-                                                g['best']['MU'],
-                                                g['best']['SIGMA']),
-                         color='r', va='center', ha='center')
-                print('%s = %4.2e  +/-  %4.2e'%(fitOnly[i],
-                                                g['best']['MU'],
-                                                g['best']['SIGMA']))
-                plt.ylim(0,max(plt.ylim()[1], 1.2*g['best']['AMP']))
-                if not fig is None:
-                    if j==N-1:
-                        plt.xlabel(fitOnly[i])
-                    if i==0:
-                        plt.ylabel(fitOnly[j])
-                plt.legend(loc='lower center', prop={'size':7},
-                           numpoints=1)
-            #--
-            try:
-                for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                    ax.get_xticklabels() + ax.get_yticklabels()):
-                    item.set_fontsize(8)
-            except:
-                pass
-    return
 
 def factors(n):
     """

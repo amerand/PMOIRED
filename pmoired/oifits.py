@@ -867,8 +867,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if not tellurics is None and not tellurics is False:
         # -- forcing tellurics to given vector
         res['TELLURICS'] = tellurics
-        if not binning is None and len(tellurics)==len(_WL):
-            res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
+        # == why this was here?  
+        #if not binning is None and len(tellurics)==len(_WL):
+        #    res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
 
     if 'OI_FLUX' in res.keys():
         for k in res['OI_FLUX'].keys():
@@ -916,7 +917,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                     mjd.extend(list(res[e][k]['MJD']))
         mjd = np.array(sorted(set(mjd)))
         #print('  > MJD:', sorted(set(mjd)))
-        print('  > MJD:', mjd.shape, '[', min(mjd), '..', max(mjd), ']')
+        print('  > MJD:', mjd.shape, '[%.4f..%.4f]'%(min(mjd), max(mjd)), end=' ')
+        print('~'+Time(np.mean(mjd), format='mjd').to_value('isot'))
         print('  >', '-'.join(res['telescopes']), end=' | ')
         _R = np.mean(res['WL']/res['dWL'])
         _Rp = np.abs(np.mean(res['WL']/np.gradient(res['WL'])))
