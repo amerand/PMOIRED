@@ -1147,7 +1147,7 @@ def dispCor(fit, ndigit=2, pre='', asStr=False, html=False, maxlen=140):
 
 def factors(n):
     """
-    returns the factirs for integer n
+    returns the factors for integer n
     """
     return list(set(reduce(list.__add__, ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0))))
 

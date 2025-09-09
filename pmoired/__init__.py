@@ -11,7 +11,6 @@ import sys
 import os
 import pickle
 import time
-import requests
 from inspect import signature
 
 import numpy as np
@@ -23,7 +22,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__= '1.3.7'
+__version__= '1.3.8'
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6

@@ -2472,7 +2472,7 @@ def _applyWlKernel(res, debug=False):
 
     for k in res['OI_FLUX'].keys():
         for i in range(res['OI_FLUX'][k]['FLUX'].shape[0]):
-            print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
+            #print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
             res['OI_FLUX'][k]['FLUX'][i][w]  = conv(res['OI_FLUX'][k]['FLUX'][i][w])
 
     if 'NFLUX' in res.keys():
