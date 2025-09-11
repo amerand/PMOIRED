@@ -1854,13 +1854,24 @@ class OI:
                         _MJD = []
                         for d in self.data:
                             _MJD += list(d['MJD'])
+                        if len(_MJD)==2:
+                            _MJD.append(0.5*(_MJD[0]+_MJD[1]))
                         _MJD = sorted(_MJD)
+                        nd = max(int(np.ceil(-np.log10(np.ptp(_MJD)+1))), 1)
+                        fmt = '%.'+str(nd)+'f'
                         x = eval(x.replace('$MJD', 'np.array('+str(_MJD)+')'))
                         y = eval(y.replace('$MJD', 'np.array('+str(_MJD)+')'))
-                        plt.plot(x, y, ':'+symbols[c]['m'],
-                                color=symbols[c]['c'], label=c,
-                                markersize=symbols[c]['s'])
-
+                        if len(_MJD)>2:
+                            plt.plot(x[1:-1], y[1:-1], symbols[c]['m'],
+                                     color=symbols[c]['c'], label=c,
+                                     markersize=symbols[c]['s'])
+                        plt.plot(x[0], y[0], marker=r'$\theta$', color=symbols[c]['c'], 
+                                 label=fmt%min(_MJD), 
+                                 markersize=6, linestyle='none')
+                        plt.plot(x[-1], y[-1], marker=r'$\Delta$', color=symbols[c]['c'], 
+                                 label=fmt%max(_MJD), 
+                                 markersize=6, linestyle='none')
+                        
                     #plt.plot(x, y, '.w', markersize=8, alpha=0.5)
 
                 if i==0 and len(comps)>0:

@@ -1241,7 +1241,11 @@ def VsingleOI(oi, param, noT3=False, imFov=None, imPix=None, imX=0, imY=0, imMJD
             fLor = 0
             _kl = 1
         if not imFov is None:
-            I = scipy.signal.fftconvolve(I, ker, mode='same')
+            if len(I.shape)==3:
+                print('fftconvolve', I.shape, ker.shape)
+                I = scipy.signal.fftconvolve(I, ker[None,:,:], mode='same', axes=(1,2))
+            else:
+                I = scipy.signal.fftconvolve(I, ker, mode='same')
     else:
         kfwhm = None
 
@@ -2448,7 +2452,7 @@ def _convolve(y, ker):
 
 def _applyWlKernel(res, debug=False):
     if not ('fit' in res and 'wl kernel' in res['fit']):
-        print('no conv')
+        #print('no conv')
         return res
 
     #print('wl kernel!')
@@ -2953,7 +2957,7 @@ def computeNormFluxOI(oi, param=None, order='auto', debug=False):
         return [computeNormFluxOI(o, _param, order) for o in oi]
 
     if not 'OI_FLUX' in oi.keys():
-        print('WARNING: computeNormFluxOI, nothing to do')
+        #print('WARNING: computeNormFluxOI, nothing to do')
         return oi
 
     if 'param' in oi.keys() and param is None:
