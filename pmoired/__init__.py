@@ -1349,7 +1349,8 @@ class OI:
              checkImVis=False, vWl0=None, imWl0=None, cmap='inferno',
              imX=0, imY=0, imTight=False, showChi2=False, cColors={}, cMarkers={},
              showSED=None, showPhotCent=False, imLegend=True, bckgGrid=True,
-             barycentric=False, autoLimV=False, t3B='max'):
+             barycentric=False, autoLimV=False, t3B='max',
+             modelNames=None, modelColors=None):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
@@ -1412,7 +1413,6 @@ class OI:
             #assert imPix>imFov/500, "the pixel of the synthetic image is too small!"
             if imPix<imFov/500:
                 raise Exception("the pixel of the synthetic image is too small!")
-
         else:
             if showSED is None:
                 showSED = False
@@ -1441,22 +1441,27 @@ class OI:
                     'best' in self.bestfit:
             #print('showing best fit model')
             model = self.bestfit['best']
-        elif not type(model) is dict:
-            #print('no model to show...')
+        elif type(model) is list and any([m=='best' for m in model]) and \
+                    type(self.bestfit) is dict and 'best' in self.bestfit:
+            model[model.index('best')] = self.bestfit['best']
+        elif not (type(model) is dict or type(model) is list):
             model = None
             showSED = False
             showIM = False
             imFov = None
 
         if not model is None and not imFov is None and checkImVis:
+            # -- only works with single model!
+            assert type(model) is dict, "only works for single model"
             allInOne = False
-            perSetUp = False
+            perSetup = False
             # -- prepare computing model's images
             print('computing model images and corresponding visibilities:')
             t0 = time.time()
             self.computeModelImages(model=model, imFov=imFov, imPix=imPix,
                                     imX=imX, imY=imY, visibilities=True)
             print('in %.1fs'%(time.time()-t0))
+
         self._dataAxes = {}
         if perSetup:
             if self.debug:
@@ -1518,7 +1523,8 @@ class OI:
                         spectro=spectro, showUV=showUV, allInOne=True,
                         imFov=None, checkImVis=checkImVis, vWl0=vWl0, imoi=_imoi,
                         showChi2=showChi2, debug=self.debug, bckgGrid=bckgGrid,
-                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
+                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B,
+                        modelNames=modelNames, modelColors=modelColors)
                 self._dataAxes[perSetup[j]] = oimodels.ai1ax
                 self._dataFig = oimodels.ai1fig
 
@@ -1533,13 +1539,26 @@ class OI:
                     pass
 
             if not imFov is None or showSED:
-                self.showModel(model=model, imFov=imFov, imPix=imPix,imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
-                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                               barycentric=barycentric)
+                if type(model) is dict:
+                    model = [model]
+                for im,m in enumerate(model):
+                    if not modelNames is None:
+                        title = modelNames[im]
+                    else:
+                        title = None
+                    if not modelColors is None:
+                        titleColor = modelColors[im]
+                    else:
+                        titleColor = None
+
+                    self.showModel(model=m, 
+                                imFov=imFov, imPix=imPix,imPlx=imPlx,
+                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
+                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                                imPhotCent=showPhotCent, imLegend=imLegend,
+                                debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                                barycentric=barycentric, title=title, titleColor=titleColor)
             return
         elif allInOne:
             if self.debug:
@@ -1573,14 +1592,16 @@ class OI:
                 imoi = None
 
             self._model = oimodels.showOI(self.data, param=model, fig=self.fig,
-                    obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
-                    spectro=spectro, showUV=showUV, allInOne=allInOne,
-                    imFov=None, showIm=False, #imPix=imPix, imPow=imPow, imMax=imMax,
-                    #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
-                    #cColors=cColors, cMarkers=cMarkers
-                    checkImVis=checkImVis, imoi=imoi, vWl0=vWl0, showChi2=showChi2,
-                    debug=self.debug, bckgGrid=bckgGrid,
-                    barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
+                        obs=None, logV=logV, logB=logB, showFlagged=showFlagged,
+                        spectro=spectro, showUV=showUV, allInOne=allInOne,
+                        imFov=None, showIm=False, #imPix=imPix, imPow=imPow, imMax=imMax,
+                        #imWl0=imWl0, cmap=cmap, imX=imX, imY=imY,
+                        #cColors=cColors, cMarkers=cMarkers
+                        checkImVis=checkImVis, imoi=imoi, vWl0=vWl0, showChi2=showChi2,
+                        debug=self.debug, bckgGrid=bckgGrid,
+                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B,
+                        modelNames=modelNames, modelColors=modelColors)
+            
             self._dataAxes['ALL'] = oimodels.ai1ax
             self._dataFig = oimodels.ai1fig
 
@@ -1596,13 +1617,26 @@ class OI:
                     pass
 
             if not imFov is None or showSED:
-                self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
-                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                               barycentric=barycentric)
+                if type(model) is dict:
+                    model = [model]
+                for im,m in enumerate(model):
+                    if not modelNames is None:
+                        title = modelNames[im]
+                    else:
+                        title = None
+                    if not modelColors is None:
+                        titleColor = modelColors[im]
+                    else:
+                        titleColor = None
+
+                    self.showModel(model=m, 
+                                imFov=imFov, imPix=imPix,imPlx=imPlx,
+                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
+                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                                imPhotCent=showPhotCent, imLegend=imLegend,
+                                debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                                barycentric=barycentric, title=title, titleColor=titleColor)
         else:
             self._model = []
             for i,d in enumerate(data):
@@ -1621,19 +1655,33 @@ class OI:
                         spectro=spectro, showUV=showUV, imFov=None, showIm=False,
                         checkImVis=checkImVis, vWl0=vWl0, bckgGrid=bckgGrid,
                         showChi2=showChi2, debug=self.debug, imoi=imoi,
-                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B))
+                        barycentric=barycentric, autoLimV=autoLimV, t3B=t3B,
+                        modelNames=modelNames, modelColors=modelColors))
                 self.fig += 1
                 self._dataAxes[i] = oimodels.ai1ax
                 self._dataFig = oimodels.ai1fig
 
             if not imFov is None or showSED:
-                self.showModel(model=model, imFov=imFov, imPix=imPix, imPlx=imPlx,
-                               imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
-                               imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
-                               cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
-                               imPhotCent=showPhotCent, imLegend=imLegend,
-                               debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
-                               barycentric=barycentric)
+                if type(model) is dict:
+                    model = [model]
+                for im,m in enumerate(model):
+                    if not modelNames is None:
+                        title = modelNames[im]
+                    else:
+                        title = None
+                    if not modelColors is None:
+                        titleColor = modelColors[im]
+                    else:
+                        titleColor = None
+
+                    self.showModel(model=m, 
+                                imFov=imFov, imPix=imPix,imPlx=imPlx,
+                                imX=imX, imY=imY, imPow=imPow, imMax=imMax, imTight=imTight,
+                                imWl0=imWl0, cColors=cColors, cMarkers=cMarkers,
+                                cmap=cmap, logS=logS, showSED=showSED, showIM=showIM,
+                                imPhotCent=showPhotCent, imLegend=imLegend,
+                                debug=self.debug, vWl0=vWl0, bckgGrid=bckgGrid,
+                                barycentric=barycentric, title=title, titleColor=titleColor)
         return
 
     def showModel(self, model='best', imFov=None, imPix=None, imX=0, imY=0,
@@ -1641,7 +1689,7 @@ class OI:
                   showSED=True, showIM=True, fig=None, cmap='inferno',
                   logS=False, imPlx=None, imPhotCent=False, debug=False,
                   imLegend=True, vWl0=None, WL=None, bckgGrid=True,
-                  barycentric=False, imTight=False):
+                  barycentric=False, imTight=False, title=None, titleColor=None):
         """
         model: parameter dictionnary, describing the model
 
@@ -1733,6 +1781,8 @@ class OI:
             figHeight =  max(figWidth/nplot, FIG_MAX_HEIGHT)
         plt.close(fig)
         self._modelFig = plt.figure(fig, figsize=(figWidth, figHeight))
+        if not title is None:
+            plt.suptitle(title, color=titleColor)
         i = -1 # default, in case only SED
         self._modelAxes = {}
         for i,wl0 in enumerate(imWl0):

@@ -2446,16 +2446,12 @@ def _convolve(y, ker):
     k = len(ker)
     _y = np.append(y, y[-k:][::-1])
     _y = np.append(_y[::-1], y[:k])[::-1]
-    #print(len(y), len(_y), len(ker), len(y)+2*len(ker), )
-    #print('!conv')
     return np.convolve(_y, ker, mode='same')[k:-k]
 
 def _applyWlKernel(res, debug=False):
     if not ('fit' in res and 'wl kernel' in res['fit']):
-        #print('no conv')
         return res
 
-    #print('wl kernel!')
     # -- convolve by spectral Resolution
     N = 2*int(2*res['fit']['wl kernel'])+3
     x = np.arange(N)
@@ -5118,7 +5114,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
            color=(1.0,0.2,0.1), checkImVis=False, showFlagged=False,
            onlyMJD=None, showUV=False, allInOne=False, vWl0=None,
            cColors={}, cMarkers={}, imoi=None, bckgGrid=True, barycentric=False,
-           autoLimV=False, t3B='max'):
+           autoLimV=False, t3B='max', modelNames=None, modelColors=None):
     """
     oi: result from oifits.loadOI
     param: dict of parameters for model (optional)
@@ -5194,7 +5190,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                    showChi2=showChi2 and not allInOne,
                    debug=debug, vWl0=vWl0, bckgGrid=bckgGrid,
                    cColors=cColors, cMarkers=cMarkers, imoi=_imoi,
-                   barycentric=barycentric, autoLimV=autoLimV, t3B=t3B)
+                   barycentric=barycentric, autoLimV=autoLimV, t3B=t3B,
+                    modelNames=modelNames, modelColors=modelColors,
+                   )
             if not param is None:
                 if 'fit' in o and 'obs' in o['fit'] and 'NFLUX' in o['fit']['obs']:
                     if 'WL mask' in m:
@@ -5355,11 +5353,19 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
     if 'DPHI' in obs or 'N|V|' in obs or 'NV2' in obs:
         if debug:
             print(' (re-)compute DiffPhi in data')
-        oi = computeDiffPhiOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
+        if type(param) is list:
+            oi = computeDiffPhiOI(oi, computeLambdaParams(param[0], MJD=np.mean(oi['MJD'])))
+        else:
+            oi = computeDiffPhiOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
+
     if 'NFLUX' in obs:
         if debug:
             print(' (re-)compute NormFlux in data')
-        oi = computeNormFluxOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
+        if type(param) is list:
+            oi = computeNormFluxOI(oi, computeLambdaParams(param[0], MJD=np.mean(oi['MJD'])))
+        else:
+            oi = computeNormFluxOI(oi, computeLambdaParams(param, MJD=np.mean(oi['MJD'])))
+
 
     if wlMin is None:
         wlMin = min(oi['WL'][oi['WL mask']])
@@ -5376,35 +5382,19 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
             remObs = True
         if debug:
             print(' computing Vmodel')
-        #if 'fit' in oi and 'Nr' in oi['fit']:
-        #    print('model Nr:', oi['fit']['Nr'])
-        #print('showOI:', oi['fit'] )
-        m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
-            debug=debug)
 
-        #for k in oi['OI_T3']:
-            #print(k, np.sum(np.isnan(m['OI_T3'][k]['T3PHI'])))
-            #print(k, m['OI_T3'][k]['FLAG'])
+        if type(param)==list:
+            Ms = [VmodelOI(oi, _p, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                        debug=debug) for _p in param]
+            m = Ms[0]
+        else:
+            m = VmodelOI(oi, param, imFov=imFov, imPix=imPix, imX=imX, imY=imY,
+                debug=debug)
+            Ms = [m]
 
         if remObs:
             oi['fit'].pop('obs')
-        # if not imFov is None and checkImVis:
-        #     # == FIX THIS! does not work anymore bcause images are computed elsewhere
-        #     if debug:
-        #         print(' computing V from Image, imFov=', imFov)
-        #     if not _m is None:
-        #         m = VfromImageOI(m)
-        # if checkImVis and not _m is None:
-        #         # -- this is ugly :(
-        #         for k in ['OI_VIS', 'OI_T3']:
-        #             m[k.replace('OI_', 'IM_')] = _m[k]
-        #         for k in m['IM_VIS'].keys():
-        #             m['IM_VIS'][k]['V2'] = _m['OI_VIS2'][k]['V2']
 
-        #if 'smearing' in m and any([m['smearing'][k]>1 for k in m['smearing']]):
-        #    print('bandwidth smearing spectral channel(s):', m['smearing'])
-        #if not 'smearing' in m:
-        #    print('! no smearing? !')
         if debug:
             print('using parameters')
     else:
@@ -5627,7 +5617,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         if not data[l]['ext'] in oi.keys():
             i_col += 1
             if debug:
-                print('adding one colum')
+                print('adding one column')
             continue
 
         N = len(oi[data[l]['ext']].keys())
@@ -5674,7 +5664,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
         else:
             pass
 
-        showLegend = False
+        showLegend = True
 
         # -- required for allInOne to have all required subplots,
         # -- but not necessarly plot!
@@ -5947,8 +5937,6 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                     yerr=err[flagged], color='m', alpha=0.2,
                                     linestyle='None')
 
-                showLegend = showLegend or showLabel
-
                 if showIgn and showFlagged:
                     # -- show ignored data (filtered on error for example)
                     ax.plot(X(oi,j)[ign], y[ign]+yoffset*i, 'xy', alpha=0.5)
@@ -5961,70 +5949,76 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 except:
                     pass
 
-                # -- show model (analytical)
+                # -- show model(s)  --------------------------------------------------
                 if not m is None and any(mask) and data[l]['ext'] in m.keys():
-                    if not k in m[data[l]['ext']].keys():
-                        k = list(m[data[l]['ext']].keys())[0]
-                    ym = m[data[l]['ext']][k][data[l]['var']][j,:]
-                    ym[mask] = np.unwrap(ym[mask]*np.pi/180)*180/np.pi
-                    ym[mask] = np.mod(ym[mask]+180-np.mean(ym[mask]), 360)+\
-                                (np.mean(ym[mask])-180)%360-360
+                    for _im, m in enumerate(Ms):
+                        if not modelColors is None:
+                            color = modelColors[_im]
+                        if not modelNames is None:
+                            label = modelNames[_im]
+                        
+                        if not k in m[data[l]['ext']].keys():
+                            k = list(m[data[l]['ext']].keys())[0]
+                        ym = m[data[l]['ext']][k][data[l]['var']][j,:]
+                        ym[mask] = np.unwrap(ym[mask]*np.pi/180)*180/np.pi
+                        ym[mask] = np.mod(ym[mask]+180-np.mean(ym[mask]), 360)+\
+                                    (np.mean(ym[mask])-180)%360-360
 
-                    # -- computed chi2 *in the displayed window*
-                    maskc2 = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
+                        # -- computed chi2 *in the displayed window*
+                        maskc2 = mask*(oi['WL']>=wlMin)*(oi['WL']<=wlMax)
 
-                    #print('dbg>', oi['WL'].min(), oi['WL'].max())
-                    #print('   >', m['WL'].min(), m['WL'].max())
-
-                    err[err<=0] = 1
-                    if 'PHI' in l:
-                        _resi = ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2]
-                    else:
-                        _resi = (y[maskc2]-ym[maskc2])/err[maskc2]
-
-                    # -- build residuals array
-                    resi = np.append(resi, _resi.flatten())
-                    # -- show predictions from model
-                    if not spectro:
-                        if np.sum(maskc2)>1:
-                            ax.plot(X(m,j)[maskc2], ym[maskc2],
-                                    '-', alpha=0.5 if not test else 0.3,
-                                    color=color if col=='k' else '0.5',
-                                    linewidth=2)
-                            if col!='k':
-                                ax.plot(X(m,j)[maskc2], ym[maskc2],
-                                        '--', alpha=0.7, color=col,
-                                        linewidth=2)
+                        err[err<=0] = 1
+                        if 'PHI' in l:
+                            _resi = ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2]
                         else:
-                            # -- not enough points to show lines
-                            ax.plot(X(m,j)[maskc2], ym[maskc2],
-                                    '_', color=col, alpha=0.5, ms=5)
+                            _resi = (y[maskc2]-ym[maskc2])/err[maskc2]
 
-                        # -- residuals
-                        if not 'FLUX' in l:
-                            if 'PHI' in l:
-                                axr.plot(X(m,j)[maskc2],
-                                        ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2],
-                                        mark, color=col, markersize=4, alpha=0.4)
+                        # -- build residuals array
+                        resi = np.append(resi, _resi.flatten())
+                        # -- show predictions from model
+                        if not spectro:
+                            if np.sum(maskc2)>1:
+                                ax.plot(X(m,j)[maskc2], ym[maskc2],
+                                        '-', alpha=0.5 if not test else 0.3,
+                                        color=color if col=='k' else '0.5',
+                                        linewidth=2)
+                                if col!='k':
+                                    ax.plot(X(m,j)[maskc2], ym[maskc2],
+                                            '--', alpha=0.7, color=col,
+                                            linewidth=2)
                             else:
-                                axr.plot(X(m,j)[maskc2],
-                                        (y[maskc2]-ym[maskc2])/err[maskc2],
-                                        mark, color=col, markersize=4, alpha=0.4)
-                    else:
-                        ax.step(X(m,j)[maskc2], ym[maskc2]+yoffset*i,
-                                '-', alpha=0.4 if not test else 0.2,
-                                where='mid', color=color)
-                    try:
-                        ymin = min(ymin, np.min(ym[maskp]+yoffset*i))
-                        ymax = max(ymax, np.max(ym[maskp]+yoffset*i))
-                        setylim = True
-                    except:
-                        pass
-                else:
-                    #resi = []
-                    pass
+                                # -- not enough points to show lines
+                                ax.plot(X(m,j)[maskc2], ym[maskc2],
+                                        '_', color=col, alpha=0.5, ms=5)
 
-                # -- show model: numerical FT from image
+                            # -- residuals
+                            if not 'FLUX' in l:
+                                if 'PHI' in l:
+                                    axr.plot(X(m,j)[maskc2],
+                                            ((y[maskc2]-ym[maskc2]+180)%360-180)/err[maskc2],
+                                            mark, color=col, markersize=4, alpha=0.4)
+                                else:
+                                    axr.plot(X(m,j)[maskc2],
+                                            (y[maskc2]-ym[maskc2])/err[maskc2],
+                                            mark, color=col, markersize=4, alpha=0.4)
+                        else:
+                            ax.step(X(m,j)[maskc2], ym[maskc2]+yoffset*i,
+                                    '-', alpha=0.4 if not test else 0.2,
+                                    where='mid', color=color, label=label)
+                        try:
+                            ymin = min(ymin, np.min(ym[maskp]+yoffset*i))
+                            ymax = max(ymax, np.max(ym[maskp]+yoffset*i))
+                            setylim = True
+                        except:
+                            pass
+                    else:
+                        pass
+                    # -- end show model ------------------------------------------
+                if not modelNames is None and showLegend:
+                    plt.legend(fontsize=4.5, loc='lower right')
+                    showLegend = False
+
+                # -- show model based on numerical FT from image
                 if checkImVis:
                     if not spectro: #allInOne:
                         ax.plot(X(imoi, j)[mask],
@@ -6035,7 +6029,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                              imoi[data[l]['ext']][k][data[l]['var']][j,mask]+yoffset*i,
                             '--g', alpha=0.5, linewidth=2, where='mid')
 
-                # -- show continuum for differetial PHI and normalised FLUX
+                # -- show continuum for differential PHI and normalised FLUX
                 if (l=='DPHI' or l=='NFLUX' or l=='N|V|' or l=='NV2') and 'WL cont' in oi:
                     maskc = ~oi[data[l]['ext']][k]['FLAG'][j,:]*\
                                     oi['WL cont']*oi['WL mask']
@@ -6165,8 +6159,8 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                     axv.set_xlabel('velocity (km/s)', fontsize=6)
                 if l=='NFLUX':
                     ax.set_xlabel(Xlabel)
-            if (allInOne or l=='T3PHI') and showLegend:
-                ax.legend(fontsize=5, ncol=4)
+            #if (allInOne or l=='T3PHI') and showLegend:
+            #    ax.legend(fontsize=5, ncol=4)
         i_col += 1
         if debug:
             print()

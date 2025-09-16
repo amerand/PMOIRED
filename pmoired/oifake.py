@@ -796,9 +796,7 @@ def solveDLposition(dl, opd, dlPosMin=11/2., dlPosMax=111/2.,
             pass
     return best
 
-
 _X, _Y = [], []
-
 
 def visImage(image, scale, u, v, wl, debug=False):
     """
