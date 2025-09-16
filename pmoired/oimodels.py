@@ -6015,7 +6015,7 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                         pass
                     # -- end show model ------------------------------------------
                 if not modelNames is None and showLegend:
-                    plt.legend(fontsize=4.5, loc='lower right')
+                    plt.legend(fontsize=5, loc='lower right')
                     showLegend = False
 
                 # -- show model based on numerical FT from image
