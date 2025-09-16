@@ -944,7 +944,7 @@ __mjd0 = 57000
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                  diam=None, cube=None, noise=None, thres=None,
                  model=None, insname='synthetic', debug=False,
-                 doubleDL=False):
+                 doubleDL=False, wlKernel=None):
     """
     for VLTI!
 
@@ -1046,29 +1046,16 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         if len(cube['image'].shape) == 2:
             def fvis(u, v, l): return visImage(
                 cube['image'], cube['scale'], u, v, l)
-
             def fflux(l): return np.ones((len(lst), len(l)))
         else:
             def fvis(u, v, l): return visCube(cube, u, v, l)
+            lst = np.array(lst)
             if 'spectrum' in cube:
-                def fflux(l): return np.interp(l, cube['WL'], cube['spectrum'])
+                def fflux(l): return np.interp(l, cube['WL'], cube['spectrum'])[None,:]*(1+0*lst[:,None])
             else:
                 def fflux(l): return np.interp(l, cube['WL'],
-                                               np.sum(cube['image'], axis=(1, 2)))
-    elif model is None and diam is None:
-        # -- so we have at least somethinh to model!
-        diam = 1.0
-
-    if not diam is None:
-        # -- simple uniform disk
-        c = np.pi/180/3600/1000/1e-6
-
-        def fvis(u, v, l):
-            x = c*np.pi*diam*np.sqrt(u**2+v**2)[:, None]/wl[None, :]
-            return 2*scipy.special.j1(x)/x
-
-        def fflux(l): return np.ones((len(lst), len(l)))
-
+                                               np.sum(cube['image'], axis=(1, 2)))[None,:]*(1+0*lst[:,None])
+        
     VIS = {}  # complex visibility
     # -- OI_VIS2
     OIV2 = {}
@@ -1078,41 +1065,39 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     for b in tmp['baselines']:
         # -- complex visibility for this baseline
         VIS[b] = fvis(tmp['u'][b], tmp['v'][b], wl)
-        nv2 = noise['V2']*np.maximum(np.abs(VIS[b])**2, thres['V2'])
+        #nv2 = noise['V2']*np.maximum(np.abs(VIS[b])**2, thres['V2'])
         OIV2[b] = {'u': tmp['u'][b], 'v': tmp['v'][b],
-                   'u/wl': tmp['u'][b][:, None]/wl[None, :],
-                   'v/wl': tmp['v'][b][:, None]/wl[None, :],
-                   'B/wl': tmp['B'][b][:, None]/wl[None, :],
-                   # 'PA': tmp['PA'][b],
-                   'PA': np.angle(tmp['v'][b][:, None]/wl[None, :] +
-                                  1j*tmp['u'][b][:, None]/wl[None, :], deg=True),
-                   'MJD': tmp['MJD'],
-                   'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
-                   'FLAG': np.zeros((len(lst), len(wl)), bool),
-                   'V2': np.abs(VIS[b])**2 +
-                   nv2*np.random.randn(len(lst), len(wl)),
-                   'EV2': nv2,
-                   }
+                'u/wl': tmp['u'][b][:, None]/wl[None, :],
+                'v/wl': tmp['v'][b][:, None]/wl[None, :],
+                'B/wl': tmp['B'][b][:, None]/wl[None, :],
+                # 'PA': tmp['PA'][b],
+                'PA': np.angle(tmp['v'][b][:, None]/wl[None, :] +
+                                1j*tmp['u'][b][:, None]/wl[None, :], deg=True),
+                'MJD': tmp['MJD'],
+                'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
+                'FLAG': np.zeros((len(lst), len(wl)), bool),
+                'V2': np.abs(VIS[b])**2, #+nv2*np.random.randn(len(lst), len(wl)),
+                'EV2': np.zeros((len(lst), len(wl))),
+                }
         if debug:
             print(b, list(OIV2[b].keys()))
 
-        nv = noise['|V|']*np.maximum(np.abs(VIS[b]), thres['|V|'])
+        #nv = noise['|V|']*np.maximum(np.abs(VIS[b]), thres['|V|'])
         OIV[b] = {'u': tmp['u'][b], 'v': tmp['v'][b],
-                  'u/wl': tmp['u'][b][:, None]/wl[None, :],
-                  'v/wl': tmp['v'][b][:, None]/wl[None, :],
-                  'B/wl': tmp['B'][b][:, None]/wl[None, :],
-                  # 'PA': tmp['PA'][b],
-                  'PA': np.angle(tmp['v'][b][:, None]/wl[None, :] +
-                                 1j*tmp['u'][b][:, None]/wl[None, :], deg=True),
-                  'MJD': tmp['MJD'],
-                  'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
-                  'FLAG': np.zeros((len(lst), len(wl)), bool),
-                  '|V|': np.abs(VIS[b]) + nv*np.random.randn(len(lst), len(wl)),
-                  'E|V|': nv,
-                  'PHI': np.angle(VIS[b])*180/np.pi +
-                  noise['PHI']*np.random.randn(len(lst), len(wl)),
-                  'EPHI': noise['PHI']*np.ones((len(lst), len(wl))),
-                  }
+                'u/wl': tmp['u'][b][:, None]/wl[None, :],
+                'v/wl': tmp['v'][b][:, None]/wl[None, :],
+                'B/wl': tmp['B'][b][:, None]/wl[None, :],
+                # 'PA': tmp['PA'][b],
+                'PA': np.angle(tmp['v'][b][:, None]/wl[None, :] +
+                                1j*tmp['u'][b][:, None]/wl[None, :], deg=True),
+                'MJD': tmp['MJD'],
+                'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
+                'FLAG': np.zeros((len(lst), len(wl)), bool),
+                '|V|': np.abs(VIS[b]), #+ nv*np.random.randn(len(lst), len(wl)),
+                'E|V|': np.zeros((len(lst), len(wl))),
+                'PHI': np.angle(VIS[b])*180/np.pi, #+noise['PHI']*np.random.randn(len(lst), len(wl)),
+                'EPHI': np.zeros((len(lst), len(wl))), #noise['PHI']*np.ones((len(lst), len(wl))),
+                }
         for m in tmp['MJD']:
             conf[m].append(b)
     res['OI_VIS2'] = OIV2
@@ -1121,15 +1106,13 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     # -- OI_FLUX
     OIF = {}
     for s in t:
-        OIF[s] = {'FLUX': fflux(wl)*(1 +
-                                     noise['FLUX']*np.random.randn(len(lst), len(wl))),
-                  'RFLUX': fflux(wl)*(1 +
-                                      noise['FLUX']*np.random.randn(len(lst), len(wl))),
-                  'EFLUX': noise['FLUX']*np.ones((len(lst), len(wl)))*fflux(wl)[None, :],
-                  'FLAG': np.zeros((len(lst), len(wl)), bool),
-                  'MJD': tmp['MJD'],
-                  'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
-                  }
+        OIF[s] = {'FLUX': fflux(wl),#*(1 + noise['FLUX']*np.random.randn(len(lst), len(wl))),
+                 'RFLUX': fflux(wl),#*(1 + noise['FLUX']*np.random.randn(len(lst), len(wl))),
+                 'EFLUX': np.zeros((len(lst), len(wl))), #noise['FLUX']*np.ones((len(lst), len(wl)))*fflux(wl)[None, :],
+                 'FLAG': np.zeros((len(lst), len(wl)), bool),
+                 'MJD': tmp['MJD'],
+                 'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
+                }
         for m in tmp['MJD']:
             conf[m].append(s)
     res['OI_FLUX'] = OIF
@@ -1170,11 +1153,11 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
 
             # -- minimum visibility
             minV = np.minimum(np.minimum(np.abs(VIS[b1]), np.abs(VIS[b2])),
-                              np.abs(VIS[b3]))
+                            np.abs(VIS[b3]))
 
             form = ('+' if s1 > 0 else '-')+b1 +\
-                   ('+' if s2 > 0 else '-')+b2 +\
-                   ('+' if s3 > 0 else '-')+b3
+                ('+' if s2 > 0 else '-')+b2 +\
+                ('+' if s3 > 0 else '-')+b3
             # print('debug:', i, tri, form)
 
             # -- KLUDGE -> account for T3 amplitude
@@ -1182,18 +1165,16 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             # ncp = np.maximum(1, thres['T3AMP']/minV)
             if debug:
                 print(tri, 'NCP:', ncp.min(), ncp.max(),
-                      'noise T3PHI:', noise['T3PHI'])
+                    'noise T3PHI:', noise['T3PHI'])
 
             OIT3[''.join(tri)] = {
                 'MJD': tmp['MJD'],
                 'MJD2': tmp['MJD'][:, None]+0*wl[None, :],
                 'FLAG': np.zeros((len(lst), len(wl)), bool),
-                'T3AMP': np.abs(T3)*(1 +
-                                     noise['T3AMP']*np.random.randn(len(lst), len(wl))),
-                'ET3AMP': noise['T3AMP']*np.ones((len(lst), len(wl)))*np.abs(T3),
-                'T3PHI': np.angle(T3)*180/np.pi +
-                ncp*noise['T3PHI']*np.random.randn(len(lst), len(wl)),
-                'ET3PHI': ncp*noise['T3PHI']*np.ones((len(lst), len(wl))),
+                'T3AMP': np.abs(T3),#*(1 + noise['T3AMP']*np.random.randn(len(lst), len(wl))),
+                'ET3AMP': np.zeros((len(lst), len(wl))), #noise['T3AMP']*np.ones((len(lst), len(wl)))*np.abs(T3),
+                'T3PHI': np.angle(T3)*180/np.pi, #+ncp*noise['T3PHI']*np.random.randn(len(lst), len(wl)),
+                'ET3PHI': np.zeros((len(lst), len(wl))), #ncp*noise['T3PHI']*np.ones((len(lst), len(wl))),
                 'u1': s1*tmp['u'][b1], 'v1': s1*tmp['v'][b1],
                 'u2': s2*tmp['u'][b2], 'v2': s2*tmp['v'][b2],
                 'u1/wl': s1*tmp['u'][b1][:, None]/wl[None, :],
@@ -1218,56 +1199,62 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             for m in tmp['MJD']:
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
+    res['configurations per MJD'] = conf
 
-    if not model is None:
+    if cube is None:
         param = model
         res['fit'] = {'obs': ['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
         res = oimodels.VmodelOI(res, param, fullOutput=True)
 
-        # --
+        # -- wait what?!
         for k in ['PA']:
             for b in res['OI_VIS']:
                 res['OI_VIS'][b][k] = tmp[k][b][:, None]+0*res['WL'][None, :]
             for b in res['OI_VIS2']:
                 res['OI_VIS2'][b][k] = tmp[k][b][:, None]+0*res['WL'][None, :]
 
-        # -- add noise
-        def addnoise(e, k, o):
-            res[e][k][o] += np.random.randn(res[e][k][o].shape[0],
-                                            res[e][k][o].shape[1]) *\
-                res[e][k]['E'+o]
+    # -- set Noise levels
+    if 'OI_FLUX' in res:
+        for k in res['OI_FLUX'].keys():
+            res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*\
+                np.maximum(res['OI_FLUX'][k]['FLUX'], thres['FLUX'])
 
-        if 'OI_FLUX' in res:
-            for k in res['OI_FLUX'].keys():
-                res['OI_FLUX'][k]['EFLUX'] = noise['FLUX']*np.maximum(res['OI_FLUX'][k]['FLUX'],
-                                                                      thres['FLUX'])
-                addnoise('OI_FLUX', k, 'FLUX')
+    for k in res['OI_VIS'].keys():
+        res['OI_VIS'][k]['E|V|'] = noise['|V|'] * \
+            np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])
+        res['OI_VIS'][k]['EPHI'] = noise['PHI'] * \
+            np.ones(res['OI_VIS'][k]['PHI'].shape)
+        res['OI_VIS2'][k]['EV2'] = noise['V2'] * \
+            np.maximum(res['OI_VIS2'][k]['V2'], thres['V2'])
+        
+    for k in res['OI_T3'].keys():
+        res['OI_T3'][k]['ET3AMP'] = noise['T3AMP'] * \
+            np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])
+        res['OI_T3'][k]['ET3PHI'] = noise['T3PHI'] * \
+            np.ones(res['OI_T3'][k]['T3PHI'].shape)
 
-        for k in res['OI_VIS'].keys():
-            res['OI_VIS'][k]['E|V|'] = noise['|V|'] * \
-                np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])
-            # res['OI_VIS'][k]['EPHI'] = noise['PHI']*(thres['|V|']/np.sqrt(thres['|V|']**2 +
-            #                                np.maximum(res['OI_VIS'][k]['|V|'], thres['|V|'])**2))
-            res['OI_VIS'][k]['EPHI'] = noise['PHI'] * \
-                np.ones(res['OI_VIS'][k]['PHI'].shape)
-            res['OI_VIS2'][k]['EV2'] = noise['V2'] * \
-                np.maximum(res['OI_VIS2'][k]['V2'], thres['V2'])
-            addnoise('OI_VIS', k, '|V|')
-            addnoise('OI_VIS', k, 'PHI')
-            addnoise('OI_VIS2', k, 'V2')
+    # -- apply wl kernel
+    if not wlKernel is None:
+        res['fit'].update({'wl kernel':wlKernel})
+        res = oimodels._applyWlKernel(res)
 
-        for k in res['OI_T3'].keys():
-            res['OI_T3'][k]['ET3AMP'] = noise['T3AMP'] * \
-                np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])
-            # res['OI_T3'][k]['ET3PHI'] = noise['T3PHI']*(thres['T3AMP']/np.sqrt(thres['T3AMP']**2+
-            #                     np.maximum(res['OI_T3'][k]['T3AMP'], thres['T3AMP'])**2))
-            res['OI_T3'][k]['ET3PHI'] = noise['T3PHI'] * \
-                np.ones(res['OI_T3'][k]['T3PHI'].shape)
+    # -- add actual noise
+    def addnoise(e, k, o):
+        res[e][k][o] += np.random.randn(res[e][k][o].shape[0],
+                                        res[e][k][o].shape[1]) *\
+            res[e][k]['E'+o]
 
-            addnoise('OI_T3', k, 'T3AMP')
-            addnoise('OI_T3', k, 'T3PHI')
+    for k in res['OI_FLUX'].keys():
+        addnoise('OI_FLUX', k, 'FLUX')
+    for k in res['OI_VIS'].keys():
+        addnoise('OI_VIS', k, '|V|')
+        addnoise('OI_VIS', k, 'PHI')
+        addnoise('OI_VIS2', k, 'V2')
+    for k in res['OI_T3'].keys():
+        addnoise('OI_T3', k, 'T3AMP')
+        addnoise('OI_T3', k, 'T3PHI')
 
-    res['configurations per MJD'] = conf
+
     return res
 
 
