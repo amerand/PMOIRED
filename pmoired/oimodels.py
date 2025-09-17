@@ -5722,7 +5722,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                                 ax = plt.subplot(n_flux+1, ncol, ncol*(i_flux)+1,
                                                 sharex=ax0)
                         if bckgGrid:
-                            ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                            #ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                            ax.grid(color=(0.4, 0.6, 0.9), alpha=0.15)
+
                 else:
                     if not spectro:
                         # -- as function of baseline/wl
@@ -6106,7 +6108,9 @@ def showOI(oi, param=None, fig=0, obs=None, showIm=False, imFov=None, imPix=None
                 ax.tick_params(axis='x', labelsize=6)
                 ax.tick_params(axis='y', labelsize=6)
                 if bckgGrid:
-                    ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                    #ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+                    ax.grid(color=(0.4, 0.6, 0.9), alpha=0.15)
+
             else:
                 if l in ['V2', '|V|']:
                     if logV:
@@ -6483,7 +6487,9 @@ def showModel(oi, param, m=None, fig=0, figHeight=4, figWidth=None, WL=None,
                          label=k.split(',')[0].strip(),
                          color=symbols[k.split(',')[0].strip()]['c'])
     if bckgGrid:
-        plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+        #plt.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
+        plt.grid(color=(0.4, 0.6, 0.9), alpha=0.15)
+
     ax.legend(fontsize=5)
     plt.xlabel(r'wavelength ($\mu$m)')
     ax.tick_params(axis='x', labelsize=6)
