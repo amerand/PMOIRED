@@ -964,6 +964,12 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
           {'V2': 0.01, '|V|':0.01, 'PHI':1., 'FLUX':0.01, 'T3PHI':1., 'T3AMP':0.01}
     """
     global __mjd0
+
+    if wlKernel is None:
+        wk = 1
+    else:
+        wk = wlKernel
+
     if noise == 0:
         noise = {k: 0 for k in ['V2', '|V|', 'PHI', 'FLUX', 'T3PHI', 'T3AMP']}
     if noise is None:
@@ -1021,7 +1027,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         __mjd0 += 1
     tmp['MJD'] = (np.array(lst)-lst0)/24 + mjd0
     res = {'insname': '%s_%.3f_%.3fum_R%.0f' % (insname, min(wl), max(wl),
-                                                np.mean(wl/np.gradient(wl))),
+                                                np.mean(wl/np.gradient(wl)/wk)),
            'filename': 'synthetic',
            'targname': target if type(target) == str else
            '%.3f %.3f' % tuple(target),
@@ -1199,8 +1205,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
             for m in tmp['MJD']:
                 conf[m].append(''.join(tri))
     res['OI_T3'] = OIT3
-    res['configurations per MJD'] = conf
-
+    
     if cube is None:
         param = model
         res['fit'] = {'obs': ['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
@@ -1212,6 +1217,8 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                 res['OI_VIS'][b][k] = tmp[k][b][:, None]+0*res['WL'][None, :]
             for b in res['OI_VIS2']:
                 res['OI_VIS2'][b][k] = tmp[k][b][:, None]+0*res['WL'][None, :]
+    res['configurations per MJD'] = conf
+    res['dWL'] = np.gradient(res['WL'])*wk
 
     # -- set Noise levels
     if 'OI_FLUX' in res:
@@ -1253,9 +1260,6 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     for k in res['OI_T3'].keys():
         addnoise('OI_T3', k, 'T3AMP')
         addnoise('OI_T3', k, 'T3PHI')
-
-
     return res
-
 
 makeFake = makeFakeVLTI  # legacy
