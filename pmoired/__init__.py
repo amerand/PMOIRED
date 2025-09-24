@@ -7,8 +7,7 @@ try:
 except:
     pass
 
-import sys
-import os
+import sys, os, platform
 import pickle
 import time
 from inspect import signature
@@ -16,7 +15,9 @@ from inspect import signature
 import numpy as np
 #import warnings
 #warnings.filterwarnings("ignore", category=RuntimeWarning)
+import matplotlib
 import matplotlib.pyplot as plt
+
 import scipy
 import astropy
 import astroquery
@@ -27,15 +28,23 @@ __version__= '1.3.9'
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
 MAX_THREADS = multiprocessing.cpu_count()
-US_SPELLING = True
+US_SPELLING = False
 oimodels.US_SPELLING = US_SPELLING
 
 def setUSspelling(b):
     US_SPELLING = b
     oimodels.US_SPELLING = US_SPELLING
 
-#print('[P]arametric [M]odeling of [O]ptical [I]nte[r]ferom[e]tric [D]ata', end=' ')
-#print('https://github.com/amerand/PMOIRED')
+def _customPlots(b):
+    if b:
+        # -- colors to go with dark themes from https://github.com/catppuccin/jupyterlab
+        matplotlib.rcParams['figure.facecolor'] = (0.95, 0.95, 0.9)
+        matplotlib.rcParams['font.family'] = 'IBM Plex Mono'
+    else:
+        matplotlib.rc_file_defaults()
+
+if os.getlogin()=='amerand' and platform.uname().node=='MDVH47TQ2XR':
+    _customPlots(True)
 
 __versions__={'pmoired':__version__,
               'python':sys.version,
@@ -210,6 +219,51 @@ class OI:
                 pass
         if debug:
             print('loaded:', loaded)
+        return
+
+    def flagDataTelescopes(self, baselines, ext=None, data=None):
+        """
+        baselines: list of Telescope / baseline / triangles
+
+        ext: list of extensions such as OI_FLUX, OI_VIS, OI_VIS2, OI_T3 or OI_CF (correlated flux) 
+            If None (default), will apply to all extensions (but telescopes will not mask baselines or triangles!)
+
+        data: list of indices of data, e.g. [0,2] for the first and third data sets (default: all)
+        """
+        if data is None:
+            data = np.arange(len(self.data))
+        if type(baselines)==str:
+            baselines = [baselines]
+        if not ext is None and type(ext)==str:
+            ext = [ext]
+        #print(baselines, ext, data)
+
+        o2e = {'|V|':'OI_VIS',
+            'PHI':'OI_VIS',
+            'V2':'OI_VIS2',
+            'T3AMP':'OI_T3',
+            'T3PHI':'OI_T3',
+            'FLUX':'OI_FLUX', # flux, corrected from tellurics
+            'CF':'OI_CF', # correlated flux
+            }
+        flagAny = False
+        for i in data:
+            if ext is None:
+                if 'fit' in self.data[i] and 'obs' in self.data[i]['fit']:
+                    _ext = list(set([o2e[o] for o in self.data[i]['fit']['obs']]))
+                else:
+                    _ext = ['OI_FLUX', 'OI_VIS', 'OI_VIS2', 'OI_T3', 'OI_CF']
+            else:
+                _ext = ext.copy()
+            for k in _ext:
+                if k in self.data[i]:
+                    for b in baselines:
+                        if b in self.data[i][k]:
+                            print(f"flagging .data[{i}]['{k}']['{b}']")
+                            self.data[i][k][b]['FLAG'] = np.logical_or(self.data[i][k][b]['FLAG'], True)
+                            flagAny = True
+        if not flagAny:
+            print('\033[33mWARNING\033[0m: nothing was flagged!')
         return
 
     def sizeof(self):
