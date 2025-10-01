@@ -4245,7 +4245,8 @@ def progress(results=None, finish=False):
         _prog_last = time.time()
     if finish:
         print()
-        microprogress.progress(0)
+        if not microprogress is None:
+            microprogress.progress(0)
     _prog_N+=1
 
 def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
@@ -4342,7 +4343,8 @@ def gridFitOI(oi, param, expl, N=None, fitOnly=None, doNotFit=None,
     _prog_Nmax = N
     _prog_t0 = time.time()
     _prog_last = time.time()
-    microprogress.progress(0)
+    if not microprogress is None:
+        microprogress.progress(0)
 
     if multi:
         if type(multi)!=int:
@@ -4491,7 +4493,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         _prog_Nmax = len(res)
         _prog_t0 = time.time()
         _prog_last = time.time()
-        microprogress.progress(0)
+        if not microprogress is None:
+            microprogress.progress(0)
 
     mask = np.array([True for i in range(len(res))])
     keep = list(range(len(res)))
@@ -4821,7 +4824,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         _prog_Nmax = N
         _prog_t0 = time.time()
         _prog_last = time.time()
-        microprogress.progress(0)
+        if not microprogress is None:
+            microprogress.progress(0)
 
         for i in range(N):
             kwargs['iter'] = i
@@ -4853,7 +4857,8 @@ def bootstrapFitOI(oi, fit, N=None, maxfev=5000, ftol=1e-6, sigmaClipping=None, 
         _prog_Nmax = N
         _prog_t0 = time.time()
         _prog_last = time.time()
-        microprogress.progress(0)
+        if not microprogress is None:
+            microprogress.progress(0)
 
         for i in range(N):
             kwargs['iter'] = i
