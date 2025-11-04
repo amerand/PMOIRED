@@ -867,7 +867,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if not tellurics is None and not tellurics is False:
         # -- forcing tellurics to given vector
         res['TELLURICS'] = tellurics
-        # == why this was here?  
+        # == why this was here?
         #if not binning is None and len(tellurics)==len(_WL):
         #    res['TELLURICS'] = _binVec(res['WL'], _WL, tellurics)
 
@@ -1059,7 +1059,7 @@ def _binOI(res, binning=None, medFilt=None, noError=False):
                                             res['OI_VIS'][k]['PHI'],
                                             res['OI_VIS'][k]['FLAG'],
                                             None if noError else res['OI_VIS'][k]['EPHI'],
-                                            medFilt=medFilt)
+                                            medFilt=medFilt, phase=True)
             if not noError:
                 res['OI_VIS'][k]['E|V|'] = 1/_binVec_flag(res['WL'], _WL,
                                                 1/res['OI_VIS'][k]['E|V|'],
@@ -1472,7 +1472,7 @@ def _binVec_flag(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False
 
 def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
     """
-    bin Y(X) with new x. E is optional error bars (wor weighting)
+    bin Y(X) with new x. E is optional error bars (or weighting)
     """
     if E is None:
         E = np.ones(len(Y))
@@ -1496,10 +1496,13 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
             #     y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
             # else:
             #     y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
+
             if no!=0 and np.isfinite(no):
-                y[i] = np.angle(np.sum(k/E*np.exp(1j*Y*np.pi/180))/no)*180/np.pi
+               y[i] = np.angle(np.sum(k/E*np.exp(1j*Y*np.pi/180))/no)*180/np.pi
             else:
-                y[i] = np.angle(np.sum(k*np.exp(1j*Y*np.pi/180))/np.sum(k))*180/np.pi
+               y[i] = np.angle(np.sum(k*np.exp(1j*Y*np.pi/180))/np.sum(k))*180/np.pi
+    if phase:
+        y = np.unwrap(y+180, period=360)-180
     return y
 
 def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=None):
