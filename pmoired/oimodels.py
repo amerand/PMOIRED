@@ -3365,9 +3365,7 @@ def computeLambdaParams(params, MJD=0):
     return paramsR
 
 
-def computeDiffPhiOI(
-    oi, param=None, order="auto", debug=False, visamp=True, vis2amp=True
-):
+def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis2amp=True):
     if not param is None:
         _param = computeLambdaParams(param, MJD=np.mean(oi["MJD"]))
     else:
@@ -3540,8 +3538,9 @@ def computeDiffPhiOI(
                 err = None
 
             if np.sum(mask) > order:
+                phi[mask] = np.unwrap(phi[mask], period=360)
                 if not err is None:
-                    c = np.polyfit(oi["WL"][mask], phi[mask], order, w=1 / err[mask])
+                    c = np.polyfit(oi["WL"][mask], phi[mask], order, w=1/err[mask])
                 else:
                     c = np.polyfit(oi["WL"][mask], phi[mask], order)
                 # print('debug:', np.mean(phi[mask]-np.polyval(c, oi['WL'][mask])))
