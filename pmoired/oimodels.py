@@ -3609,7 +3609,7 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
                 # -- end visamp
         oi["DVIS"][k] = {
             "DPHI": np.array(data),
-            "FLAG": oi["OI_VIS"][k]["FLAG"],
+            "FLAG": np.logical_or(oi["OI_VIS"][k]["FLAG"], np.isnan(data)),
             "B/wl": oi["OI_VIS"][k]["B/wl"],
         }
         if "NAME" in oi["OI_VIS"][k]:
