@@ -4762,6 +4762,7 @@ def sparseFitFluxes(
             fitOnly=fitOnly + _fitOnly,
             maxfev=maxfev,
             epsfcn=epsfcn,
+            prior=prior,
         )
         for k in sparse:
             if fit["uncer"][k] == 0:

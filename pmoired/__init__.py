@@ -2827,10 +2827,10 @@ class OI:
             pass
         return
 
-    def showBestfit(self):
+    def showBestfit(self, ignore=None, showOnly=None):
         if not self.bestfit == {}:
             print("chi2 = %f" % self.bestfit["chi2"])
-            oimodels.dpfit.dispBest(self.bestfit)
+            oimodels.dpfit.dispBest(self.bestfit, showOnly=showOnly)
             oimodels.dpfit.dispCor(self.bestfit)
         else:
             print("no fit to show")
