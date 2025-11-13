@@ -3153,9 +3153,10 @@ def _convolve(y, ker):
 
 
 def _applyWlKernel(res, debug=False, fullWlRange=False):
+    """
+    """
     if not ("fit" in res and "wl kernel" in res["fit"]):
         return res
-
     # -- convolve by spectral Resolution
     N = 2 * int(2 * res["fit"]["wl kernel"]) + 3
     x = np.arange(N)
@@ -3176,41 +3177,52 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
     else:
         w = res["WL"] > 0
 
-    for k in res["OI_FLUX"].keys():
-        for i in range(res["OI_FLUX"][k]["FLUX"].shape[0]):
-            # print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
-            res["OI_FLUX"][k]["FLUX"][i][w] = conv(res["OI_FLUX"][k]["FLUX"][i][w])
+    if 'OI_FLUX' in res:
+        for k in res["OI_FLUX"].keys():
+            for i in range(res["OI_FLUX"][k]["FLUX"].shape[0]):
+                # print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
+                res["OI_FLUX"][k]["FLUX"][i][w] = conv(res["OI_FLUX"][k]["FLUX"][i][w])
 
     if "NFLUX" in res.keys():
         for k in res["NFLUX"].keys():
             for i in range(res["NFLUX"][k]["NFLUX"].shape[0]):
                 res["NFLUX"][k]["NFLUX"][i][w] = conv(res["NFLUX"][k]["NFLUX"][i][w])
 
-    for k in res["OI_VIS"].keys():
-        for i in range(res["OI_VIS"][k]["|V|"].shape[0]):
-            res["OI_VIS"][k]["|V|"][i][w] = conv(res["OI_VIS"][k]["|V|"][i][w])
-            res["OI_VIS"][k]["PHI"][i][w] = conv(res["OI_VIS"][k]["PHI"][i][w])
-            if "DVIS" in res.keys() and "DPHI" in res["DVIS"][k]:
-                res["DVIS"][k]["DPHI"][i][w] = conv(res["DVIS"][k]["DPHI"][i][w])
-            if "DVIS" in res.keys() and "|V|" in res["DVIS"][k]:
-                res["DVIS"][k]["|V|"][i][w] = conv(res["DVIS"][k]["N|V|"][i][w])
+    if 'OI_VIS' in res:
+        for k in res["OI_VIS"].keys():
+            for i in range(res["OI_VIS"][k]["|V|"].shape[0]):
+                res["OI_VIS"][k]["|V|"][i][w] = conv(res["OI_VIS"][k]["|V|"][i][w])
+                res["OI_VIS"][k]["PHI"][i][w] = conv(res["OI_VIS"][k]["PHI"][i][w])
+                if "DVIS" in res.keys() and "DPHI" in res["DVIS"][k]:
+                    res["DVIS"][k]["DPHI"][i][w] = conv(res["DVIS"][k]["DPHI"][i][w])
+                if "DVIS" in res.keys() and "|V|" in res["DVIS"][k]:
+                    res["DVIS"][k]["|V|"][i][w] = conv(res["DVIS"][k]["N|V|"][i][w])
 
-    if "OI_CF" in res:
-        for k in res["OI_CF"].keys():
-            for i in range(res["OI_CF"][k]["CF"].shape[0]):
-                res["OI_CF"][k]["CF"][i][w] = conv(res["OI_CF"][k]["CF"][i][w])
-                res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
+    if 'OI_CF' in res:
+        if "OI_CF" in res:
+            for k in res["OI_CF"].keys():
+                for i in range(res["OI_CF"][k]["CF"].shape[0]):
+                    res["OI_CF"][k]["CF"][i][w] = conv(res["OI_CF"][k]["CF"][i][w])
+                    res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
 
-    for k in res["OI_VIS2"].keys():
-        for i in range(res["OI_VIS2"][k]["V2"].shape[0]):
-            res["OI_VIS2"][k]["V2"][i][w] = conv(res["OI_VIS2"][k]["V2"][i][w])
-            if "DVIS2" in res.keys() and "NV2" in res["DVIS2"][k]:
-                res["DVIS2"][k]["NV2"][i][w] = conv(res["DVIS2"][k]["NV2"][i][w])
+    if 'OI_VIS2' in res:
+        for k in res["OI_VIS2"].keys():
+            for i in range(res["OI_VIS2"][k]["V2"].shape[0]):
+                res["OI_VIS2"][k]["V2"][i][w] = conv(res["OI_VIS2"][k]["V2"][i][w])
+                if "DVIS2" in res.keys() and "NV2" in res["DVIS2"][k]:
+                    res["DVIS2"][k]["NV2"][i][w] = conv(res["DVIS2"][k]["NV2"][i][w])
 
-    for k in res["OI_T3"].keys():
-        for i in range(res["OI_T3"][k]["MJD"].shape[0]):
-            res["OI_T3"][k]["T3PHI"][i][w] = conv(res["OI_T3"][k]["T3PHI"][i][w])
-            res["OI_T3"][k]["T3AMP"][i][w] = conv(res["OI_T3"][k]["T3AMP"][i][w])
+    if 'OI_T3' in res:
+        for k in res["OI_T3"].keys():
+            for i in range(res["OI_T3"][k]["MJD"].shape[0]):
+                res["OI_T3"][k]["T3PHI"][i][w] = conv(res["OI_T3"][k]["T3PHI"][i][w])
+                res["OI_T3"][k]["T3AMP"][i][w] = conv(res["OI_T3"][k]["T3AMP"][i][w])
+
+    if 'MODEL' in res:
+        for k in res['MODEL']:
+            if k.endswith(',flux') or k=='totalflux':
+                res["MODEL"][k] = conv(res["MODEL"][k])
+
     return res
 
 
@@ -6539,6 +6551,7 @@ def showOI(
         allWLc = []  # -- continuum -> absolute flux
         allWLs = []  # -- with spectral lines -> normalised flux
         allMJD = []
+        kernel = []
         if obs is None and allInOne:
             obs = []
             for o in oi:
@@ -6616,12 +6629,19 @@ def showOI(
                     else:
                         allWLc.extend(list(m["WL"]))
             allMJD.extend(list(o["MJD"]))
+            if 'fit' in o and 'wl kernel' in o['fit']:
+                print('saving kernel')
+                kernel.append(o['fit']['wl kernel'])
+
             models.append(m)
 
         allWLc = np.array(sorted(list(set(allWLc))))
         allWLs = np.array(sorted(list(set(allWLs))))
         allMJD = np.array(sorted(list(set(allMJD))))
-
+        kernel = list(set(kernel))
+        print('kernel:', kernel)
+        if len(kernel)>1:
+            print('warning: ambiguous wl kernel for global computation!')
         if showIm and not imFov is None:
             fluxes = {}
             spectra = {}
@@ -6632,6 +6652,9 @@ def showOI(
                     "fit": {"obs": []},
                     "MJD": allMJD,
                 }  # minimum required
+                if len(kernel)==1:
+                    print('wl kernel!')
+                    allWl["fit"]["wl kernel"] = kernel[0]
                 tmp = showModel(
                     allWL,
                     param,
@@ -6664,7 +6687,9 @@ def showOI(
                     "fit": {"obs": ["NFLUX"]},  # force computation of continuum
                     "MJD": allMJD,
                 }
-
+                if len(kernel)==1:
+                    print('wl kernel!')
+                    allWl["fit"]["wl kernel"] = kernel[0]
                 tmp = showModel(
                     allWL,
                     param,

@@ -2609,12 +2609,12 @@ class OI:
                     linestyle="none",
                 )
                 plt.legend(fontsize=6)
-            if "#spatial kernel" in model:
-                xk = np.max(self.images["X"]) - model["#spatial kernel"]
-                yk = np.min(self.images["Y"]) + model["#spatial kernel"]
+            if "spatial kernel" in model:
+                xk = np.max(self.images["X"]) - model["spatial kernel"]
+                yk = np.min(self.images["Y"]) + model["spatial kernel"]
                 c = plt.Circle(
                     (xk, yk),
-                    model["#spatial kernel"] / 2,
+                    model["spatial kernel"] / 2,
                     color=(0.8, 0.6, 0.3),
                     linewidth=2,
                     alpha=0.5,
@@ -3280,6 +3280,9 @@ def _computeSpectra(model, data, models):
             for c in o["fit"]["continuum ranges"]:
                 if not c in allCont:
                     allCont.append(c)
+        if "fit" in o and "wl kernel" in o["fit"]:
+            fit['wl kernel'] = o['fit']['wl kernel']
+
         if not "fit" in o:
             o["fit"] = fit.copy()
         elif not "wl ranges" in o["fit"]:
@@ -3320,6 +3323,16 @@ def _computeSpectra(model, data, models):
     M = {"model": model}
     if len(allWLc):
         allWL = {"WL": allWLc, "fit": {"obs": []}, "MJD": allMJD}  # minimum required
+        kernel = []
+        for o in data:
+            if 'fit' in o and 'wl kernel' in o['fit']:
+                kernel.append(o['fit']['wl kernel'])
+        kernel = list(set(kernel))
+        if len(kernel)==1:
+            allWL['fit']['wl kernel'] = kernel[0]
+        elif  len(kernel)>1:
+            print('WARNING: ambitious wavelength kernel for global spectrum')
+
         if not Nr is None:
             allWL["fit"]["Nr"] = Nr
         tmp = oimodels.VmodelOI(allWL, model)
@@ -3366,6 +3379,17 @@ def _computeSpectra(model, data, models):
             "MJD": allMJD,
             "fit": {"obs": ["NFLUX"], "continuum ranges": allCont},
         }  # minimum required
+
+        kernel = []
+        for o in data:
+            if 'fit' in o and 'wl kernel' in o['fit']:
+                kernel.append(o['fit']['wl kernel'])
+        kernel = list(set(kernel))
+        if len(kernel)==1:
+            allWL['fit']['wl kernel'] = kernel[0]
+        elif  len(kernel)>1:
+            print('WARNING: ambitious wavelength kernel for global spectrum')
+
         if not Nr is None:
             allWL["fit"]["Nr"] = Nr
 
