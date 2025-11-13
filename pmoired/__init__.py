@@ -2872,8 +2872,7 @@ class OI:
         other parameters: see 'doFit'
         """
         self._merged = oifits.mergeOI(
-            self.data, collapse=True, verbose=False, dMJD=self.dMJD
-        )
+            self.data, collapse=True, verbose=False, dMJD=self.dMJD)
         self.bestfit = oimodels.sparseFitFluxes(
             self._merged,
             firstGuess,
@@ -2886,8 +2885,8 @@ class OI:
             maxfev=maxfev,
             ftol=ftol,
             epsfcn=epsfcn,
-            prior=prior,
-        )
+            prior=prior)
+        self._model = oimodels.VmodelOI(self._merged, self.bestfit["best"])
         self.computeModelSpectra(uncer=False)
         self.bestfit["prior"] = prior
         return
@@ -3134,21 +3133,14 @@ class OI:
             for k in d[key]:
                 # -- dims are uv, wl, x, y
                 phi = (
-                    -2j
-                    * _c
-                    * (
+                    -2j*_c*(
                         res["X"][None, None, :, :] * d[key][k]["u/wl"][:, :, None, None]
                         + res["Y"][None, None, :, :]
-                        * d[key][k]["v/wl"][:, :, None, None]
-                    )
-                )
+                        * d[key][k]["v/wl"][:, :, None, None]))
                 # -- complex visibility
-                vis = (
-                    np.sum(
+                vis = (np.sum(
                         res["cube"][wl, :, :][None, :, :, :] * np.exp(phi), axis=(2, 3)
-                    )
-                    / norm
-                )
+                    )/ norm)
                 tmp["OI_VIS"][k] = {
                     "|V|": np.abs(vis),
                     "PHI": np.angle(vis) * 180 / np.pi,
@@ -3394,17 +3386,23 @@ def _computeSpectra(model, data, models):
             allWL["fit"]["Nr"] = Nr
 
         tmp = oimodels.VmodelOI(allWL, model, timeit=False)
+        tmp = oimodels.computeNormFluxOI(tmp, model)
+        print('MODEL:', tmp['MODEL'].keys())
         fluxes = {
             k.split(",")[0]: tmp["MODEL"][k]
             for k in tmp["MODEL"].keys()
-            if k.endswith(",flux")
+            if k.endswith(",nflux")
         }
         if not models is None:
-            tmps = [oimodels.VmodelOI(allWL, m) for m in models]
+            tmps = []
+            for m in models:
+                tmps.append(oimodels.VmodelOI(allWL, m) for m in models)
+                tmps[-1] = oimodels.computeNormFluxOI(tmps[-1], m)
+
             efluxes = {
                 k.split(",")[0]: np.std([t["MODEL"][k] for t in tmps], axis=0)
                 for k in tmp["MODEL"].keys()
-                if k.endswith(",flux")
+                if k.endswith(",nflux")
             }
         else:
             efluxes = {}
@@ -3416,11 +3414,10 @@ def _computeSpectra(model, data, models):
         M["normalised spectrum WL"] = allWLs
         M["normalised spectrum COMP"] = fluxes
         M["err normalised spectrum COMP"] = efluxes
-        M["normalised spectrum TOTAL"] = tmp["MODEL"]["totalflux"]
+        M["normalised spectrum TOTAL"] = tmp["MODEL"]["totalnflux"]
         if not models is None:
             M["err normalised spectrum TOTAL"] = np.std(
-                [t["MODEL"]["totalflux"] for t in tmps], axis=0
-            )
+                [t["MODEL"]["totalnflux"] for t in tmps], axis=0)
     else:
         M["normalised spectrum WL"] = np.array([])
         M["normalised spectrum COMP"] = {}

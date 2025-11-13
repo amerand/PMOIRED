@@ -176,7 +176,7 @@ def Ssingle(oi, param, noLambda=False):
             X = np.linspace(min(oi["WL"]), max(oi["WL"]), len(sw))
         # -- inverse Daubechies wavelet transform because we parametrise
         Y = np.array([_param[k] for k in sw])
-        Y = dw.oneD(Y, -n, order=8)
+        Y = dw.oneD(Y, -n, order=4)
         # if min(X)<min(oi['WL']) or max(X)>max(oi['WL']):
         #    print('WL range !')
         f += np.interp(oi["WL"], X, Y)
@@ -3220,7 +3220,7 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
 
     if 'MODEL' in res:
         for k in res['MODEL']:
-            if k.endswith(',flux') or k=='totalflux':
+            if k.endswith(',flux') or k.endswith(',nflux') or k=='totalflux' or k=='totalnflux':
                 res["MODEL"][k] = conv(res["MODEL"][k])
 
     return res
@@ -3732,7 +3732,6 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
             oi["IM_VIS"][k]["DPHI"] = data
     return oi
 
-
 def computeNormFluxOI(oi, param=None, order="auto", debug=False):
     if not param is None:
         _param = computeLambdaParams(param, MJD=np.mean(oi["MJD"]))
@@ -3742,7 +3741,7 @@ def computeNormFluxOI(oi, param=None, order="auto", debug=False):
     if type(oi) == list:
         return [computeNormFluxOI(o, _param, order) for o in oi]
 
-    if not "OI_FLUX" in oi.keys():
+    if not ("OI_FLUX" in oi.keys() or "MODEL" in oi.keys()):
         # print('WARNING: computeNormFluxOI, nothing to do')
         return oi
 
@@ -3851,61 +3850,62 @@ def computeNormFluxOI(oi, param=None, order="auto", debug=False):
         order = np.sum(oi["WL cont"]) - 1
         # return oi
 
-    oi["NFLUX"] = {}
     # -- normalize flux in the data:
-    for k in oi["OI_FLUX"].keys():
-        data = []
-        edata = []
-        cont = []
-        for i, flux in enumerate(oi["OI_FLUX"][k]["FLUX"]):
-            mask = w * ~oi["OI_FLUX"][k]["FLAG"][i, :]
-            # -- continuum
-            if np.sum(mask) > order:
-                c = np.polyfit(oi["WL"][w] - np.mean(oi["WL"][w]), flux[w], order)
-                _cont = np.polyval(c, oi["WL"] - np.mean(oi["WL"][w]))
-            else:
-                _cont = np.nanmedian(flux) * np.ones(len(flux))
-            data.append(flux / _cont)
-            cont.append(_cont)
+    if 'OI_FLUX' in oi:
+        oi["NFLUX"] = {}
+        for k in oi["OI_FLUX"].keys():
+            data = []
+            edata = []
+            cont = []
+            for i, flux in enumerate(oi["OI_FLUX"][k]["FLUX"]):
+                mask = w * ~oi["OI_FLUX"][k]["FLAG"][i, :]
+                # -- continuum
+                if np.sum(mask) > order:
+                    c = np.polyfit(oi["WL"][w] - np.mean(oi["WL"][w]), flux[w], order)
+                    _cont = np.polyval(c, oi["WL"] - np.mean(oi["WL"][w]))
+                else:
+                    _cont = np.nanmedian(flux) * np.ones(len(flux))
+                data.append(flux / _cont)
+                cont.append(_cont)
 
-            # edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.polyval(c, oi['WL']))
-            # -- err normalisation cannot depend on the mask nor continuum calculation!
-            edata.append(oi["OI_FLUX"][k]["EFLUX"][i] / np.nanmedian(flux))
-            # -- we have to do this here
-            if (
-                "fit" in oi
-                and "mult error" in oi["fit"]
-                and "NFLUX" in oi["fit"]["mult error"]
-            ):
-                edata[-1] *= oi["fit"]["mult error"]["NFLUX"]
-            if (
-                "fit" in oi
-                and "min relative error" in oi["fit"]
-                and "NFLUX" in oi["fit"]["min relative error"]
-            ):
-                edata[-1] = np.maximum(
-                    edata[-1], oi["fit"]["min relative error"]["NFLUX"] * data[-1]
-                )
-            if (
-                "fit" in oi
-                and "min error" in oi["fit"]
-                and "NFLUX" in oi["fit"]["min error"]
-            ):
-                edata[-1] = np.maximum(edata[-1], oi["fit"]["min error"]["NFLUX"])
+                # edata.append(oi['OI_FLUX'][k]['EFLUX'][i]/np.polyval(c, oi['WL']))
+                # -- err normalisation cannot depend on the mask nor continuum calculation!
+                edata.append(oi["OI_FLUX"][k]["EFLUX"][i] / np.nanmedian(flux))
+                # -- we have to do this here
+                if (
+                    "fit" in oi
+                    and "mult error" in oi["fit"]
+                    and "NFLUX" in oi["fit"]["mult error"]
+                ):
+                    edata[-1] *= oi["fit"]["mult error"]["NFLUX"]
+                if (
+                    "fit" in oi
+                    and "min relative error" in oi["fit"]
+                    and "NFLUX" in oi["fit"]["min relative error"]
+                ):
+                    edata[-1] = np.maximum(
+                        edata[-1], oi["fit"]["min relative error"]["NFLUX"] * data[-1]
+                    )
+                if (
+                    "fit" in oi
+                    and "min error" in oi["fit"]
+                    and "NFLUX" in oi["fit"]["min error"]
+                ):
+                    edata[-1] = np.maximum(edata[-1], oi["fit"]["min error"]["NFLUX"])
 
-        data = np.array(data)
-        edata = np.array(edata)
-        cont = np.array(cont)
-        oi["NFLUX"][k] = {
-            "NFLUX": data,
-            "ENFLUX": edata,
-            "FLAG": oi["OI_FLUX"][k]["FLAG"],
-            "MJD": oi["OI_FLUX"][k]["MJD"],
-            "CONT": cont,
-        }
-        # -- for boostrapping
-        if "NAME" in oi["OI_FLUX"][k]:
-            oi["NFLUX"][k]["NAME"] = oi["OI_FLUX"][k]["NAME"]
+            data = np.array(data)
+            edata = np.array(edata)
+            cont = np.array(cont)
+            oi["NFLUX"][k] = {
+                "NFLUX": data,
+                "ENFLUX": edata,
+                "FLAG": oi["OI_FLUX"][k]["FLAG"],
+                "MJD": oi["OI_FLUX"][k]["MJD"],
+                "CONT": cont,
+            }
+            # -- for boostrapping
+            if "NAME" in oi["OI_FLUX"][k]:
+                oi["NFLUX"][k]["NAME"] = oi["OI_FLUX"][k]["NAME"]
 
     # -- flux computed from image cube
     if "IM_FLUX" in oi.keys():
@@ -3923,7 +3923,7 @@ def computeNormFluxOI(oi, param=None, order="auto", debug=False):
             oi["IM_FLUX"][k]["NFLUX"] = data
 
     if "MODEL" in oi.keys() and "totalflux" in oi["MODEL"].keys():
-        mask = w
+        #mask = w
         c = np.polyfit(oi["WL"][w], oi["MODEL"]["totalflux"][w], order)
         for k in list(oi["MODEL"].keys()):
             if k.endswith(",flux"):
