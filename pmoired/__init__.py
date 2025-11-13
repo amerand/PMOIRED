@@ -25,7 +25,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__ = "1.3.9"
+__version__ = "1.3.10"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -3387,7 +3387,6 @@ def _computeSpectra(model, data, models):
 
         tmp = oimodels.VmodelOI(allWL, model, timeit=False)
         tmp = oimodels.computeNormFluxOI(tmp, model)
-        print('MODEL:', tmp['MODEL'].keys())
         fluxes = {
             k.split(",")[0]: tmp["MODEL"][k]
             for k in tmp["MODEL"].keys()

@@ -176,7 +176,7 @@ def Ssingle(oi, param, noLambda=False):
             X = np.linspace(min(oi["WL"]), max(oi["WL"]), len(sw))
         # -- inverse Daubechies wavelet transform because we parametrise
         Y = np.array([_param[k] for k in sw])
-        Y = dw.oneD(Y, -n, order=4)
+        Y = dw.oneD(Y, -n, order=8)
         # if min(X)<min(oi['WL']) or max(X)>max(oi['WL']):
         #    print('WL range !')
         f += np.interp(oi["WL"], X, Y)
