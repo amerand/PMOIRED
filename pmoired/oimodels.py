@@ -174,12 +174,13 @@ def Ssingle(oi, param, noLambda=False):
             )
         else:
             X = np.linspace(min(oi["WL"]), max(oi["WL"]), len(sw))
-        # -- inverse Daubechies wavelet transform
+        # -- inverse Daubechies wavelet transform because we parametrise
         Y = np.array([_param[k] for k in sw])
         Y = dw.oneD(Y, -n, order=8)
         # if min(X)<min(oi['WL']) or max(X)>max(oi['WL']):
         #    print('WL range !')
         f += np.interp(oi["WL"], X, Y)
+        #f += scipy.interpolate.interp1d(X, Y, kind="quadratic", fill_value="extrapolate")(oi["WL"])
 
     # == arbitrary, expressed as string ===================
     if "spectrum" in _param.keys():
@@ -2662,7 +2663,7 @@ def VmodelOI(
         )
 
         # -- apply before differential computations:
-        res = _applyWlKernel(res, debug=debug)
+        res = _applyWlKernel(res, debug=debug, fullWlRange=True)
         res = _applyTF(res)
 
         if (
@@ -2696,6 +2697,7 @@ def VmodelOI(
         if "smear" in res:
             res = oifits._binOI(res, binning=res["smear"], noError=True)
         return res
+        # -- end single component
 
     # -- multiple components:
     tinit = time.time()
@@ -3099,7 +3101,7 @@ def VmodelOI(
             print(" " * indent + "VmodelOI > T3 %.3fms" % (1000 * (time.time() - t0)))
 
     # -- must be before computeDiffPhiOI and computeNormFluxOI
-    res = _applyWlKernel(res, debug=debug)
+    res = _applyWlKernel(res, debug=debug, fullWlRange=True)
     res = _applyTF(res)
 
     t0 = time.time()
@@ -3150,7 +3152,7 @@ def _convolve(y, ker):
     return np.convolve(_y, ker, mode="same")[k:-k]
 
 
-def _applyWlKernel(res, debug=False):
+def _applyWlKernel(res, debug=False, fullWlRange=False):
     if not ("fit" in res and "wl kernel" in res["fit"]):
         return res
 
@@ -3166,7 +3168,7 @@ def _applyWlKernel(res, debug=False):
     conv = lambda x: _convolve(x, ker)
     # conv = lambda x: x
 
-    if "fit" in res and "wl ranges" in res["fit"]:
+    if "fit" in res and "wl ranges" in res["fit"] and not fullWlRange:
         # -- range(s) to take into consideration
         w = np.zeros(res["WL"].shape, dtype=bool)
         for WR in res["fit"]["wl ranges"]:
@@ -4641,8 +4643,12 @@ def sparseFitOI(
             ignore = []
             # print('   checking', sparse)
             for k in sparse:
+                if type(significance)==dict and ',' in k and k.split(',')[0] in significance:
+                    sigma = significance[k.split(',')[0]]
+                else:
+                    sigma = significance
                 # -- must depart from 0 to be significant, otherwise 0
-                if np.abs(fit["best"][k] / fit["uncer"][k]) < significance:
+                if np.abs(fit["best"][k] / fit["uncer"][k]) < sigma:
                     n = int(2 - np.log10(fit["uncer"][k]))
                     f = "%." + str(n) + "f +- %." + str(n) + "f"
                     if verbose > 1:
@@ -4734,7 +4740,7 @@ def sparseFitFluxes(
         for i in range(N[c]):
             k = c + ",fwvl_%04d" % i
             if c in initFlux:
-                param[k] = (i == 0) * initFlux[c]
+                param[k] = (i == 0) * initFlux[c] #* np.sqrt(2)**np.log2(N[c])
             else:
                 param[k] = (i == 0) * 1.0
             if k in fitOnly:
@@ -6516,6 +6522,9 @@ def showOI(
     # print('debug', checkImVis)
     global ai1ax, ai1mcB, ai1mcT, ai1i, ai1fig, US_SPELLING
 
+    cmapBaselines = "nipy_spectral"
+    cmapBaselines = "managua"
+
     if type(oi) == list:
         # -- multiple data sets -> recursive call
         models = []
@@ -6983,8 +6992,7 @@ def showOI(
         colors = list(itertools.permutations([0.1, 0.6, 0.9])) + ["0.5"]
         colors += [(0.1, 0.1, 0.9), (0.1, 0.9, 0.1), (0.9, 0.1, 0.1)]
     else:
-        # colors = matplotlib.cm.nipy_spectral(np.linspace(0, .9, len(oi['baselines'])))
-        colors = matplotlib.colormaps["nipy_spectral"](
+        colors = matplotlib.colormaps[cmapBaselines](
             np.linspace(0, 0.9, len(oi["baselines"]))
         )
 
@@ -8077,7 +8085,7 @@ def showModel(
                 symbols[c] = {
                     "m": markers[_im % len(markers)],
                     #'c':matplotlib.cm.nipy_spectral(0.1+0.8*(wlpeak[c]-min(allpeaks))/np.ptp(allpeaks))
-                    "c": matplotlib.colormaps["nipy_spectral"](
+                    "c": matplotlib.colormaps[cmapBaselines](
                         0.1 + 0.8 * (wlpeak[c] - min(allpeaks)) / np.ptp(allpeaks)
                     ),
                 }
