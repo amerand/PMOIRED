@@ -902,9 +902,9 @@ def VsingleOI(
 
     # -- user-defined wavelength range
     delta = 0
-    if "fit" in oi in 'wl kernel' in oi["fit"]:
+    if 'fit' in oi and 'wl kernel' in oi['fit']:
         delta = 3*oi["fit"]['wl kernel']*np.abs(np.mean(np.diff(res['WL'])))
-    if "fit" in oi in 'smear' in oi["fit"]:
+    if 'fit' in oi and 'smear' in oi['fit']:
         delta = 3*oi["fit"]['smear']*np.abs(np.mean(np.diff(res['WL'])))
 
     if "fit" in oi and "wl ranges" in oi["fit"]:
