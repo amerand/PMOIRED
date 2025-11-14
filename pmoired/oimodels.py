@@ -6634,7 +6634,7 @@ def showOI(
         allWLs = np.array(sorted(list(set(allWLs))))
         allMJD = np.array(sorted(list(set(allMJD))))
         kernel = list(set(kernel))
-        print('kernel:', kernel)
+        #print('kernel:', kernel)
         if len(kernel)>1:
             print('warning: ambiguous wl kernel for global computation!')
         if showIm and not imFov is None:
