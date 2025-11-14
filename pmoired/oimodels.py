@@ -901,6 +901,12 @@ def VsingleOI(
         du, dv = 0.0, 0.0
 
     # -- user-defined wavelength range
+    delta = 0
+    if "fit" in oi in 'wl kernel' in oi["fit"]:
+        delta = 3*oi["fit"]['wl kernel']*np.abs(np.mean(np.diff(res['WL'])))
+    if "fit" in oi in 'smear' in oi["fit"]:
+        delta = 3*oi["fit"]['smear']*np.abs(np.mean(np.diff(res['WL'])))
+
     if "fit" in oi and "wl ranges" in oi["fit"]:
         WLR = oi["fit"]["wl ranges"]
     else:
@@ -908,9 +914,10 @@ def VsingleOI(
     wwl = np.zeros(res["WL"].shape)
     for wlr in WLR:
         # -- compute a bit larger, to avoid border effects
-        wwl += (res["WL"] >= wlr[0] - 0.05 * (wlr[1] - wlr[0])) * (
-            res["WL"] <= wlr[1] + 0.05 * (wlr[1] - wlr[0])
-        )
+        # wwl += (res["WL"] >= wlr[0] - 0.05 * (wlr[1] - wlr[0])) * (
+        #     res["WL"] <= wlr[1] + 0.05 * (wlr[1] - wlr[0])
+        # )
+        wwl += (res["WL"] >= wlr[0] - delta) * (res["WL"] <= wlr[1] + delta)
     wwl = np.bool_(wwl)
 
     # -- do we need to apply a stretch?
@@ -992,26 +999,14 @@ def VsingleOI(
 
     # -- phase offset
     # phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
-    PHI = lambda o: np.exp(
-        -2j
-        * _c
-        * (
-            o["u/wl"][:, wwl] / cwl * x(o)[:, wwl]
-            + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]
-        )
-    )
+    PHI = lambda o: np.exp(-2j*_c* (o["u/wl"][:, wwl] / cwl * x(o)[:, wwl]
+                                  + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]))
 
     if du:
         # dPHIdu = lambda z: -2j*_c*x*PHI(z)/oi['WL']
         # dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
-        PHIdu = lambda o: np.exp(
-            -2j
-            * _c
-            * (
-                (o["u/wl"][:, wwl] / cwl + du / res["WL"][:, wwl]) * x(o)[:, wwl]
-                + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]
-            )
-        )
+        PHIdu = lambda o: np.exp(-2j*_c*((o["u/wl"][:, wwl] / cwl + du / res["WL"][:, wwl]) * x(o)[:, wwl]
+                                        + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]))
         PHIdv = lambda o: np.exp(
             -2j
             * _c
