@@ -3243,42 +3243,52 @@ def _applyTF(res):
         if _debug:
             print("TF:", TF)
 
-        O = {"V2": "OI_VIS2", "|V|": "OI_VIS", "T3PHI": "OI_T3"}
+        O = {"V2": "OI_VIS2",
+            "|V|": "OI_VIS",
+            "T3PHI": "OI_T3"
+            }
         for o in TF:
             if _debug:
                 print(" -> applying TF to", o)
-            for b in TF[o]:
+            for b in TF[o]: # for each baselines / triangles
                 if not O[o] in res:
                     continue
                 if "all" in res[O[o]]:
-                    w = res[O[o]]["all"]["NAME"] == b
+                    if b=='all':
+                        w = res[O[o]]["all"]["NAME"] != None
+                    else:
+                        w = res[O[o]]["all"]["NAME"] == b
                     if "+" in TF[o][b]:
                         res[O[o]]["all"][o][w] += TF[o][b]["+"]
                     if "*" in TF[o][b]:
                         res[O[o]]["all"][o][w] *= TF[o][b]["*"]
                     if "s" in TF[o][b]:
                         res[O[o]]["all"][o][w] *= (
-                            1
-                            + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
+                            1 + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
                         )
                     if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
                         res[O[o]]["all"][o][w] *= (
                             1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
                         )
                 else:
-                    if "+" in TF[o][b] and b in res[O[o]]:
-                        res[O[o]][b][o] += TF[o][b]["+"]
-                    if "*" in TF[o][b] and b in res[O[o]]:
-                        res[O[o]][b][o] *= TF[o][b]["*"]
-                    if "s" in TF[o][b] and b in res[O[o]]:
-                        res[O[o]][b][o] *= (
-                            1
-                            + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
-                        )
-                    if "wl0" in TF[o][b] and "wl2" in TF[o][b] and b in res[O[o]]:
-                        res[O[o]][b][o] *= (
-                            1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
-                        )
+                    if b == 'all':
+                        B = list(res[O[o]].keys())
+                    else:
+                        B = [b]
+                    for _b in B:
+                        if _b in res[O[o]]:
+                            if "+" in TF[o][b]:
+                                res[O[o]][_b][o] += TF[o][b]["+"]
+                            if "*" in TF[o][b]:
+                                res[O[o]][_b][o] *= TF[o][b]["*"]
+                            if "s" in TF[o][b]:
+                                res[O[o]][_b][o] *= (
+                                    1 + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
+                                )
+                            if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
+                                res[O[o]][_b][o] *= (
+                                    1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
+                                )
     return res
 
 

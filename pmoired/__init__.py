@@ -660,6 +660,9 @@ class OI:
         self.data.pop(i2)
         return
 
+    def getTfParameters(self, obs=None, withVSlope=False):
+        return _getTfParamsOI(self.data, obs=obs, withVSlope=withVSlope)
+
     def getESOPipelineParams(self, verbose=True):
         for i, d in enumerate(self.data):
             if "header" in d:
@@ -3549,6 +3552,31 @@ def _recsizeof(s):
         return tmp
     else:
         return sys.getsizeof(s)
+
+def _getTfParamsOI(oi, obs=None, withVSlope=False):
+    if type(oi)==list:
+            res = {}
+            for d in oi:
+                res.update(_getTfParamsOI(d, obs=obs, withVSlope=withVSlope))
+            return res
+    # -- generate Transfer Function parameters depending on baselines
+    if obs is None and 'fit' in oi and 'obs' in oi['fit']:
+        obs = oi['fit']['obs']
+    print('obs:', obs)
+    res = {}
+    ext = {'V2':'OI_VIS2', '|V|':'OI_VIS', 'T3PHI':'OI_T3'}
+    ext = {k:ext[k] for k in obs}
+    for e in ext:
+        for k in oi[ext[e]]:
+            if 'VIS' in ext[e]:
+                res['#TF_'+e+'_'+k+'_*'] = 1.0
+                if withVSlope:
+                    res['#TF_'+e+'_'+k+'_s'] = 0.01
+            else:
+                res['#TF_'+e+'_'+k+'_+'] = 0.01
+    return res
+
+
 
 
 if __name__ == "__main__":
