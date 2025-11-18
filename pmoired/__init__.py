@@ -3562,7 +3562,7 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False):
     # -- generate Transfer Function parameters depending on baselines
     if obs is None and 'fit' in oi and 'obs' in oi['fit']:
         obs = oi['fit']['obs']
-    print('obs:', obs)
+    #print('obs:', obs)
     res = {}
     ext = {'V2':'OI_VIS2', '|V|':'OI_VIS', 'T3PHI':'OI_T3'}
     ext = {k:ext[k] for k in obs}
