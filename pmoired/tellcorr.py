@@ -16,46 +16,89 @@ except ImportError:
 import pmoired
 import pmoired.dpfit as dpfit
 
-
 this_dir, this_filename = os.path.split(__file__)   # TODO clean this up
 bin_file = 'transir_gravity.pckl'
 
-try:
+#try:
     # -- loading transnir
-    with resources.as_file(resources.files('pmoired').joinpath(bin_file)) as p:
-        with open(p, 'rb') as f:
-            tran20, tran80, lbda = pickle.load(f)
-except:
+    # with resources.as_file(resources.files('pmoired').joinpath(bin_file)) as p:
+    #     with open(p, 'rb') as f:
+    #         tran20, tran80, lbda = pickle.load(f)
+
+def _createDataFile():
+    data_dir = '/Users/amerand/DATA/sky_transmission'
+
     print('creating transmission binary file')
+    wv0 = '010' # 2mm Water Vapor
+    f = fits.open(os.path.join(data_dir, 'transnir'+wv0+'.fits'))
+    lbda = f[1].data['WAVELENGTH'][0].copy()
+    tran = f[1].data['TRANSMISSION'][0].copy()
+    f.close()
+    tran = tran[(lbda<2.5)*(lbda>1.95)]
+    lbda = lbda[(lbda<2.5)*(lbda>1.95)]
+    tran10, lbda = 1.0*tran[::50], lbda[::50]
+    f = fits.open(os.path.join(data_dir, 'emisnir'+wv0+'.fits'))
+    lbda0 = f[1].data['WAVELENGTH'][0].copy()
+    tran0 = f[1].data['EMISSION'][0].copy()
+    tran10 += np.interp(lbda, lbda0[::50], tran0[::50])
+    f.close()
+
     wv1 = '020' # 2mm Water Vapor
-    f = fits.open(os.path.join(this_dir, 'transnir'+wv1+'.fits'))
+    f = fits.open(os.path.join(data_dir, 'transnir'+wv1+'.fits'))
     lbda = f[1].data['WAVELENGTH'][0].copy()
     tran = f[1].data['TRANSMISSION'][0].copy()
     f.close()
     tran = tran[(lbda<2.5)*(lbda>1.95)]
     lbda = lbda[(lbda<2.5)*(lbda>1.95)]
     tran20, lbda = 1.0*tran[::50], lbda[::50]
-    f = fits.open(os.path.join(this_dir, 'emisnir'+wv1+'.fits'))
+    f = fits.open(os.path.join(data_dir, 'emisnir'+wv1+'.fits'))
     lbda0 = f[1].data['WAVELENGTH'][0].copy()
     tran0 = f[1].data['EMISSION'][0].copy()
     tran20 += np.interp(lbda, lbda0[::50], tran0[::50])
     f.close()
 
-    wv2 = '080' # 8mm Water Vapor
-    f = fits.open(os.path.join(this_dir, 'transnir'+wv2+'.fits'))
+    wv2 = '050' # 8mm Water Vapor
+    f = fits.open(os.path.join(data_dir, 'transnir'+wv2+'.fits'))
+    lbda = f[1].data['WAVELENGTH'][0].copy()
+    tran = f[1].data['TRANSMISSION'][0].copy()
+    f.close()
+    tran = tran[(lbda<2.5)*(lbda>1.95)]
+    lbda = lbda[(lbda<2.5)*(lbda>1.95)]
+    tran50, lbda = 1.0*tran[::50], lbda[::50]
+    f = fits.open(os.path.join(data_dir, 'emisnir'+wv2+'.fits'))
+    lbda0 = f[1].data['WAVELENGTH'][0].copy()
+    tran0 = f[1].data['EMISSION'][0].copy()
+    tran50 += np.interp(lbda, lbda0[::50], tran0[::50])
+    f.close()
+
+
+    wv3 = '080' # 8mm Water Vapor
+    f = fits.open(os.path.join(data_dir, 'transnir'+wv2+'.fits'))
     lbda = f[1].data['WAVELENGTH'][0].copy()
     tran = f[1].data['TRANSMISSION'][0].copy()
     f.close()
     tran = tran[(lbda<2.5)*(lbda>1.95)]
     lbda = lbda[(lbda<2.5)*(lbda>1.95)]
     tran80, lbda = 1.0*tran[::50], lbda[::50]
-    f = fits.open(os.path.join(this_dir, 'emisnir'+wv2+'.fits'))
+    f = fits.open(os.path.join(data_dir, 'emisnir'+wv2+'.fits'))
     lbda0 = f[1].data['WAVELENGTH'][0].copy()
     tran0 = f[1].data['EMISSION'][0].copy()
     tran80 += np.interp(lbda, lbda0[::50], tran0[::50])
     f.close()
+
+    print('saving', os.path.join(this_dir, bin_file))
     with open(os.path.join(this_dir, bin_file), 'wb') as f:
-        pickle.dump((tran20, tran80, lbda), f)
+        pickle.dump(({1:tran10, 2:tran20, 5:tran50, 8:tran80}, lbda), f)
+
+if os.path.exists(resources.files('pmoired').joinpath(bin_file)):
+    tfile = resources.files('pmoired').joinpath(bin_file)
+else:
+    tfile = bin_file
+
+with resources.as_file(tfile) as p:
+    #print(tfile)
+    with open(p, 'rb') as f:
+        tran, lbda = pickle.load(f)
 
 
 def Ftran(l, param, retWL=False, retS=False):
@@ -82,7 +125,11 @@ def Ftran(l, param, retWL=False, retS=False):
         return np.interp(l, tmpL, lbda)
 
     if 'pwv' in param.keys():
-        tmpT = tran20 + (param['pwv']-2.0)*(tran80-tran20)/6.0
+        #pwvs = [2, 8]
+        #tmpT = tran20 + (param['pwv']-pwvs[0])*(tran80-tran20)/(pwvs[1]-pwvs[0])
+        pwvs = list(tran.keys())
+        i0, i1 = np.argsort(np.abs(param['pwv']-np.array(pwvs)))[:2]
+        tmpT = tran[pwvs[i0]] + (param['pwv']-pwvs[i0])*((tran[pwvs[i0]]-tran[pwvs[i1]])/(pwvs[i1]-pwvs[i0]))
     else:
         tmpT = tran80
 

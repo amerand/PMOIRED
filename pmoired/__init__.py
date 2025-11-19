@@ -3494,7 +3494,7 @@ def _checkSetupFit(fit):
         "FLUX",
         "NFLUX",
         "CF",
-    ]
+        ]
     for k in fit["obs"]:
         if k not in knownObs:
             raise Exception("Unknown observable '" + k + "', not in " + str(knownObs))
