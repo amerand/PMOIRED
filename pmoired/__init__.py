@@ -1896,6 +1896,7 @@ class OI:
         cColors={},
         cMarkers={},
         showSED=None,
+        errSED=False,
         showPhotCent=False,
         imLegend=True,
         bckgGrid=True,
@@ -2003,11 +2004,16 @@ class OI:
             and "best" in self.bestfit
         ):
             model[model.index("best")] = self.bestfit["best"]
+            errSED = False
         elif not (type(model) is dict or type(model) is list):
             model = None
             showSED = False
             showIM = False
             imFov = None
+            errSED = False
+        else:
+            # -- only works for best fit model!
+            errSED = False
 
         if not model is None and not imFov is None and checkImVis:
             # -- only works with single model!
@@ -2186,6 +2192,7 @@ class OI:
                         cmap=cmap,
                         logS=logS,
                         showSED=showSED,
+                        errSED=errSED,
                         showIM=showIM,
                         imPhotCent=showPhotCent,
                         imLegend=imLegend,
@@ -2299,6 +2306,7 @@ class OI:
                         cmap=cmap,
                         logS=logS,
                         showSED=showSED,
+                        errSED=errSED,
                         showIM=showIM,
                         imPhotCent=showPhotCent,
                         imLegend=imLegend,
@@ -2381,6 +2389,7 @@ class OI:
                         cmap=cmap,
                         logS=logS,
                         showSED=showSED,
+                        errSED=errSED,
                         showIM=showIM,
                         imPhotCent=showPhotCent,
                         imLegend=imLegend,
@@ -2406,6 +2415,7 @@ class OI:
         cColors={},
         cMarkers={},
         showSED=True,
+        errSED=False,
         showIM=True,
         fig=None,
         cmap="inferno",
@@ -2434,6 +2444,8 @@ class OI:
         imWl0: list of wavelength (um) to show the image default (min, max)
         cmap: color map (default 'bone')
         imPlx: parallax (in mas) optional, will add sec axis in AU
+
+        errSED: show uncertainties in SED (should only be used for best fit model!)
         """
 
         # -- just if the function is used to show models
@@ -2462,7 +2474,11 @@ class OI:
 
         if not imFov is None:
             self.computeModelImages(imFov, model=model, imPix=imPix, imX=imX, imY=imY)
-        self.computeModelSpectra(model=model, uncer=False)
+        if errSED:
+            # -- assume bestfit, can't test it because of how showOI works...
+            self.computeModelSpectra(uncer=True)
+        else:
+            self.computeModelSpectra(model=model)
 
         # -- components
         comps = set(
@@ -2772,25 +2788,33 @@ class OI:
                 key = "normalised spectrum "
             else:
                 key = "flux "
+
             for c in sorted(self.spectra[key + "COMP"]):
                 col = symbols[c]["c"]
                 w = self.spectra[key + "COMP"][c] > 0
+                if errSED and 'err '+key+'COMP' in self.spectra and \
+                        c in self.spectra['err '+key+'COMP']:
+                    plt.fill_between(self.spectra[key + "WL"][w] * bcorr,
+                        self.spectra[key + "COMP"][c][w]+self.spectra['err '+key+'COMP'][c][w],
+                        self.spectra[key + "COMP"][c][w]-self.spectra['err '+key+'COMP'][c][w],
+                        color=col, alpha=0.5, label=c,)
+                else:
+                    plt.plot(
+                        self.spectra[key + "WL"][w] * bcorr,
+                        self.spectra[key + "COMP"][c][w],
+                        "-", label=c, color=col, linewidth=1.5,
+                    )
+            if errSED and 'err '+key+'TOTAL' in self.spectra:
+                plt.fill_between(self.spectra[key + "WL"][w] * bcorr,
+                    self.spectra[key + "TOTAL"][w]+self.spectra['err '+key+'TOTAL'][w],
+                    self.spectra[key + 'TOTAL'][w]-self.spectra['err '+key+'TOTAL'][w],
+                    color='0.4', alpha=0.5, label='TOTAL',)
+            else:
                 plt.plot(
-                    self.spectra[key + "WL"][w] * bcorr,
-                    self.spectra[key + "COMP"][c][w],
-                    "-",
-                    label=c,
-                    color=col,
-                    linewidth=1.5,
+                    self.spectra[key + "WL"] * bcorr,
+                    self.spectra[key + "TOTAL"],
+                    "-", label="TOTAL", linewidth=2, color="0.4",
                 )
-            plt.plot(
-                self.spectra[key + "WL"] * bcorr,
-                self.spectra[key + "TOTAL"],
-                "-",
-                label="TOTAL",
-                linewidth=2,
-                color="0.4",
-            )
             # -- show imWl0
             # plt.scatter(imWl0, np.interp(imWl0, self.spectra[key+'WL'], self.spectra[key+'TOTAL']),
             #            c=imWl0, cmap='jet', marker='d')
@@ -3234,11 +3258,14 @@ class OI:
         models = None
         if model == "best" and not self.bestfit == {}:
             model = self.bestfit["best"]
-            # -- randomise parameters, using covariance
-            if uncer:
-                models = oimodels.dpfit.randomParam(self.bestfit, N=Niter, x=None)[
-                    "r_param"
-                ]
+            if not uncer is False:
+                # -- randomise parameters, using covariance
+                models = oimodels.dpfit.randomParam(self.bestfit, N=Niter, x=None)["r_param"]
+                uncer = False
+
+        if not uncer is False:
+            if type(uncer)==list and len(set([type(u) for u in uncer]))==1 and type(uncer[0])==dict:
+                models = uncer
 
         # assert type(model) is dict, "model must be a dictionnary"
         if not type(model) is dict:
@@ -3248,7 +3275,6 @@ class OI:
             self.spectra = _computeSpectra(model, self._merged, models=models)
         else:
             self.spectra = _computeSpectra(model, self.data, models=models)
-
 
 def _computeSpectra(model, data, models):
     """
@@ -3313,8 +3339,6 @@ def _computeSpectra(model, data, models):
     allWLs = np.array(sorted(list(set(allWLs))))
     allMJD = np.array(sorted(list(set(allMJD))))
 
-    # print('SED:', allWLc)
-    # print('spe:', allWLs)
     M = {"model": model}
     if len(allWLc):
         allWL = {"WL": allWLc, "fit": {"obs": []}, "MJD": allMJD}  # minimum required
@@ -3330,8 +3354,11 @@ def _computeSpectra(model, data, models):
 
         if not Nr is None:
             allWL["fit"]["Nr"] = Nr
+
+        # -- single models
         tmp = oimodels.VmodelOI(allWL, model)
         try:
+            # -- trying if there are several components
             fluxes = {
                 k.split(",")[0]: tmp["MODEL"][k]
                 for k in tmp["MODEL"].keys()
@@ -3340,6 +3367,7 @@ def _computeSpectra(model, data, models):
         except:
             fluxes = {"total": tmp["MODEL"]["totalflux"]}
 
+        # -- several models for uncertainties
         if not models is None:
             tmps = [oimodels.VmodelOI(allWL, m) for m in models]
             try:
@@ -3348,16 +3376,22 @@ def _computeSpectra(model, data, models):
                     for k in tmp["MODEL"].keys()
                     if k.endswith(",flux")
                 }
+                efluxes['total'] = np.std([t["MODEL"]["totalflux"] for t in tmps], axis=0)
             except:
-                efluxes = {
-                    "total": np.std([t["MODEL"]["totalflux"] for t in tmps], axis=0)
-                }
+               efluxes = {
+                   "total": np.std([t["MODEL"]["totalflux"] for t in tmps], axis=0)
+               }
         else:
             efluxes = {}
+
         M["flux WL"] = allWLc
         M["flux COMP"] = fluxes
-        M["err flux COMP"] = efluxes
         M["flux TOTAL"] = tmp["MODEL"]["totalflux"]
+        if 'total' in efluxes:
+            M["err flux TOTAL"] = efluxes['total']
+            efluxes.pop('total')
+        M["err flux COMP"] = efluxes
+
         if not models is None:
             M["err flux TOTAL"] = {
                 "total": np.std([t["MODEL"]["totalflux"] for t in tmps], axis=0)
@@ -3398,16 +3432,24 @@ def _computeSpectra(model, data, models):
         if not models is None:
             tmps = []
             for m in models:
-                tmps.append(oimodels.VmodelOI(allWL, m) for m in models)
+                tmps.append(oimodels.VmodelOI(allWL, m))
                 tmps[-1] = oimodels.computeNormFluxOI(tmps[-1], m)
 
-            efluxes = {
-                k.split(",")[0]: np.std([t["MODEL"][k] for t in tmps], axis=0)
-                for k in tmp["MODEL"].keys()
-                if k.endswith(",nflux")
-            }
+            try:
+                efluxes = {
+                    k.split(",")[0]: np.std([t["MODEL"][k] for t in tmps], axis=0)
+                    for k in tmp["MODEL"].keys()
+                    if k.endswith(",nflux")
+                }
+                efluxes["total"] = np.std([t["MODEL"]["totalnflux"] for t in tmps], axis=0)
+
+            except:
+                efluxes = {"total": np.std([t["MODEL"]["totalnflux"] for t in tmps], axis=0)
+                }
+
         else:
             efluxes = {}
+
         if "WL cont" in tmp:
             M["normalised spectrum CMASK"] = tmp["WL cont"]
         else:
@@ -3415,8 +3457,12 @@ def _computeSpectra(model, data, models):
 
         M["normalised spectrum WL"] = allWLs
         M["normalised spectrum COMP"] = fluxes
-        M["err normalised spectrum COMP"] = efluxes
         M["normalised spectrum TOTAL"] = tmp["MODEL"]["totalnflux"]
+        if 'total' in efluxes:
+            M["err normalised spectrum TOTAL"] = efluxes['total']
+            efluxes.pop('total')
+        M["err normalised spectrum COMP"] = efluxes
+
         if not models is None:
             M["err normalised spectrum TOTAL"] = np.std(
                 [t["MODEL"]["totalnflux"] for t in tmps], axis=0)

@@ -2634,7 +2634,7 @@ def VmodelOI(
         ]
 
     param = computeLambdaParams(p, MJD=np.mean(oi["MJD"]))
-    # print('param', param)
+
     # -- split in components if needed
     comp = set(
         [
@@ -3738,13 +3738,14 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
     return oi
 
 def computeNormFluxOI(oi, param=None, order="auto", debug=False):
+    if type(oi) == list:
+        return [computeNormFluxOI(o, _param, order) for o in oi]
+
     if not param is None:
+        #print('?', type(oi))
         _param = computeLambdaParams(param, MJD=np.mean(oi["MJD"]))
     else:
         _param = None
-
-    if type(oi) == list:
-        return [computeNormFluxOI(o, _param, order) for o in oi]
 
     if not ("OI_FLUX" in oi.keys() or "MODEL" in oi.keys()):
         # print('WARNING: computeNormFluxOI, nothing to do')
@@ -6635,7 +6636,7 @@ def showOI(
                         allWLc.extend(list(m["WL"]))
             allMJD.extend(list(o["MJD"]))
             if 'fit' in o and 'wl kernel' in o['fit']:
-                print('saving kernel')
+                #print('saving kernel')
                 kernel.append(o['fit']['wl kernel'])
 
             models.append(m)
