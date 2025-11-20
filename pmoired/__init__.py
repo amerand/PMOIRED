@@ -25,7 +25,7 @@ import astropy
 import astroquery
 import matplotlib
 
-__version__ = "1.3.10"
+__version__ = "1.3.11"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -1910,7 +1910,7 @@ class OI:
         - model: dict defining a model to be overplotted. if a fit was performed,
             the best fit models will be displayed by default. Set to None for no
             models
-        - fig: figure number (int)
+        - fig: figure number (int). otherwise use self.fig and increments it
         - obs: list of pbservables to show (in ['|V|', 'V2', 'T3PHI', 'DPHI',
             'FLUX', 'N|V|']). Default will show all data. If fit was performed,
             fitted observables will be shown.
@@ -1943,7 +1943,12 @@ class OI:
         - cColors: an optional dictionary to set the color of each components in
             the SED plot
         - showSED: show SED of components (default=True)
+        - errSED: show uncertainties in SED, only works for bestfit model.
+            default: False. (boolean or can be a number of sigma)
         - t3B: baseline for displaying T3 'min', 'max' or 'avg'
+
+        plots can be accessed via self._dataFig, oi._modelFig, self._dataAxes, oi._modelAxes
+
         """
         oimodels.FIG_MAX_WIDTH = FIG_MAX_WIDTH
         oimodels.FIG_MAX_HEIGHT = FIG_MAX_HEIGHT
@@ -2794,10 +2799,14 @@ class OI:
                 w = self.spectra[key + "COMP"][c] > 0
                 if errSED and 'err '+key+'COMP' in self.spectra and \
                         c in self.spectra['err '+key+'COMP']:
+                    if type(errSED)==bool:
+                        label = c + r' ($\pm1\sigma$)'
+                    else:
+                        label = c + r' ($\pm%.1f\sigma$)'%float(errSED)
                     plt.fill_between(self.spectra[key + "WL"][w] * bcorr,
-                        self.spectra[key + "COMP"][c][w]+self.spectra['err '+key+'COMP'][c][w],
-                        self.spectra[key + "COMP"][c][w]-self.spectra['err '+key+'COMP'][c][w],
-                        color=col, alpha=0.5, label=c,)
+                        self.spectra[key + "COMP"][c][w]+float(errSED)*self.spectra['err '+key+'COMP'][c][w],
+                        self.spectra[key + "COMP"][c][w]-float(errSED)*self.spectra['err '+key+'COMP'][c][w],
+                        color=col, alpha=0.5, label=label,)
                 else:
                     plt.plot(
                         self.spectra[key + "WL"][w] * bcorr,
@@ -2806,8 +2815,8 @@ class OI:
                     )
             if errSED and 'err '+key+'TOTAL' in self.spectra:
                 plt.fill_between(self.spectra[key + "WL"][w] * bcorr,
-                    self.spectra[key + "TOTAL"][w]+self.spectra['err '+key+'TOTAL'][w],
-                    self.spectra[key + 'TOTAL'][w]-self.spectra['err '+key+'TOTAL'][w],
+                    self.spectra[key + "TOTAL"][w]+float(errSED)*self.spectra['err '+key+'TOTAL'][w],
+                    self.spectra[key + 'TOTAL'][w]-float(errSED)*self.spectra['err '+key+'TOTAL'][w],
                     color='0.4', alpha=0.5, label='TOTAL',)
             else:
                 plt.plot(
