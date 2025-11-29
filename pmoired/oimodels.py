@@ -3220,7 +3220,6 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
 
     return res
 
-
 def _applyTF(res):
     # == single target self-calibration -> assumes tel name have no '-'!!!
     # "#TF_|V|_U1U2_*" -> overall coefficient
@@ -3243,9 +3242,10 @@ def _applyTF(res):
         if _debug:
             print("TF:", TF)
 
-        O = {"V2": "OI_VIS2",
-            "|V|": "OI_VIS",
-            "T3PHI": "OI_T3"
+        O = {'V2': 'OI_VIS2',
+             '|V|': 'OI_VIS',
+             'T3PHI': 'OI_T3',
+             'PHI':'OI_VIS'
             }
         for o in TF:
             if _debug:
@@ -3262,7 +3262,7 @@ def _applyTF(res):
                         res[O[o]]["all"][o][w] += TF[o][b]["+"]
                     if "*" in TF[o][b]:
                         res[O[o]]["all"][o][w] *= TF[o][b]["*"]
-                    if "s" in TF[o][b]:
+                    if 's' in TF[o][b]:
                         res[O[o]]["all"][o][w] *= (
                             1 + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
                         )
@@ -3270,6 +3270,18 @@ def _applyTF(res):
                         res[O[o]]["all"][o][w] *= (
                             1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
                         )
+                    # -- polynomial multiplicative factor
+                    for sn in filter(lambda x: x.startswith('s') and x[1:].isdigit(), TF[o][b]):
+                        _n = int(sn[1:])
+                        res[O[o]]["all"][o][w] *= (
+                            1 + (res["WL"] - np.mean(res["WL"]))[None, :]**_n * TF[o][b][sn]
+                        )
+                    # -- polynomial additive factor
+                    for sn in filter(lambda x: x.startswith('+') and x[1:].isdigit(), TF[o][b]):
+                        _n = int(sn[1:])
+                        res[O[o]]["all"][o][w] += \
+                                (res["WL"] - np.mean(res["WL"]))[None, :]**_n * TF[o][b][sn]
+
                 else:
                     if b == 'all':
                         B = list(res[O[o]].keys())
@@ -3281,7 +3293,7 @@ def _applyTF(res):
                                 res[O[o]][_b][o] += TF[o][b]["+"]
                             if "*" in TF[o][b]:
                                 res[O[o]][_b][o] *= TF[o][b]["*"]
-                            if "s" in TF[o][b]:
+                            if 's' in TF[o][b]:
                                 res[O[o]][_b][o] *= (
                                     1 + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
                                 )
@@ -3289,6 +3301,17 @@ def _applyTF(res):
                                 res[O[o]][_b][o] *= (
                                     1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
                                 )
+                            # -- polynomial multiplicative factor
+                            for sn in filter(lambda x: x.startswith('s') and x[1:].isdigit(), TF[o][b]):
+                                _n = int(sn[1:])
+                                res[O[o]][_b][o] *= (
+                                    1 + (res["WL"] - np.mean(res["WL"]))[None, :]**_n * TF[o][b][sn]
+                                )
+                            # -- polynomial additive factor
+                            for sn in filter(lambda x: x.startswith('+') and x[1:].isdigit(), TF[o][b]):
+                                _n = int(sn[1:])
+                                res[O[o]][_b][o] += \
+                                    (res["WL"] - np.mean(res["WL"]))[None, :]**_n * TF[o][b][sn]
     return res
 
 
@@ -7020,8 +7043,11 @@ def showOI(
 
     markers = ["d", "o", "*", "^", "v", ">", "<", "P", "X"]
     if not spectro:
-        colors = list(itertools.permutations([0.1, 0.6, 0.9])) + ["0.5"]
-        colors += [(0.1, 0.1, 0.9), (0.1, 0.9, 0.1), (0.9, 0.1, 0.1)]
+        #colors = list(itertools.permutations([0.2, 0.7, 0.9])) + ["0.5"]
+        #colors += [(0.2, 0.2, 0.8), (0.2, 0.8, 0.2), (0.8, 0.2, 0.2)]
+        #colors = matplotlib.colormaps['Set2'](np.linspace(0.05, 0.95, 8))
+        colors = matplotlib.colormaps['Paired'](np.linspace(1/24, 1-1/6-1/24, 10))
+
     else:
         colors = matplotlib.colormaps[cmapBaselines](
             np.linspace(0, 0.9, len(oi["baselines"]))
@@ -7509,7 +7535,7 @@ def showOI(
                         showLabel = True and not spectro
                     else:
                         showLabel = False
-                if l in ["V2", "|V|", "DPHI", "N|V|", "NV2", "CF"]:
+                if l in ["V2", "|V|", "DPHI", "N|V|", "NV2", "CF", "PHI"]:
                     if not k in mcB:
                         mcB[k] = (
                             markers[mcB["i"] % len(markers)],
@@ -7635,8 +7661,7 @@ def showOI(
                         ym[mask] = (
                             np.mod(ym[mask] + 180 - np.mean(ym[mask]), 360)
                             + (np.mean(ym[mask]) - 180) % 360
-                            - 360
-                        )
+                            - 360)
 
                         # -- computed chi2 *in the displayed window*
                         maskc2 = mask * (oi["WL"] >= wlMin) * (oi["WL"] <= wlMax)
@@ -7659,18 +7684,18 @@ def showOI(
                                     ym[maskc2],
                                     "-",
                                     alpha=0.5 if not test else 0.3,
-                                    color=color if col == "k" else "0.5",
+                                    color=color, #if col == "k" else "0.5",
                                     linewidth=2,
                                 )
-                                if col != "k":
-                                    ax.plot(
-                                        X(m, j)[maskc2],
-                                        ym[maskc2],
-                                        "--",
-                                        alpha=0.7,
-                                        color=col,
-                                        linewidth=2,
-                                    )
+                                #if col != "k":
+                                ax.plot(
+                                    X(m, j)[maskc2],
+                                    ym[maskc2],
+                                    "--",
+                                    alpha=0.7,
+                                    color=col,
+                                    linewidth=2,
+                                )
                             else:
                                 # -- not enough points to show lines
                                 ax.plot(
@@ -7762,18 +7787,20 @@ def showOI(
                     ax.plot(X(oi, j), cont + yoffset * i, ":", color="c", linewidth=3)
 
                 # -- show phase based on OPL
-                if l == "PHI" and "OPL" in oi.keys():
-                    dOPL = oi["OPL"][k[2:]] - oi["OPL"][k[:2]]
+                if False and l == "PHI" and "OPL" in oi.keys():
+                    dOPL = oi["OPL"][k[:2]] - oi["OPL"][k[2:]] # assume telescopes have 2 char in name!!!
                     wl0 = oi["WL"].mean()
                     cn = np.polyfit(oi["WL"] - wl0, oi["n_lab"], 8)
-                    cn[-2:] = 0.0
-                    ax.plot(
-                        oi["WL"],
-                        -360 * dOPL * np.polyval(cn, oi["WL"] - wl0) / (oi["WL"] * 1e-6)
-                        + yoffset * i,
-                        ":c",
-                        linewidth=2,
-                    )
+                    cn[-2:] = 0.0 # remove offset, slope and curvature
+                    print(k, cn)
+                    phicurve = 360*dOPL*np.polyval(cn, oi["WL"] - wl0)/(oi["WL"]*1e-6)+yoffset*i
+                    if not param is None and '#TF_PHI_'+k+'_+' in param:
+                         phicurve += param['#TF_PHI_'+k+'_+']
+                    if not param is None and '#TF_PHI_'+k+'_+0' in param:
+                         phicurve += param['#TF_PHI_'+k+'_+0']
+
+                    ax.plot(oi["WL"], phicurve, "--", linewidth=1, alpha=0.5, color='b')
+
             # -- end loop on MJDs
 
             # if allInOne and not resi is None:
