@@ -70,7 +70,6 @@ __versions__ = {
 #     # -- cannot get versions of jupyter tools
 #     pass
 
-
 def _isiterable(x):
     res = True
     try:
@@ -78,7 +77,6 @@ def _isiterable(x):
     except:
         res = False
     return res
-
 
 class OI:
     def __init__(
@@ -183,7 +181,7 @@ class OI:
         """not doing anything"""
         self.data = []
 
-    def save(self, name=None, overwrite=False):
+    def save(self, name=None, overwrite=False, withModel=False):
         """
         save session as binary file (not OIFITS :()
 
@@ -208,8 +206,12 @@ class OI:
             "images",
             "_expl",
         ]
+        if withModel:
+            ext.append('_model')
+
         with open(name, "wb") as f:
             data = {k: self.__dict__[k] for k in ext}
+            print('data.keys():', data.keys())
             if type(data["bestfit"]) == dict and "func" in data["bestfit"]:
                 data["bestfit"]["func"] = None  # avoid potential problems...
                 data["bestfit"]["x"] = None  # takes too much space
@@ -220,7 +222,6 @@ class OI:
                         g["func"] = None  # avoid potential problems...
                         g["x"] = None  # takes too much space
                         g["y"] = None  # takes too much space
-
             pickle.dump(data, f)
         print('object saved as "' + name + '"', end=" ")
         print("[size %.1fM]" % (os.stat(name).st_size / 2**20))
@@ -261,6 +262,7 @@ class OI:
                 self.__dict__[k] = data[k]
                 loaded.append(k)
             except:
+                print('warning! could not load extension', k)
                 pass
         if debug:
             print("loaded:", loaded)
@@ -2863,11 +2865,12 @@ class OI:
             pass
         return
 
-    def showBestfit(self, ignore=None, showOnly=None):
+    def showBestfit(self, ignore=None, showOnly=None, showCorrelations=True):
         if not self.bestfit == {}:
             print("chi2 = %f" % self.bestfit["chi2"])
             oimodels.dpfit.dispBest(self.bestfit, showOnly=showOnly)
-            oimodels.dpfit.dispCor(self.bestfit)
+            if showCorrelations:
+                oimodels.dpfit.dispCor(self.bestfit)
         else:
             print("no fit to show")
         return
