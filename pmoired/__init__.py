@@ -452,8 +452,12 @@ class OI:
 
     def fromTemplate(self, oi, model):
         self.data = oimodels.VmodelOI(oi.data, model, asTemplate=True)
+        E = ['fit', 'configurations per MJD', 'LST', 'dWL', 'header', 'units']
         for i,d in enumerate(self.data):
-            d['fit'] = oi.data[i]['fit']
+            for e in E:
+                if e in oi.data[i]:
+                    d[e] = oi.data[i][e]
+
         return
 
     def avgGravityPola(self, info=False):
