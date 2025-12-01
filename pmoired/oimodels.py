@@ -2610,6 +2610,7 @@ def VmodelOI(
     v2smear=True,
     fullOutput=False,
     debug=False,
+    asTemplate=False,
 ):
     modErr = 1
     global SMEA
@@ -2629,6 +2630,7 @@ def VmodelOI(
                 fullOutput=fullOutput,
                 v2smear=v2smear,
                 debug=debug,
+                asTemplate=asTemplate,
             )
             for i, o in enumerate(oi)
         ]
@@ -2691,6 +2693,10 @@ def VmodelOI(
 
         if "smear" in res:
             res = oifits._binOI(res, binning=res["smear"], noError=True)
+
+        if asTemplate:
+            res = _asTemplate(res, oi)
+
         return res
         # -- end single component
 
@@ -3137,8 +3143,29 @@ def VmodelOI(
     t0 = time.time()
     if timeit:
         print(" " * indent + "VmodelOI > total %.3fms" % (1000 * (time.time() - tinit)))
+
+    if asTemplate:
+        res = _asTemplate(res, oi)
     return res
 
+def _asTemplate(res, oi):
+    E = {'OI_FLUX':['FLUX'],
+         'OI_VIS':['|V|', 'PHI'],
+         'OI_VIS2':['V2'],
+         'OI_T3':['T3PHI', 'T3AMP'],
+         'OI_CF':['CF'],
+    }
+    for e in E:
+        if not e in res:
+            continue
+        for k in res[e]:
+            res[e][k]['FLAG'] = oi[e][k]['FLAG'].copy()
+            for o in E[e]:
+                if not o in res[e][k]:
+                    continue
+                res[e][k]['E'+o] = oi[e][k]['E'+o].copy()
+                res[e][k][o] += np.random.randn(*res[e][k][o].shape)*res[e][k]['E'+o]
+    return res
 
 def _convolve(y, ker):
     k = len(ker)

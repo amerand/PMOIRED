@@ -450,6 +450,12 @@ class OI:
                 GR.append((INS.index(p1), INS.index(p2)))
         return GR
 
+    def fromTemplate(self, oi, model):
+        self.data = oimodels.VmodelOI(oi.data, model, asTemplate=True)
+        for i,d in enumerate(self.data):
+            d['fit'] = oi.data[i]['fit']
+        return
+
     def avgGravityPola(self, info=False):
         """
         averages "_P1" and "_P2" for the same setups (spectro and dates) for GRAVITY.
