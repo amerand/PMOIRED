@@ -1614,7 +1614,7 @@ class OI:
         vmin=None,
         vmax=None,
         logV=False,
-        cmap="magma",
+        cmap="managua",
         fig=None,
         interpolate=False,
         legend=True,
