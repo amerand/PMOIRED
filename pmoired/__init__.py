@@ -147,7 +147,8 @@ class OI:
         self.dMJD = dMJD
         self._correlations = None
         if type(filenames) == str and filenames.endswith(".pmrd"):
-            print("loading session saved in", filenames)
+            if verbose:
+                print("loading session saved in", filenames)
             self.load(filenames)
         elif not filenames is None:
             if type(insname) == str or insname is None:
@@ -211,7 +212,7 @@ class OI:
 
         with open(name, "wb") as f:
             data = {k: self.__dict__[k] for k in ext}
-            print('data.keys():', data.keys())
+            #print('data.keys():', data.keys())
             if type(data["bestfit"]) == dict and "func" in data["bestfit"]:
                 data["bestfit"]["func"] = None  # avoid potential problems...
                 data["bestfit"]["x"] = None  # takes too much space
@@ -1614,7 +1615,7 @@ class OI:
         vmin=None,
         vmax=None,
         logV=False,
-        cmap="managua",
+        cmap="gist_stern",
         fig=None,
         interpolate=False,
         legend=True,
@@ -3297,6 +3298,153 @@ class OI:
             self.spectra = _computeSpectra(model, self._merged, models=models)
         else:
             self.spectra = _computeSpectra(model, self.data, models=models)
+
+
+    def wideBinary(self, minSep=1, maxSep=200, model=None, wide='2',
+                plot=False, obs=None, wlMin=None, wlMax=None):
+
+        O = {'|V|':'OI_VIS', 'PHI':'OI_VIS', 'V2':'OI_VIS2'}
+
+        if obs is None:
+            obs = []
+            for d in self.data:
+                if 'fit' in d and 'obs' in d['fit']:
+                    obs.extend(filter(lambda x: x in O, d['fit']['obs']))
+            obs = list(set(obs))
+            if obs==[]:
+                print("please provide obseravbles in ['|V|', 'PHI', 'V2']")
+            return
+        if model is None and 'best' in self.bestfit['best']:
+            model = self.bestfit['best'].copy
+
+        sep = np.logspace(np.log10(minSep), np.log10(maxSep), 500)
+        res = []
+        self.fig+=1
+        if plot:
+            plt.close(self.fig); plt.figure(self.fig, figsize=(9,4))
+        F = []
+        for d in self.data:
+            #print(d['filename'])
+            if not model is None:
+                Vtrend = oimodels.VmodelOI(d, model)
+            else:
+                Vtrend = None
+            for o in obs:
+                for i,k in enumerate(d[O[o]].keys()):
+                    if plot:
+                        ax = plt.subplot(len(d[O[o]]), len(obs), len(obs)*i+1)
+                        plt.ylabel(k)
+                        if i==0:
+                            plt.title(', '.join(obs))
+                    for j,y in enumerate(d[obs[o]][k][o]):
+                        w = ~d[O[o]][k]['FLAG'][j]
+                        if 'fit' in d and 'wl ranges' in d['fit']:
+                            wwl = ~d['WL']>0
+                            for WLR in d['fit']['wl ranges']:
+                                wwl = np.logical_or(wwl, (d['WL']>=WLR[0])*(d['WL']<=WLR[1]))
+                            w = np.logical_and(w, wwl)
+
+                        B = np.sqrt(d[O[o]][k]['u'][j]**2+d[O[o]][k]['v'][j]**2)
+                        PA = np.arctan2(d[O[o]][k]['u'][j], d[O[o]][k]['v'][j])
+                        csep = np.cos(2*np.pi*sep[None,:]*B[None,None]/d['WL'][w][:,None]*np.pi/180/3600/1000/1e-6)
+                        ssep = np.sin(2*np.pi*sep[None,:]*B[None,None]/d['WL'][w][:,None]*np.pi/180/3600/1000/1e-6)
+
+                        # -- detrend
+                        if 'fit' in d and o+' order' in d['fit']:
+                            order = d['fit'][o+' order']
+                        else:
+                            order = 1
+                        c = np.polyfit(d['WL'][w], y[w], order)
+                        C = np.sum((y[w]-np.polyval(c, d['WL'][w]))[:,None]*csep, axis=0)
+                        S = np.sum((y[w]-np.polyval(c, d['WL'][w]))[:,None]*ssep, axis=0)
+                        p = C**2+S**2
+                        _c, _s = C[p.argmax()], S[p.argmax()]
+                        _c, _s = _c/np.sqrt(_c**2+_s**2), _s/np.sqrt(_c**2+_s**2)
+                        res.append((PA, sep[p.argmax()], k, _c, _s))
+                        if o=='|V|':
+                            F.append(np.nanstd(y[w])/np.nanmean(y[w]))
+                        elif o=='PHI':
+                            F.append(np.nanstd(y[w])/180)
+                        elif o=='V2':
+                            F.append(np.nanstd(y[w])/np.nanmean(y[w])/2)
+
+                        if plot:
+                            plt.plot(d['WL'][w], y[w], '.k', alpha=0.1)
+                            plt.plot(d['WL'][w], (_c*csep[:,p.argmax()] + _s*ssep[:,p.argmax()])*np.ptp(y[w])/2 +
+                                    np.polyval(c, d['WL'][w]), ':g', alpha=0.8, linewidth=3)
+        if plot:
+            plt.xlabel(r'wavelength ($\mu$m)')
+        res = sorted(res, key=lambda x: x[2])
+
+        # -- list os apparent separations
+        PA = np.array([r[0]*180/np.pi for r in res if r[1]>sep.min() and r[1]<sep.max()])
+        SEP = np.array([r[1] for r in res if r[1]>sep.min() and r[1]<sep.max()])
+
+        # -- fit projected separation
+        abscos = lambda x, p: np.abs(np.cos((x-p['PA'])*np.pi/180))*p['SEP']
+        fit = pmoired.oimodels.dpfit.leastsqFit(abscos, PA,
+                                                {'SEP':max(SEP), 'PA':PA[np.argmax(SEP)]+180},
+                                                SEP, verbose=0)
+
+        if plot:
+            ax = plt.subplot(1,2,2,projection='polar')
+
+            ax.plot((90+PA)*np.pi/180, SEP, 'ob', alpha=0.5)
+            ax.plot((90+(PA+360)%(360)-180)*np.pi/180, SEP, 'ob', alpha=0.5)
+            k = ''
+            for r in res:
+                if r[2]!=k and r[1]>sep.min():
+                    plt.text(r[0]+np.pi/2, r[1]+10, r[2], fontsize=6, alpha=0.5, ha='center', va='center')
+                    plt.text(r[0]-np.pi/2, r[1]+10, r[2], fontsize=6, alpha=0.5, ha='center', va='center')
+                    k = r[2]
+            # -- model of projected separation
+            t = np.linspace(-np.pi, np.pi, 360)
+            bsep, bpa = fit['best']['SEP'], fit['best']['PA'] # could be wrong by 180º!
+            plt.plot(t+np.pi/2, bsep*np.abs(np.cos(t-bpa*np.pi/180)), ':', color='orange')
+            # -- binary separation
+            plt.plot([bpa*np.pi/180+np.pi/2, bpa*np.pi/180-np.pi/2], [bsep, bsep], '*', color='orange')
+            #plt.xlabel('PA$_\mathrm{baseline}$ - PA$_\mathrm{binary}$ (deg)')
+            #plt.title('apparent separation (mas)')
+            #D = [-180, -135, -90, -45, 0, 45, 90, 135]
+            #ax.xaxis.set_ticks(D)
+            #ax.xaxis.set_ticklabels(['-90\n(W)', '-45', 'PA=0 (N)', '45', '90\n(E)', '135', '180 (S)', '-135'])
+            ax.set_ylim(0, sep.max())
+            ax.xaxis.set_visible(False)
+            ax.yaxis.set_visible(False)
+
+            plt.tight_layout()
+            plt.subplots_adjust(hspace=0)
+
+        m = {'1,ud':0.1, '2,ud':0.,
+            '2,x':float(fit['best']['SEP']*np.sin(fit['best']['PA']*np.pi/180)),
+            '2,y':float(fit['best']['SEP']*np.cos(fit['best']['PA']*np.pi/180)),
+            '2,f':np.nanmean(F),
+            }
+
+        # -- check orientation
+        mp = m.copy()
+        for d in self.data:
+            mem = []
+            test = False
+            if 'fit' in d and 'obs' in d['fit']['obs']:
+                mem.append(d['fit']['obs'])
+            if 'OI_T3' in d:
+                test = True
+        if test:
+            mp = m.copy()
+
+            self.setupFit({'obs':['T3PHI']})
+            chi2 = oi._chi2FromModel(m)
+            mp['2,x']*=-1
+            mp['2,y']*=-1
+            chi2p = oi._chi2FromModel(mp)
+            if mem!=[]:
+                for i,d in enumerate(self.data):
+                    d['fit']['obs'] = mem[i]
+            if chi2>chi2p:
+                return mp
+        return m
+
 
 def _computeSpectra(model, data, models):
     """

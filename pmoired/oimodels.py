@@ -5992,9 +5992,10 @@ def showGrid(
         plt.plot(
             x[0],
             y[0],
-            marker=r"$\bigodot$",
+            #marker=r"$\bigodot$",
+            marker=r"$\oplus$",
             # color=matplotlib.cm.get_cmap(cmap)(0),
-            color=plt.get_cmap(cmap)(0),
+            color=plt.get_cmap(cmap)(255),
             markersize=20,
             alpha=0.5,
         )
