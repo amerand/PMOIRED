@@ -2577,7 +2577,7 @@ class OI:
             plt.suptitle(title, color=titleColor)
         i = -1  # default, in case only SED
         self._modelAxes = {}
-        for i, wl0 in enumerate(imWl0):
+        for i, wl0 in enumerate(imWl0): # for each wavelength
             ax = plt.subplot(1, nplot, i + 1, aspect="equal")
             if not "images" in self._modelAxes:
                 self._modelAxes["images"] = [ax]
@@ -2606,7 +2606,9 @@ class OI:
                         fontsize=5,
                     )
             # -- index of image in cube, closest wavelength
-            i0 = np.argmin(np.abs(self.images["WL"] * bcorr - wl0))
+            #i0 = np.argmin(np.abs(self.images["WL"] * bcorr - wl0))
+            i0 = np.argmin(np.abs(self.images["WL"] - wl0))
+
             # -- normalised image
             im = np.abs(self.images["cube"][i0] / np.max(self.images["cube"][i0]))
             # -- photocenter:
@@ -2626,7 +2628,7 @@ class OI:
                 self.images["X"],
                 self.images["Y"],
                 im**imPow,
-                cmap=cmap,
+                cmap=cmap[i] if type(cmap)==list else cmap,
                 vmax=_imMax,
                 vmin=0,
                 shading="auto",
@@ -3781,7 +3783,7 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False):
     #print('obs:', obs)
     res = {}
     ext = {'V2':'OI_VIS2', '|V|':'OI_VIS', 'T3PHI':'OI_T3'}
-    ext = {k:ext[k] for k in obs}
+    ext = {k:ext[k] for k in obs if k in ext}
     for e in ext:
         for k in oi[ext[e]]:
             if 'VIS' in ext[e]:
