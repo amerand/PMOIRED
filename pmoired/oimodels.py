@@ -1560,8 +1560,7 @@ def VsingleOI(
             # -- convolve image by spatial kernel
             if not imFov is None:
                 ker = (1 - fLor) * ker + fLor * kfwhm / (2 * np.pi * np.sqrt(3)) * (
-                    kfwhm**2 / 3 + r2
-                ) ** (-3 / 2)
+                    kfwhm**2 / 3 + r2 ) ** (-3 / 2)
         else:
             fLor = 0
             _kl = 1
@@ -1569,8 +1568,8 @@ def VsingleOI(
             if len(I.shape) == 3:
                 print("fftconvolve", I.shape, ker.shape)
                 I = scipy.signal.fftconvolve(
-                    I, ker[None, :, :], mode="same", axes=(1, 2)
-                )
+                    I, ker[None, :, :], mode="same", axes=(1, 2))
+                I /= np.sum(ker)
             else:
                 I = scipy.signal.fftconvolve(I, ker, mode="same")
     else:
@@ -2106,6 +2105,7 @@ def Vkepler(
     returns:
     nd.array of shape (N,M) of complex visibilities
     """
+    global P
     t0 = time.time()
     u = np.array(u)
     v = np.array(v)
@@ -5458,7 +5458,6 @@ def gridFitOI(
     if "grid" are defined, they will define N as:
     N = prod_i((max_i-min_i)/step_i + 1)
 
-
     constrain: list of conditions, with same syntax as priors (see computePriorL).
     """
     global _prog_N, _prog_Nmax, _prog_t0, _prog_last
@@ -5684,9 +5683,19 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
             # -- some uncertainties are >0
             # -- check errors are reasonable / grid:
             test = False
-            if "grid" in expl:
+            if False and "grid" in expl:
                 for k in expl["grid"]:
                     test = test or f["uncer"][k] > np.abs(expl["grid"][k][2])
+
+            # -- check if any of the grid parameters did not move significantly
+            sigmove = 0
+            for e in expl:
+                for k in expl[e]:
+                    # -- fit barely moved compared to uncertainties
+                    if f["uncer"][k]>0:
+                       sigmove += (f["best"][k]-f["firstGuess"][k])**2 / f["uncer"][k]**2
+            test = sigmove<1
+
             if test:
                 bad.append(f.copy())
                 bad[-1]["bad"] = True
@@ -5798,7 +5807,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
 
     if debug or verbose:
         print("unique minima:", len(tmp), "/", len(res), end=" ")
-        print("[~%.1f first guesses / minima]" % (len(res) / len(tmp)))
+        if len(tmp)>0:
+            print("[~%.1f first guesses / minima]" % (len(res) / len(tmp)))
         if len(tmp) < len(res) / 4:
             print("  few unique minima -> grid too fine / Nfits too large?")
         elif len(tmp) <= len(res) / 2:
