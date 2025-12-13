@@ -1860,7 +1860,22 @@ def averageOI(oi,):
                   1:['MJD', 'u1', 'v1', 'u2', 'v2', 'B1', 'B2', 'B3']}
          }
     res = {k:oi[k] for k in ['WL', 'baselines', 'insname', 'filename', 'fit'] if k in oi}
+
+    maxTimeSpan = 1 # in hours
+    if np.std(oi['MJD'])*24>maxTimeSpan:
+        # averaging over too long, check if LST is less than recommended time span
+        t = Time(oi['MJD'], format='mjd')
+        if np.std(t.sidereal_time('apparent', 'greenwich')).value>maxTimeSpan:
+            print(f'\033[31mwarning!: averaging over more than {maxTimeSpan} hour of observations!\033[0m')
+            print(f'\033[31mwarning!: averaging over more than {maxTimeSpan} hour of LST!\033[0m')
+        else:
+            print(f'\033[33mwarning!: averaging over more than {maxTimeSpan} hour of observations!\033[0m')
+            print(f'\033[32mOK      : averaging over less than {maxTimeSpan} hour of LST\033[0m')
+
+
+
     res['MJD'] = [np.mean(oi['MJD'])]
+
     for e in E:
         if not e in oi:
             continue
