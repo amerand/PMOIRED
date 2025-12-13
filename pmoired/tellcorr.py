@@ -305,9 +305,16 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
              }
 
     # -- spectrum model using spline nodes
-    Nn =  12 if MR else 35
+    Nn = 12 if MR else 60
 
-    for i,x in enumerate(np.linspace(wl[w].min(), wl[w].max(), Nn)):
+    wlspace = np.linspace(wl[w].min(), wl[w].max(), Nn)
+    # denser at shorted wavelength
+    wlspace = np.interp(np.linspace(0,1,Nn)**1.3,
+                          np.linspace(0,1,10),
+                          np.linspace(wl[w].min(), wl[w].max(), 10)
+                         )
+
+    for i,x in enumerate(wlspace):
         test = True
         # -- makes sure the node is not in an avoidance zone:
         if not avoid is None:
