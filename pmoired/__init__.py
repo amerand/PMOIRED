@@ -1918,6 +1918,7 @@ class OI:
         t3B="max",
         modelNames=None,
         modelColors=None,
+        avgData=False,
     ):
         """
         - model: dict defining a model to be overplotted. if a fit was performed,
@@ -1999,12 +2000,17 @@ class OI:
         if allInOne and perSetup:
             perSetup = False
 
-        if allInOne or perSetup:
-            data = oifits.mergeOI(
-                self.data, collapse=False, verbose=False, dMJD=self.dMJD
-            )
+        if avgData:
+            print('\033[36mAVG DATA!\033[0m')
+            data = oifits.mergeOI(self.data, collapse=False, dMJD=self.dMJD)
+            data = oifits.averageOI(data)
         else:
             data = self.data
+
+        if allInOne or perSetup:
+            data = oifits.mergeOI(
+                data, collapse=False, verbose=False, dMJD=self.dMJD
+            )
 
         if not fig is None:
             self.fig = fig
@@ -2070,24 +2076,24 @@ class OI:
                 )
 
             if perSetup == "insname":
-                insnames = [d["insname"] for d in self.data]
+                insnames = [d["insname"] for d in data]
                 perSetup = list(set(insnames))
             elif perSetup == "strict":
-                insnames = [betterinsname(d) for d in self.data]
+                insnames = [betterinsname(d) for d in data]
                 perSetup = list(set(insnames))
             else:
                 # -- defaut -> use simplified names
-                insnames = [d["insname"].split(" ")[0].split("_")[0] for d in self.data]
+                insnames = [d["insname"].split(" ")[0].split("_")[0] for d in data]
                 perSetup = list(set(insnames))
 
             if type(perSetup) == list:
-                data = []
+                _data = []
                 for s in perSetup:
-                    data.append(
+                    _data.append(
                         oifits.mergeOI(
                             [
-                                self.data[i]
-                                for i in range(len(self.data))
+                                data[i]
+                                for i in range(len(data))
                                 if s in insnames[i]
                             ],
                             collapse=False,
@@ -2097,7 +2103,7 @@ class OI:
                     )
                 if spectro:
                     useStrict = False
-                    for D in data:  # for each setup
+                    for D in _data:  # for each setup
                         if len(D) > 1:
                             if all(["OI_VIS" in d for d in D]):
                                 if (
@@ -2113,15 +2119,15 @@ class OI:
                                 ):
                                     useStrict = True
                     if useStrict:
-                        insnames = [betterinsname(d) for d in self.data]
+                        insnames = [betterinsname(d) for d in data]
                         perSetup = list(set(insnames))
-                        data = []
+                        _data = []
                         for s in perSetup:
-                            data.append(
+                            _data.append(
                                 oifits.mergeOI(
                                     [
-                                        self.data[i]
-                                        for i in range(len(self.data))
+                                        data[i]
+                                        for i in range(len(data))
                                         if s in insnames[i]
                                     ],
                                     collapse=False,
@@ -2129,6 +2135,7 @@ class OI:
                                     dMJD=self.dMJD,
                                 )
                             )
+                data = _data
 
             for j, g in enumerate(data):
                 if self.debug:
@@ -2617,7 +2624,12 @@ class OI:
 
             if not imMax is None:
                 if type(imMax) == str:
-                    _imMax = np.percentile((im**imPow)[(im**imPow) > 0], float(imMax))
+                    # if np.nansum(im**imPow>=0)==0:
+                    #     print('image is all negative (?!)',np.min(im), np.max(im))
+                    #     _imMax = 0
+                    # else:
+                    _imMax = np.nanpercentile((im**imPow)[(im**imPow) >= 0], float(imMax))
+
                     # _imMax = np.percentile(im**imPow, float(imMax))
                 else:
                     _imMax = imMax**imPow

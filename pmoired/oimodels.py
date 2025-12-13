@@ -6862,7 +6862,7 @@ def showOI(
         for clo in closest:
             oi["WL mask"][clo] = True
 
-    if not "obs" in oi["fit"] or obs is None:
+    if not "obs" in oi["fit"] and obs is None:
         # -- come up with all possible observations:
         obs = []
         if "OI_T3" in oi:
@@ -6878,9 +6878,6 @@ def showOI(
     elif "obs" in oi["fit"] and obs is None:
         # -- these are the obs from the fit, because not obs are given
         obs = oi["fit"]["obs"]
-
-    if "obs" in oi["fit"]:
-        obsfit = oi["fit"]["obs"]
     else:
         obsfit = obs
     if debug:

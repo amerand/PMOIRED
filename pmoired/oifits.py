@@ -1467,7 +1467,7 @@ def _binVec_flag(_wl, WL, T, F, E=None, medFilt=None, retFlag=False, phase=False
             except:
                 res[i,:] = np.nan
     if retFlag:
-        return res, flag
+        return res, np.logical_or(flag, np.isnan(res))
     return res
 
 def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
@@ -1487,10 +1487,6 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
         #k = np.exp(-(X-x0)**2/(0.6*dx)**2)
         k = np.exp(-(X-x0)**2/(0.6*Gx[i])**2)
         no = np.sum(k/E) # normalisation
-        if no!=0 and np.isfinite(no):
-            y[i] = np.sum(k/E*Y)/no
-        else:
-            y[i] = np.sum(k*Y)/np.sum(k)
         if phase:
             # if no!=0 and np.isfinite(no):
             #     y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
@@ -1501,8 +1497,17 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
                y[i] = np.angle(np.sum(k/E*np.exp(1j*Y*np.pi/180))/no)*180/np.pi
             else:
                y[i] = np.angle(np.sum(k*np.exp(1j*Y*np.pi/180))/np.sum(k))*180/np.pi
+        else:
+            if no!=0 and np.isfinite(no):
+                y[i] = np.sum(k/E*Y)/no
+            else:
+                y[i] = np.sum(k*Y)/np.sum(k)
+
     if phase:
         y = np.unwrap(y+180, period=360)-180
+        if any(np.isnan(y)):
+            w = np.isnan(y)
+
     return y
 
 def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=None):
@@ -1837,6 +1842,67 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
         return tmp
     else:
         return res
+
+
+def averageOI(oi,):
+    if type(oi)==list:
+        return [averageOI(x) for x in oi]
+
+    E = {'OI_FLUX':{2:['FLUX', 'MJD2'],
+                    1:['MJD']},
+         'OI_VIS':{2:['|V|', 'PHI', 'MJD2', 'u/wl', 'v/wl', 'B/wl', 'PA'],
+                   1:['MJD', 'u', 'v']},
+         'OI_VIS2':{2:['V2', 'MJD2', 'u/wl', 'v/wl', 'B/wl', 'PA'],
+                   1:['MJD', 'u', 'v']},
+         'OI_CF':{2:['CF', 'MJD2', 'u/wl', 'v/wl', 'B/wl', 'PA'],
+                   1:['MJD', 'u', 'v']},
+         'OI_T3':{2:['T3PHI', 'T3AMP', 'MJD2', 'Bmax/wl', 'Bmin/wl', 'Bavg/wl'],
+                  1:['MJD', 'u1', 'v1', 'u2', 'v2', 'B1', 'B2', 'B3']}
+         }
+    res = {k:oi[k] for k in ['WL', 'baselines', 'insname', 'filename', 'fit'] if k in oi}
+    res['MJD'] = [np.mean(oi['MJD'])]
+    for e in E:
+        if not e in oi:
+            continue
+        res[e] = {}
+        for i,k in enumerate(oi[e]):
+            res[e][k] = {}
+            # -- 1D
+            mask2d = ~oi[e][k]['FLAG']
+            mask1d = np.sum(~oi[e][k]['FLAG'], axis=1)
+
+            for o in E[e][1]:
+                res[e][k][o] = np.array([np.nansum(mask1d*oi[e][k][o])/np.nansum(mask1d)])
+            for o in E[e][2]:
+                if not 'E'+o in oi[e][k]:
+                    res[e][k][o] = np.nansum(mask2d*oi[e][k][o], axis=0)/np.nansum(mask2d)
+                else:
+                    if 'PHI' in o:
+                        res[e][k][o] = np.angle(np.nansum(mask2d*np.exp(2j*oi[e][k][o]*np.pi/180)/oi[e][k]['E'+o], axis=0)/
+                                                np.nansum(mask2d/oi[e][k]['E'+o], axis=0))*180/np.pi
+                    else:
+                        res[e][k][o] = np.nansum(mask2d*oi[e][k][o]/oi[e][k]['E'+o], axis=0)/np.nansum(mask2d/oi[e][k]['E'+o], axis=0)
+                    res[e][k]['E'+o] = 1/(np.nansum(mask2d/oi[e][k]['E'+o]**2, axis=0)/np.nansum(mask2d/oi[e][k]['E'+o], axis=0))
+                    res[e][k]['E'+o] = np.array([res[e][k]['E'+o]])
+                res[e][k][o] = np.array([res[e][k][o]])
+
+            res[e][k]['FLAG'] = np.array([np.nansum(mask2d, axis=0)==0])
+            if e=='OI_T3':
+                res[e][k]['formula'] = oi[e][k]['formula']
+                for j in [2,3,4]:
+                    res[e][k]['formula'][j] = [0]
+
+        if e=='OI_FLUX': # average all telescopes
+            mask = np.array([~res[e][k]['FLAG'] for k in res[e]])
+            flux = np.array([res[e][k]['FLUX'] for k in res[e]])
+            eflux = np.array([res[e][k]['EFLUX'] for k in res[e]])
+            tmp = {'MJD':res[e][list(res[e].keys())[0]]['MJD']}
+            tmp['FLUX'] = np.nansum(mask*flux/eflux, axis=0)/np.nansum(mask/eflux, axis=0)
+            tmp['EFLUX'] = 1/(np.nansum(mask/eflux**2, axis=0)/np.nansum(mask/eflux, axis=0))
+            tmp['FLAG'] = np.nansum(mask, axis=0)==0
+            res[e] = {'all':tmp}
+
+    return res
 
 def _filtErr(t, ext, filt, debug=False):
     """
