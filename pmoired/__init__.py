@@ -1937,6 +1937,8 @@ class OI:
             wavelength (in microns)
         - perSetup: each instrument/spectroscopic setup in a differn plot (boolean)
         - allInOne: all data in a single figure
+        - avgData: will average data: becarefull, the model is not averaged, but
+            computed for the averaged (u,v) instead!!!
         - barycentric: use barycentric velocities, if possible
         - autoLimV: automatic limits for visibility (|V|, V2) plots (default=False).
 
@@ -2000,18 +2002,6 @@ class OI:
         if allInOne and perSetup:
             perSetup = False
 
-        if avgData:
-            print('\033[36mAVG DATA!\033[0m')
-            data = oifits.mergeOI(self.data, collapse=False, dMJD=self.dMJD)
-            data = oifits.averageOI(data)
-        else:
-            data = self.data
-
-        if allInOne or perSetup:
-            data = oifits.mergeOI(
-                data, collapse=False, verbose=False, dMJD=self.dMJD
-            )
-
         if not fig is None:
             self.fig = fig
         else:
@@ -2038,6 +2028,16 @@ class OI:
         else:
             # -- only works for best fit model!
             errSED = False
+
+        if avgData:
+            print('\033[36maveraging data: beware that model is for averaged differently ! (average u,v)\033[0m')
+            data = oifits.mergeOI(self.data, collapse=False, dMJD=self.dMJD)
+            data = oifits.averageOI(data)
+        else:
+            data = self.data
+
+        if allInOne or perSetup:
+            data = oifits.mergeOI(data, collapse=False, verbose=False, dMJD=self.dMJD)
 
         if not model is None and not imFov is None and checkImVis:
             # -- only works with single model!

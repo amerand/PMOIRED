@@ -1872,8 +1872,6 @@ def averageOI(oi,):
             print(f'\033[33mwarning!: averaging over more than {maxTimeSpan} hour of observations!\033[0m')
             print(f'\033[32mOK      : averaging over less than {maxTimeSpan} hour of LST\033[0m')
 
-
-
     res['MJD'] = [np.mean(oi['MJD'])]
 
     for e in E:
