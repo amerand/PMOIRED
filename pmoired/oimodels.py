@@ -3571,8 +3571,11 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
                     end=" ",
                 )
 
-            if "EPHI" in oi["OI_VIS"][k]:
-                err = oi["OI_VIS"][k]["EPHI"][i, :].copy()
+            if "EPHI" in oi["OI_VIS"][k] or 'NAIVE_EPHI' in oi["OI_VIS"][k]:
+                if 'NAIVE_EPHI' in oi["OI_VIS"][k]:
+                    err = oi["OI_VIS"][k]["NAIVE_EPHI"][i, :].copy()
+                else:
+                    err = oi["OI_VIS"][k]["EPHI"][i, :].copy()
                 if "max error" in oi["fit"] and "DPHI" in oi["fit"]["max error"]:
                     # -- ignore data with large error bars
                     mask *= err <= oi["fit"]["max error"]["DPHI"]
@@ -3624,8 +3627,11 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
             edata = []
             for i, vis in enumerate(oi["OI_VIS"][k]["|V|"]):
                 vmask = w * ~oi["OI_VIS"][k]["FLAG"][i, :]
-                if "E|V|" in oi["OI_VIS"][k]:
-                    verr = oi["OI_VIS"][k]["E|V|"][i, :] / oi["OI_VIS"][k]["|V|"][i, :]
+                if "E|V|" in oi["OI_VIS"][k] or "NAIVE_E|V|" in oi["OI_VIS"][k]:
+                    if "NAIVE_E|V|" in oi["OI_VIS"][k]:
+                        verr = oi["OI_VIS"][k]["NAIVE_E|V|"][i, :] / oi["OI_VIS"][k]["|V|"][i, :]
+                    else:
+                        verr = oi["OI_VIS"][k]["E|V|"][i, :] / oi["OI_VIS"][k]["|V|"][i, :]
                     if "max error" in oi["fit"] and "N|V|" in oi["fit"]["max error"]:
                         # -- ignore data with large error bars
                         vmask *= verr < oi["fit"]["max error"]["N|V|"]
@@ -3692,8 +3698,6 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
         if visamp:
             oi["DVIS"][k]["N|V|"] = np.array(vdata)
             if "E|V|" in oi["OI_VIS"][k]:
-                # -- very crude estimation
-                # oi['DVIS'][k]['EN|V|'] = oi['OI_VIS'][k]['E|V|']
                 oi["DVIS"][k]["EN|V|"] = (
                     np.array(edata)[:, None] + 0 * oi["OI_VIS"][k]["E|V|"]
                 )
@@ -3705,7 +3709,10 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
             for i, vis in enumerate(oi["OI_VIS2"][k]["V2"]):
                 vmask = w * ~oi["OI_VIS2"][k]["FLAG"][i, :]
                 if "EV2" in oi["OI_VIS2"][k]:
-                    verr = oi["OI_VIS2"][k]["EV2"][i, :] / oi["OI_VIS2"][k]["V2"][i, :]
+                    if 'NAIVE_EV2' in oi["OI_VIS2"][k]:
+                        verr = oi["OI_VIS2"][k]["NAIVE_EV2"][i, :] / oi["OI_VIS2"][k]["V2"][i, :]
+                    else:
+                        verr = oi["OI_VIS2"][k]["EV2"][i, :] / oi["OI_VIS2"][k]["V2"][i, :]
                     if "max error" in oi["fit"] and "NV2" in oi["fit"]["max error"]:
                         # -- ignore data with large error bars
                         vmask *= verr < oi["fit"]["max error"]["NV2"]
@@ -3756,8 +3763,8 @@ def computeDiffPhiOI(oi, param=None, order="auto", debug=False, visamp=True, vis
                     edata.append(np.std(vdata[-1][vmask]))
                 else:
                     edata.append(np.median(verr[vmask]))
-
                 # -- end v2isamp
+
         oi["DVIS2"][k] = {
             "FLAG": oi["OI_VIS2"][k]["FLAG"],
             "B/wl": oi["OI_VIS2"][k]["B/wl"],

@@ -1891,12 +1891,29 @@ def averageOI(oi,):
                     res[e][k][o] = np.nansum(mask2d*oi[e][k][o], axis=0)/np.nansum(mask2d)
                 else:
                     if 'PHI' in o:
-                        res[e][k][o] = np.angle(np.nansum(mask2d*np.exp(2j*oi[e][k][o]*np.pi/180)/oi[e][k]['E'+o], axis=0)/
-                                                np.nansum(mask2d/oi[e][k]['E'+o], axis=0))*180/np.pi
+                        tmp = mask2d/oi[e][k]['E'+o]*np.exp(1j*oi[e][k][o]*np.pi/180)
+                        norm = np.nansum(mask2d/oi[e][k]['E'+o], axis=0)
+                        err = np.angle(np.nanstd(tmp, axis=0))*180/np.pi
+                        res[e][k][o] = np.angle(np.nanmean(tmp, axis=0))*180/np.pi
                     else:
-                        res[e][k][o] = np.nansum(mask2d*oi[e][k][o]/oi[e][k]['E'+o], axis=0)/np.nansum(mask2d/oi[e][k]['E'+o], axis=0)
-                    res[e][k]['E'+o] = 1/(np.nansum(mask2d/oi[e][k]['E'+o]**2, axis=0)/np.nansum(mask2d/oi[e][k]['E'+o], axis=0))
-                    res[e][k]['E'+o] = np.array([res[e][k]['E'+o]])
+                        tmp = mask2d*oi[e][k][o]/oi[e][k]['E'+o]
+                        norm = np.nansum(mask2d/oi[e][k]['E'+o], axis=0)
+                        err = np.nanstd(tmp, axis=0)/norm
+                        res[e][k][o] = np.nansum(tmp, axis=0)/norm
+
+                    res[e][k]['E'+o] = 1/(np.nansum(mask2d/oi[e][k]['E'+o]**2, axis=0)/norm)
+                    #print(e, o, k, min(res[e][k]['E'+o]), max(res[e][k]['E'+o]))
+
+                    if False:
+                        # -- weighted average of uncertainties
+                        res[e][k]['E'+o] = np.array([res[e][k]['E'+o]])
+                    else:
+                        # -- keeping track of the dispersion of data
+                        res[e][k]['STD'+o] = np.array([err])
+                        res[e][k]['NAIVE_E'+o] = np.array([res[e][k]['E'+o]])
+                        # -- error taking into account the dispersion of data
+                        res[e][k]['E'+o] = np.array([np.sqrt(res[e][k]['E'+o]**2 + err**2)])
+
                 res[e][k][o] = np.array([res[e][k][o]])
 
             res[e][k]['FLAG'] = np.array([np.nansum(mask2d, axis=0)==0])

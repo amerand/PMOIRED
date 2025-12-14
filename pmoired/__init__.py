@@ -2030,7 +2030,7 @@ class OI:
             errSED = False
 
         if avgData:
-            print('\033[36maveraging data: beware that model is for averaged differently ! (average u,v)\033[0m')
+            print('\033[36maveraging data: beware that model is averaged differently (average u,v)!\033[0m')
             data = oifits.mergeOI(self.data, collapse=False, dMJD=self.dMJD)
             data = oifits.averageOI(data)
         else:
