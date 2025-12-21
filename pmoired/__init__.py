@@ -914,6 +914,8 @@ class OI:
         factor=100,
         _zeroCorrelations=False,
         _maxRho=1,
+        inject=None,
+        saveBest=True,
     ):
         """
         model: a dictionnary describing the model
@@ -922,6 +924,8 @@ class OI:
         maxfev: maximum number of iterations
         ftol: chi2 stopping criteria
         follow: list of parameters to display as fit is going on
+        inject: inject features and will fit to
+            "data - V(model) + V(model|inject)"
 
         prior: list of priors as tuples. For example
             [('a+b', '=', 1.2, 0.1)] if a and b are parameters. a+b = 1.2 +- 0.1
@@ -963,16 +967,26 @@ class OI:
             if not _checkPrior(prior):
                 raise Exception('ill formed "prior"')
 
+        remem = {}
         if model is None:
+            if type(doNotFit) is list:
+                remem['doNotFit'] = doNotFit.copy()
+            if type(fitOnly) is list:
+                remem['fitOnly'] = fitOnly.copy()
+            if type(prior) is list:
+                remem['prior'] = prior.copy()
+            remem['uncer'] = self.bestfit["uncer"]
             try:
                 model = self.bestfit["best"]
                 if doNotFit == "auto":
                     doNotFit = self.bestfit["doNotFit"]
                     fitOnly = self.bestfit["fitOnly"]
+                if prior is None and prior in self.bestfit:
+                    prior = self.bestfit["prior"]
             except:
                 # assert True, ' first guess as "model={...}" should be provided'
                 raise Exception(' first guess as "model={...}" should be provided')
-
+        #print('remem:', remem)
         if doNotFit == "auto":
             doNotFit = []
 
@@ -980,6 +994,21 @@ class OI:
         self._merged = oifits.mergeOI(
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
+        if not inject is None:
+            self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            # -- add inject to fitted parameters
+            model = model|inject
+            if 'doNotFit' in remem and not remem['doNotFit'] is None:
+                doNotFit = remem['doNotFit']
+            if 'fitOnly' in remem and not remem['fitOnly'] is None:
+                fitOnly = remem['fitOnly']
+            if 'prior' in remem and not remem['prior'] is None:
+                fitOnly = remem['prior']
+            if 'uncer' in remem:
+                for k in remem['uncer']:
+                    if remem['uncer'][k]>0:
+                        model[k] += 1*np.random.randn()*remem['uncer'][k]
+
         prior = self._setPrior(model, prior, autoPrior)
         if correlations:
             # -- this is going to be very slow for bootstrapping :(
@@ -1020,7 +1049,7 @@ class OI:
         else:
             self._correlations = None
 
-        self.bestfit = oimodels.fitOI(
+        tmp = oimodels.fitOI(
             self._merged,
             model,
             fitOnly=fitOnly,
@@ -1034,6 +1063,12 @@ class OI:
             prior=prior,
             correlations=self._correlations,
         )
+
+        if saveBest:
+            self.bestfit = tmp
+        else:
+            return tmp
+
         if verbose:
             if len(self.bestfit["not significant"]):
                 print(
@@ -1071,6 +1106,9 @@ class OI:
         self._model = oimodels.VmodelOI(self._merged, self.bestfit["best"])
         self.computeModelSpectra(uncer=False)
         return
+
+    def injectFit(self, inject, **kwargs):
+        pass
 
     def _chi2FromModel(
         self,

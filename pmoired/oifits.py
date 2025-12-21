@@ -1168,7 +1168,6 @@ def _binOI(res, binning=None, medFilt=None, noError=False):
 
     return res
 
-
 def splitOIbyMJD(oi, dMJD=0):
     """
     ois: list of oi results from loadOI
@@ -1842,7 +1841,6 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
         return tmp
     else:
         return res
-
 
 def averageOI(oi,):
     if type(oi)==list:

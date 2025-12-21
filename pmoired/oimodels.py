@@ -3167,6 +3167,45 @@ def _asTemplate(res, oi):
                 res[e][k][o] += np.random.randn(*res[e][k][o].shape)*res[e][k]['E'+o]
     return res
 
+def _injectFeatures(oi, truth, inject):
+    """
+    oi: an oidata dict or a list thereof
+    truth: parametric model representing the truth
+    inject: additional/modified parameters for the model
+
+    return a data dict/list: "data - model(truth) + model(truth|inject)"
+    """
+    if type(oi)==list:
+        return [_injectFeatures(x, truth, inject) for x in oi]
+
+    E = {'OI_FLUX':['FLUX'],
+         'OI_VIS':['|V|', 'PHI'],
+         'OI_VIS2':['V2'],
+         'OI_CF':['CF'],
+         'OI_T3':['T3PHI', 'T3AMP'],
+         }
+    res = {k:oi[k] for k in ['WL', 'baselines', 'insname', 'configurations per MJD',
+                             'filename', 'fit', 'MJD'] if k in oi}
+
+    T = VmodelOI(oi, truth)
+    I = VmodelOI(oi, truth|inject)
+
+    for e in E:
+        if not e in oi:
+            continue
+        tmp = {}
+        for k in oi[e]:
+            tmp[k] = {}
+            for o in oi[e][k]:
+                if o in E[e]:
+                    tmp[k][o] = oi[e][k][o] - T[e][k][o] + I[e][k][o]
+                else:
+                    tmp[k][o] = oi[e][k][o].copy()
+        res[e] = tmp
+    return res
+
+
+
 def _convolve(y, ker):
     k = len(ker)
     _y = np.append(y, y[-k:][::-1])
@@ -6149,22 +6188,6 @@ def bootstrapFitOI(
     firstGuess = fit["best"]
     uncer = fit["uncer"]
 
-    kwargs = {
-        "maxfev": maxfev,
-        "ftol": ftol,
-        "verbose": False,
-        "fitOnly": fitOnly,
-        "doNotFit": doNotFit,
-        "epsfcn": epsfcn,
-        "randomise": True,
-        "prior": prior,
-        "iter": -1,
-        "keepFlux": keepFlux,
-        "onlyMJD": strongMJD,
-        "lowmemory": True,
-        "additionalRandomise": additionalRandomise,
-        "correlations": correlations,
-    }
     res = []
     t = time.time()
     if multi:
@@ -6185,7 +6208,22 @@ def bootstrapFitOI(
             microprogress.progress(0)
 
         for i in range(N):
-            kwargs["iter"] = i
+            kwargs = {
+                "maxfev": maxfev,
+                "ftol": ftol,
+                "verbose": False,
+                "fitOnly": fitOnly,
+                "doNotFit": doNotFit,
+                "epsfcn": epsfcn,
+                "randomise": True,
+                "prior": prior,
+                "iter": i,
+                "keepFlux": keepFlux,
+                "onlyMJD": strongMJD,
+                "lowmemory": True,
+                "additionalRandomise": additionalRandomise,
+                "correlations": correlations,
+            }
             if randomiseParam:
                 # -- todo: should use the covariance matrix!
                 if type(randomiseParam) != bool:
@@ -6204,29 +6242,38 @@ def bootstrapFitOI(
                     }
             else:
                 tmpfg = firstGuess
+            if any([k.startswith('#TF') for k in tmpfg]):
+                ext = {'|V|':'OI_VIS', 'V2':'OI_VIS2', 'T3PHI':'OI_T3', 'T3AMP':'OI_T3',
+                       'PHI':'OI_VIS', 'CF':'OI_CF'}
+                TF = [k for k in tmpfg if k.startswith('#TF')]
+                _doNotFitTF = []
+                for tf in TF:
+                    k = tf.split('_')[2]
+                    o = tf.split('_')[1]
+                    e = ext[o]
+                    anydata = False
+                    for d in oi:
+                        if e in d and k in d[e]:
+                            # -- WARNING, not taking into account error and wl filtering!!!
+                            anydata = anydata or any(~d[e][k]['FLAGS'].flatten())
+                    if not(anydata):
+                        _doNotFitTF.append(tf)
+
+                # if kwargs['fitOnly'] in [None, []] and kwargs['doNotfit'] in [None, []]:
+                #     kwargs['doNotfit'] = _doNotFitTF
+                # elif kwargs['fitOnly'] in [None, []]:
+                #     # -- only doNotFit is defined
+                #     kwargs['doNotfit'] += _doNotFitTF
+                # else:
+                #     # -- only fitOnly is defined
+                #     kwargs['fitOnly'] = [k for k in kwargs['fitOnly'] if not k in _doNotFitTF]
+                # for k in ['fitOnly', 'doNotFit']:
+                #     print(k, kwargs[k])
+
             if verbose:
-                res.append(
-                    pool.apply_async(
-                        fitOI,
-                        (
-                            oi,
-                            tmpfg,
-                        ),
-                        kwargs,
-                        callback=progress,
-                    )
-                )
+                res.append(pool.apply_async(fitOI,(oi,tmpfg,),kwargs, callback=progress,))
             else:
-                res.append(
-                    pool.apply_async(
-                        fitOI,
-                        (
-                            oi,
-                            tmpfg,
-                        ),
-                        kwargs,
-                    )
-                )
+                res.append(pool.apply_async(fitOI,(oi,tmpfg,),kwargs,))
 
         pool.close()
         pool.join()
@@ -6235,6 +6282,23 @@ def bootstrapFitOI(
             r["y"] = None
             r["y"] = None
     else:
+        kwargs = {
+            "maxfev": maxfev,
+            "ftol": ftol,
+            "verbose": False,
+            "fitOnly": fitOnly,
+            "doNotFit": doNotFit,
+            "epsfcn": epsfcn,
+            "randomise": True,
+            "prior": prior,
+            "iter": 0,
+            "keepFlux": keepFlux,
+            "onlyMJD": strongMJD,
+            "lowmemory": True,
+            "additionalRandomise": additionalRandomise,
+            "correlations": correlations,
+        }
+
         Np = 1
         t = time.time()
         _prog_N = 1
