@@ -101,7 +101,6 @@ with resources.as_file(tfile) as p:
     with open(p, "rb") as f:
         tran, lbda = pickle.load(f)
 
-
 def Ftran(l, param, retWL=False, retS=False):
     """
     'dl0', 'wl0', 'dl1',
@@ -285,16 +284,27 @@ def gravity(
     fl = None
 
     def checkExt():
+        #f.info()
         for i in range(len(f)):
             if ( i > 0 and "EXTNAME" in f[i].header and f[i].header["EXTNAME"] == "OI_FLUX" ):
-                print(i, f[i].header['INSNAME'], f[i].data['FLUX'].shape)
+                print(i, f[i].header['INSNAME'], end=' ')
+                print([c.name for c in f[i].columns])
+                #print(f[i].data.)
+                if 'FLUX' in f[i].data.keys():
+                   print(f[i].data['FLUX'].shape)
+                elif 'FLUXDATA' in f[i].data.keys():
+                   print(f[i].data['FLUXDATA'].shape)
+
+    kflux = 'FLUX'
 
     for i in range(4):
         if pola:
             if ext=='default':
                 ext = (18, 22)
             try:
-                _sp = f[ext[0]].data["FLUX"][i, :] + f[ext[1]].data["FLUX"][i, :]
+                if not kflux in [c.name for c in f[ext[0]].columns]:
+                    kflux = 'FLUXDATA'
+                _sp = f[ext[0]].data[kflux][i, :] + f[ext[1]].data[kflux][i, :]
                 _fl = np.logical_or(f[ext[0]].data["FLAG"][i, :], f[ext[1]].data["FLAG"][i, :])
             except:
                 checkExt()
@@ -303,7 +313,9 @@ def gravity(
             if ext=='default':
                 ext = 12
             try:
-                _sp = f[ext].data["FLUX"][i, :].copy()
+                if not kflux in [c.name for c in f[ext].columns]:
+                    kflux = 'FLUXDATA'
+                _sp = f[ext].data[kflux][i, :].copy()
                 _fl = f[ext].data["FLAG"][i, :].copy()
             except:
                checkExt()
