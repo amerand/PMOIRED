@@ -1,34 +1,35 @@
-import time
 import copy
-import multiprocessing
-import random
-import os
-import platform, subprocess
 import itertools
-import sys
+import multiprocessing
+import os
 import pickle
-import serial
-
+import platform
+import random
+import subprocess
+import sys
+import time
 import warnings
+
+import serial
 
 warnings.filterwarnings(action="ignore", category=RuntimeWarning)
 
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.interpolate
+
 # import matplotlib.cm # deprecated in 3.8
 # import matplotlib.colormaps
-
 import scipy.special
-import scipy.interpolate
 import scipy.stats
+
+# import pmoired.ulensBin2 as ulensBin2
+from astropy import constants
 
 import pmoired.dpfit as dpfit
 import pmoired.dw as dw
 import pmoired.oifits as oifits
-# import pmoired.ulensBin2 as ulensBin2
-
-from astropy import constants
 
 try:
     import pmoired.microprogress as microprogress
@@ -42,9 +43,23 @@ MAX_THREADS = multiprocessing.cpu_count()
 US_SPELLING = False
 
 
-def Ssingle(oi, param, noLambda=False):
+def closefig(fig):
+    # -- helps avoid memory ballooning?
+    if plt.fignum_exists(fig):
+        plt.figure(fig)
+        plt.clf()
+    plt.close(fig)
+    return
+
+
+def Ssingle(oi, param, noLambda=False, allParams=None):
     """
     build spectrum for Vsingle
+
+    oi: data dictionnary
+
+    param: param dictionnary
+
     """
     if not noLambda:
         _param = computeLambdaParams(param, MJD=np.mean(oi["MJD"]))
@@ -186,14 +201,34 @@ def Ssingle(oi, param, noLambda=False):
     if "spectrum" in _param.keys():
         sp = _param["spectrum"]
         sp = sp.replace("$WL", 'oi["WL"]')
-        for k in _param.keys():
-            if k in sp:
-                sp.replace("$" + k, str(_param[k]))
+        # while '$' in sp:
+        for j in range(3):
+            # -- iterate a few times for recusrsive definitions
+            for k in _param.keys():
+                if k in sp and not k.endswith(",spectrum"):
+                    sp.replace("$" + k, str(_param[k]))
+        if not allParams is None:
+            Cs = set([x.split(",")[0] for x in allParams if "," in x])
+            for c in Cs:
+                if "#" + c + ",SPECTRUM" in sp:
+                    tmpp = {x: allParams[x] for x in allParams if not "," in x}
+                    tmpp |= {
+                        x.split(c + ",")[1]: allParams[x]
+                        for x in allParams
+                        if x.startswith(c + ",")
+                    }
+                    # print('#'+c+',SPECTRUM' in sp)
+                    sp = sp.replace(
+                        "#" + c + ",SPECTRUM",
+                        "np.array(" + str(list(Ssingle(oi, tmpp))) + ")",
+                    )
         try:
             f += eval(sp)
         except:
             print("!!! cannot evaluate", sp)
-    return f
+            print(f"{sp=}")
+
+    return np.nan_to_num(f)
 
 
 def _Kepler3rdLaw(a=None, P=None, M1M2=None):
@@ -597,6 +632,7 @@ def VsingleOI(
     _ffrac=1.0,
     _dwl=0.0,
     fullOutput=False,
+    allParams=None,
 ):
     """
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
@@ -711,7 +747,7 @@ def VsingleOI(
     if not smear is None:
         _debug = False
         if _debug:
-            print("DBG> VsingleOI: init smearing [%d]"%len(res['WL']), end=' -> ')
+            print("DBG> VsingleOI: init smearing [%d]" % len(res["WL"]), end=" -> ")
         # expand the WL table -> re bin *after* combining components!
         res["binWL"] = res["WL"] * 1.0
         # res['WL'] = np.linspace(res['WL'].min(), res['WL'].max(), len(res['WL'])*smear)
@@ -721,7 +757,7 @@ def VsingleOI(
         else:
             res["WL"] = _expandVec(res["WL"], smear - 1)
         if _debug:
-            print("[%d]"%len(res['WL']))
+            print("[%d]" % len(res["WL"]))
             # print('')
         if not "dWL" in res:
             res["dWL"] = np.gradient(res["WL"])
@@ -824,11 +860,11 @@ def VsingleOI(
 
     # -- spectrum, fraction of it if needed for bandwith smearing
     # -- vector, same length as oi['WL']
-    flux = Ssingle(res, _param, noLambda=True) * _ffrac
+    flux = Ssingle(res, _param, noLambda=True, allParams=allParams) * _ffrac
 
     if any(flux > 0):
         # -- check negativity of spectrum
-        negativity = np.sum(flux[flux < 0]) / np.sum(flux[flux >= 0])
+        negativity = 100 * np.sum(flux[flux < 0]) / np.sum(flux[flux >= 0])
     elif all(flux < 0):
         negativity = np.sum(flux[flux < 0])
     else:
@@ -926,36 +962,42 @@ def VsingleOI(
     # -- do we need to apply a stretch?
     if "projang" in _param.keys() and "incl" in _param.keys():
         rot = -_param["projang"] * np.pi / 180
-        _uwl = lambda z: np.cos(_param["incl"] * np.pi / 180) * (
-            np.cos(rot) * z["u/wl"][:, wwl] / cwl
-            + np.sin(rot) * z["v/wl"][:, wwl] / cwl
+        _uwl = lambda z: (
+            np.cos(_param["incl"] * np.pi / 180)
+            * (
+                np.cos(rot) * z["u/wl"][:, wwl] / cwl
+                + np.sin(rot) * z["v/wl"][:, wwl] / cwl
+            )
         )
-        _vwl = (
-            lambda z: -np.sin(rot) * z["u/wl"][:, wwl] / cwl
+        _vwl = lambda z: (
+            -np.sin(rot) * z["u/wl"][:, wwl] / cwl
             + np.cos(rot) * z["v/wl"][:, wwl] / cwl
         )
         _Bwl = lambda z: np.sqrt(_uwl(z) ** 2 + _vwl(z) ** 2)
 
         if du:
-            _udu = (
-                lambda z: (
+            _udu = lambda z: (
+                (
                     np.cos(rot) * z["u/wl"][:, wwl] / cwl
                     + np.sin(rot) * z["v/wl"][:, wwl] / cwl
                 )
                 * np.cos(np.pi * _param["incl"] / 180)
                 + du / res["WL"][wwl]
             )
-            _vdu = (
-                lambda z: -np.sin(rot) * z["u/wl"][:, wwl] / cwl
+            _vdu = lambda z: (
+                -np.sin(rot) * z["u/wl"][:, wwl] / cwl
                 + np.cos(rot) * z["v/wl"][:, wwl] / cwl
             )
             _Bdu = lambda z: np.sqrt(_udu(z) ** 2 + _vdu(z) ** 2)
             _udv = lambda z: (
-                np.cos(rot) * z["u/wl"][:, wwl] / cwl
-                + np.sin(rot) * z["v/wl"][:, wwl] / cwl
-            ) * np.cos(np.pi * _param["incl"] / 180)
-            _vdv = (
-                lambda z: -np.sin(rot) * z["u/wl"][:, wwl] / cwl
+                (
+                    np.cos(rot) * z["u/wl"][:, wwl] / cwl
+                    + np.sin(rot) * z["v/wl"][:, wwl] / cwl
+                )
+                * np.cos(np.pi * _param["incl"] / 180)
+            )
+            _vdv = lambda z: (
+                -np.sin(rot) * z["u/wl"][:, wwl] / cwl
                 + np.cos(rot) * z["v/wl"][:, wwl] / cwl
                 + dv / res["WL"][wwl]
             )
@@ -1061,7 +1103,9 @@ def VsingleOI(
                 imN=imN,
             )
             I = tmp[1] / np.sum(tmp[1])
-    elif ("Vin" in _param or "V1mas" in _param or "Vin_Mm/s" in _param):  # == Keplerian disk ==
+    elif (
+        "Vin" in _param or "V1mas" in _param or "Vin_Mm/s" in _param
+    ):  # == Keplerian disk ==
         # == TODO: make this faster by only computing for needed wavelength
         if imFov is None:
             imN = None
@@ -1094,8 +1138,8 @@ def VsingleOI(
     elif "ud" in _param.keys():  # == uniform disk ================================
         Rout = _param["ud"] / 2
         if any(flux > 0):
-            Vf = (
-                lambda z: 2
+            Vf = lambda z: (
+                2
                 * scipy.special.j1(_c * _param["ud"] * _Bwl(z) + 1e-12)
                 / (_c * _param["ud"] * _Bwl(z) + 1e-12)
             )
@@ -1107,13 +1151,13 @@ def VsingleOI(
             negativity += np.abs(_c * _param["ud"] * Bwlmax)
 
         if du:  # -- slanted
-            Vfdu = (
-                lambda z: 2
+            Vfdu = lambda z: (
+                2
                 * scipy.special.j1(_c * _param["ud"] * _Bdu(z))
                 / (_c * _param["ud"] * _Bdu(z))
             )
-            Vfdv = (
-                lambda z: 2
+            Vfdv = lambda z: (
+                2
                 * scipy.special.j1(_c * _param["ud"] * _Bdv(z))
                 / (_c * _param["ud"] * _Bdv(z))
             )
@@ -1222,9 +1266,12 @@ def VsingleOI(
                     I = R2 == np.min(R2)
         else:
             Vf = lambda z: (
-                1 / aou * np.exp(-((_c * _Bwl(z)) ** 2) / aou)
-                - 1 / ain * np.exp(-((_c * _Bwl(z)) ** 2) / ain)
-            ) / (1 / aou - 1 / ain)
+                (
+                    1 / aou * np.exp(-((_c * _Bwl(z)) ** 2) / aou)
+                    - 1 / ain * np.exp(-((_c * _Bwl(z)) ** 2) / ain)
+                )
+                / (1 / aou - 1 / ain)
+            )
             if not I is None:
                 I = np.exp(-(R**2) * aou) - np.exp(-(R**2) * ain)
     elif "crin" in _param and "crout" in _param and "croff" in _param:  # crecsent
@@ -1259,17 +1306,20 @@ def VsingleOI(
             _offYi = _off * np.cos(crpa)
 
         Vf = lambda z: (
-            np.exp(-2j * _c * _uwl(z) * _offXo - 2j * _c * _vwl(z) * _offYo)
-            * _crout**2
-            * 2
-            * scipy.special.j1(_c * _crout * _Bwl(z) + 1e-12)
-            / (_c * _crout * _Bwl(z) + 1e-12)
-            - np.exp(-2j * _c * _uwl(z) * _offXi - 2j * _c * _vwl(z) * _offYi)
-            * _crin**2
-            * 2
-            * scipy.special.j1(_c * _crin * _Bwl(z) + 1e-12)
-            / (_c * _crin * _Bwl(z) + 1e-12)
-        ) / (_crout**2 - _crin**2)
+            (
+                np.exp(-2j * _c * _uwl(z) * _offXo - 2j * _c * _vwl(z) * _offYo)
+                * _crout**2
+                * 2
+                * scipy.special.j1(_c * _crout * _Bwl(z) + 1e-12)
+                / (_c * _crout * _Bwl(z) + 1e-12)
+                - np.exp(-2j * _c * _uwl(z) * _offXi - 2j * _c * _vwl(z) * _offYi)
+                * _crin**2
+                * 2
+                * scipy.special.j1(_c * _crin * _Bwl(z) + 1e-12)
+                / (_c * _crin * _Bwl(z) + 1e-12)
+            )
+            / (_crout**2 - _crin**2)
+        )
         if not I is None:
             # -- outer disk
             R2 = (_X - _offXo) ** 2 + (_Y - _offYo) ** 2
@@ -1301,7 +1351,7 @@ def VsingleOI(
                 and oi["fit"]["ignore negative flux"]
             ):
                 negativity = 0.0
-    elif ( "diamout" in _param or "diam" in _param):
+    elif "diamout" in _param or "diam" in _param:
         # == F(r)*G(az) ========================
         # -- disk or ring with radial and az profile
 
@@ -2345,8 +2395,8 @@ def Vkepler(
     # -- lines profiles:
     # loren = lambda x, wl0, dwl: 1/(1+(x-wl0)**2/maximum(dwl/1000, obs_dwl/2)**2)
     # gauss = lambda x, wl0, dwl: np.exp(-(x-wl0)**2/(2*(np.maximum(dwl/1000, obs_dwl)/2.35482)**2))
-    loren = lambda x, wl0, dwl: (0.5 * dwl / 1000) ** 2 / (
-        (x - wl0) ** 2 + (0.5 * dwl / 1000) ** 2
+    loren = lambda x, wl0, dwl: (
+        (0.5 * dwl / 1000) ** 2 / ((x - wl0) ** 2 + (0.5 * dwl / 1000) ** 2)
     )
     gauss = lambda x, wl0, dwl: np.exp(
         -((x - wl0) ** 2) / (2 * dwl / 1000 / 2.35482) ** 2
@@ -2467,7 +2517,8 @@ def Vkepler(
     #        '%.0fms'%(1000*(t1-t0)), ' + %.0fms'%(1000*(time.time()-t1)) )
 
     if plot:
-        plt.close(0)
+        # -- helps avoid memory ballooning?
+        closefig(0)
         plt.figure(0)
         ax = plt.subplot(211, aspect="equal")
         # -- show disk' dots on sky, with color is the velocit
@@ -2609,6 +2660,7 @@ def VfromImageOI(oi):
 
 SMEA = 7
 
+
 def VmodelOI(
     oi,
     p,
@@ -2668,6 +2720,7 @@ def VmodelOI(
             timeit=timeit,
             indent=indent + 1,
             fullOutput=fullOutput,
+            allParams=param,
         )
 
         # -- apply before differential computations:
@@ -2840,6 +2893,7 @@ def VmodelOI(
                 _dwl=_dwl,
                 _ffrac=_ffrac,
                 fullOutput=fullOutput,
+                allParams=param,
             )
             if _dwl != 0:
                 # -- correct wavelength offset
@@ -2928,6 +2982,7 @@ def VmodelOI(
                 noT3=True,
                 _dwl=_dwl,
                 _ffrac=_ffrac,
+                allParams=param,
             )
             if "image" in m["MODEL"].keys():
                 res["MODEL"][c + ",image"] = m["MODEL"]["image"]
@@ -3067,12 +3122,12 @@ def VmodelOI(
     t0 = time.time()
 
     if "smear" in res:
-        print('!smear!')
+        print("!smear!")
         # needs to happen before T3PHI, differential phase and normalise flux
         if True or debug:
             print("VmodelOI: closing smearing (binning)")
         # print('smear: binning', res['WL'].shape, '->', end=' ')
-        res = oifits._binOI(res, binning=res['smear'], noError=True)
+        res = oifits._binOI(res, binning=res["smear"], noError=True)
         # print(res['WL'].shape)
 
     if "OI_T3" in oi.keys():
@@ -3219,14 +3274,15 @@ def _injectFeatures(oi, truth, inject):
     T = VmodelOI(oi, truth)
     I = VmodelOI(oi, truth | inject)
 
-    for e in E:
+    for e in E:  # for each extension
         if not e in oi:
             continue
         tmp = {}
-        for k in oi[e]:
+        for k in oi[e]:  # for each observable
             tmp[k] = {}
-            for o in oi[e][k]:
+            for o in oi[e][k]:  # for each telescope / baseline / triangle
                 if o in E[e]:
+                    # -- observations - bestmodel + bestmodel_with_injection
                     tmp[k][o] = oi[e][k][o] - T[e][k][o] + I[e][k][o]
                 else:
                     tmp[k][o] = oi[e][k][o].copy()
@@ -3475,14 +3531,14 @@ def computeLambdaParams(params, MJD=0):
                             raise Exception(
                                 "missing "
                                 + s
-                                + " for "
+                                + " for '"
                                 + kp
-                                + " in {"
+                                + "' in {"
                                 + "'"
-                                + _k
-                                + '": "'
+                                + k
+                                + "': '"
                                 + paramsI[k]
-                                + '"}?'
+                                + "'}?"
                             )
                     # if s in tmp:
                     #    raise Exception('unknow parameters definition in {'+
@@ -3509,6 +3565,7 @@ def computeLambdaParams(params, MJD=0):
                         paramsR[k] = tmp
                     else:
                         paramsR[k] = eval(tmp.replace("(nan)", "(np.nan)"))
+
                 else:
                     paramsR[k] = tmp
             else:
@@ -4463,7 +4520,7 @@ def residualsOI(
         # -- for each observable:
         if f in sorted(ext.keys()):
             if "PHI" in f:
-                rf = lambda x: ((x + 180) % 360 - 180)
+                rf = lambda x: (x + 180) % 360 - 180
             else:
                 rf = lambda x: x
 
@@ -5367,12 +5424,14 @@ def randomiseData2(oi, verbose=False, keepFlux=False, onlyMJD=None):
             # -- do not randomise flux
             exts = list(
                 filter(
-                    lambda x: x
-                    in [
-                        "OI_VIS",
-                        "OI_VIS2",
-                        "OI_T3",
-                    ],
+                    lambda x: (
+                        x
+                        in [
+                            "OI_VIS",
+                            "OI_VIS2",
+                            "OI_T3",
+                        ]
+                    ),
                     tmp.keys(),
                 )
             )
@@ -6004,13 +6063,14 @@ def showGrid(
 ):
     """
     res: results from a gridFitOI
-    px, py: the two parameters to show (default 2 first alphabetically)
-    color: color for the plot (default is chi2)
 
+    px, py: the two parameters to show (default 2 first alphabetically)
+
+    color: color for the plot (default is chi2)
     """
     global _gridAxes, _gridFig
     # print('debug sG:', '"'+px+'"', '"'+py+'"')
-    plt.close(fig)
+    closefig(fig)
     _gridFig = plt.figure(fig)
 
     if not aspect is None:
@@ -6022,7 +6082,7 @@ def showGrid(
         c = np.array(
             [_nSigmas(significance, r["chi2"], r["ndof"]) for r in res if ~r["bad"]]
         )
-        color = r"significance min($\sigma$, 8)"
+        color = r"significance ($\sigma$)"
     else:
         # -- color of local minima
         if not color == "chi2":
@@ -7267,7 +7327,7 @@ def showOI(
     if not figWidth is None and figHeight is None:
         figHeight = max(figWidth / ncol, FIG_MAX_HEIGHT)
     if not allInOne or ai1ax == {}:
-        plt.close(fig)
+        closefig(fig)
         ai1fig = plt.figure(fig, figsize=(figWidth, figHeight))
 
     i_flux = 0
@@ -8289,8 +8349,7 @@ def showModel(
         figHeight = max(figWidth / nplot, FIG_MAX_HEIGHT)
 
     # print('showModel: fighWidth, figHeight=', figWidth, figHeight)
-
-    plt.close(fig)
+    closefig(fig)
     plt.figure(fig, figsize=(figWidth, figHeight))
 
     if "cube" in m["MODEL"].keys():
@@ -8738,7 +8797,7 @@ def halfLightRadiusFromParam(param, comp=None, fig=None, verbose=True):
     _cf /= _cf.max()
     rh = np.interp(0.5, _cf, _r)
     if not fig is None:
-        plt.close(fig)
+        closefig(fig)
         plt.figure(fig)
         plt.plot(_r, _p)
     return rh
@@ -8796,7 +8855,7 @@ def halfLightRadiusFromImage(oi, icube, incl, projang, x0=None, y0=None, fig=Non
     rh = np.interp(0.5, cF, r)
 
     if not fig is None:
-        plt.close(fig)
+        closefig(fig)
         plt.figure(fig, figsize=(9, 5))
         ax = plt.subplot(121, aspect="equal")
         plt.pcolormesh(
@@ -8896,22 +8955,22 @@ def showBootstrap(
         filter(
             lambda k: k not in combParam.keys() and k not in ignore, boot["fitOnly"]
         ),
-        key=lambda k: k
-        if not k in alternateParameterNames
-        else alternateParameterNames[k],
+        key=lambda k: (
+            k if not k in alternateParameterNames else alternateParameterNames[k]
+        ),
     )
     showP += sorted(
         filter(lambda k: k in combParam.keys() and k not in ignore, boot["fitOnly"]),
-        key=lambda k: k
-        if not k in alternateParameterNames
-        else alternateParameterNames[k],
+        key=lambda k: (
+            k if not k in alternateParameterNames else alternateParameterNames[k]
+        ),
     )
 
     if figWidth is None:
         figWidth = min(FIG_MAX_WIDTH, 1 + 2 * len(showP))
 
     fontsize = max(min(9 * figWidth / len(showP), 14), 6)
-    plt.close(fig)
+    closefig(fig)
     _bootFig = plt.figure(fig, figsize=(figWidth, figWidth))
     _AX = {}
 
@@ -9687,7 +9746,7 @@ def testAzVar():
     print("Image min/max = %f / %f" % (np.min(I), np.max(I)))
     # == Show result =======================================
     print("speedup: x%.0f" % (tn / tsa))
-    plt.close(0)
+    closefig(0)
     plt.figure(0, figsize=(11, 4))
     plt.clf()
     plt.subplots_adjust(

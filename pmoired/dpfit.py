@@ -1,10 +1,11 @@
-from astropy.utils.misc import coffee
-import scipy.optimize
-import numpy as np
-from numpy import linalg
 import time
-from matplotlib import pyplot as plt
 from functools import reduce
+
+import numpy as np
+import scipy.optimize
+from astropy.utils.misc import coffee
+from matplotlib import pyplot as plt
+from numpy import linalg
 
 try:
     import microprogress
@@ -213,21 +214,47 @@ def leastsqFit(
         )
     else:
         if (bounds is None or bounds == {}) and correlations is None:
-            # ==== LEGACY! ===========================
-            if verbose:
-                print("[dpfit] using scipy.optimize.leastsq")
-            plsq, cov, info, mesg, ier = scipy.optimize.leastsq(
-                _fitFunc,
-                pfit,
-                args=(fitOnly, x, y, err, func, pfix, verbose, follow),
-                full_output=True,
-                epsfcn=epsfcn,
-                ftol=ftol,
-                maxfev=maxfev,
-                factor=factor,
-            )
-            info["exec time"] = time.time() - t0
-            mesg = mesg.replace("\n", "")
+            if True:
+                # ==== LEGACY! ===========================
+                if verbose:
+                    print("[dpfit] using scipy.optimize.leastsq")
+                plsq, cov, info, mesg, ier = scipy.optimize.leastsq(
+                    _fitFunc,
+                    pfit,
+                    args=(fitOnly, x, y, err, func, pfix, verbose, follow),
+                    full_output=True,
+                    epsfcn=epsfcn,
+                    ftol=ftol,
+                    maxfev=maxfev,
+                    factor=factor,
+                )
+                mesg = mesg.replace("\n", "")
+                info["exec time"] = time.time() - t0
+            else:
+                if verbose:
+                    print("[dpfit] using scipy.optimize.least_squares")
+                result = scipy.optimize.least_squares(
+                    _fitFunc,
+                    pfit,
+                    ftol=ftol,
+                    max_nfev=maxfev,
+                    args=(fitOnly, x, y, err, func, pfix, verbose, follow),
+                )
+                plsq = result.x
+                # cov = np.dot(np.transpose(result.jac), result.jac)
+                # # https://github.com/scipy/scipy/blob/2526df72e5d4ca8bad6e2f4b3cbdfbc33e805865/scipy/optimize/minpack.py#L739
+                # # Do Moore-Penrose inverse discarding zero singular values.
+                _, s, VT = np.linalg.svd(result.jac, full_matrices=False)
+                threshold = np.finfo(float).eps * max(result.jac.shape) * s[0]
+                # if verbose:
+                #     print('[dpfit] zeros in cov?', any(s<=threshold))
+                s = s[s > threshold]
+                VT = VT[: s.size]
+                cov = np.dot(VT.T / s**2, VT)
+
+                info = {"nfev": result.nfev, "exec time": time.time() - t0}
+                mesg, ier = result.message, None
+
         else:
             # method = 'L-BFGS-B'
             method = "BFGS"
@@ -299,7 +326,7 @@ def leastsqFit(
     model = func(x, pfix)
 
     if not correlations is None:
-        cov = 2 * cov / (len(model) - len(pfit) + 1)
+        cov = 2 * cov / (len(model) - len(pfit))
 
     # print('cov', cov)
 
@@ -842,8 +869,9 @@ def _fitFunc(
         else:
             _follow = list(
                 filter(
-                    lambda x: x in params.keys()
-                    and type(params[x]) in [float, np.double],
+                    lambda x: (
+                        x in params.keys() and type(params[x]) in [float, np.double]
+                    ),
                     follow,
                 )
             )
