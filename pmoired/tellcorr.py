@@ -18,6 +18,7 @@ import pmoired.dpfit as dpfit
 
 this_dir, this_filename = os.path.split(__file__)  # TODO clean this up
 bin_file = "transir_gravity.pckl"
+p2vm_file = "p2vm_flux.pckl"
 
 # try:
 # -- loading transnir
@@ -93,13 +94,31 @@ def _createDataFile():
 
 if os.path.exists(resources.files("pmoired").joinpath(bin_file)):
     tfile = resources.files("pmoired").joinpath(bin_file)
+    pfile = resources.files("pmoired").joinpath(p2vm_file)
 else:
     tfile = bin_file
+    pfile = p2vm_file
 
 with resources.as_file(tfile) as p:
     # print(tfile)
     with open(p, "rb") as f:
         tran, lbda = pickle.load(f)
+
+with resources.as_file(pfile) as p:
+    # print(tfile)
+    with open(p, "rb") as f:
+        _p2vm = pickle.load(f)
+
+def isFlatCorrected(f):
+    """
+    f: result from "fits.open()"
+    returns True if file has been flat corrected, False is not, and None if it cannot be determined
+    """
+    P = [k for k in f[0].header.keys() if 'PRO REC' in k and 'PARAM' in k and 'NAME' in k and 'flat-flux' in f[0].header[k]]
+    if len(P)==1:
+        return f[0].header[P[0]]=='true'
+    else:
+        return None
 
 def Ftran(l, param, retWL=False, retS=False):
     """
@@ -108,7 +127,7 @@ def Ftran(l, param, retWL=False, retS=False):
     wl -> (wl-dl0)
     wl -> dli*(wl-wl0)**i + wl0
     """
-
+    global _p2vm
     tmpL = 1.0 * lbda
 
     # -- wavelength correction
@@ -181,19 +200,29 @@ def Ftran(l, param, retWL=False, retS=False):
             tmpT, kern_max, "same"
         )
 
-    # -- spline shape
+
+    if 'p2vm' in param and param['p2vm'] is True:
+        #print('using p2vm flat')
+        if len(l)>200 and len(l)<1000:
+            tmpS = np.interp(tmpL, _p2vm['WL'], _p2vm['MED'])
+        elif len(l)>=1000:
+            tmpS = np.interp(tmpL, _p2vm['WL'], _p2vm['HIGH'])
+    else:
+        tmpS = np.ones(len(tmpL))
+    # -- continuum: spline + p2vm flat (if needed)
     X = sorted(filter(lambda x: x.startswith("xS"), param.keys()))
     Y = sorted(filter(lambda x: x.startswith("yS"), param.keys()))
+
     if len(X) == len(Y) and len(X):
-        tmpS = scipy.interpolate.interp1d(
+        tmpS *= scipy.interpolate.interp1d(
             [param[x] for x in X],
             [param[y] for y in Y],
             kind="cubic",
             fill_value="extrapolate",
         )(tmpL)
-        tmpT *= tmpS
-        if retS:
-            return np.interp(l, tmpL, tmpS)
+    tmpT *= tmpS
+    if retS:
+        return np.interp(l, tmpL, tmpS)
     return np.interp(l, tmpL, tmpT)
 
 
@@ -209,24 +238,15 @@ def removeTellurics(filename):
     return
 
 
-def gravity(
-    filename,
-    quiet=True,
-    save=True,
-    wlmin=None,
-    wlmax=None,
-    avoid=None,
-    fig=None,
-    force=False,
-    MR=True,
-    ext="default",
-):
+def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
+    fig=None, force=False, MR=True, ext="default"):
     """
     avoid: list of tuple of wlmin, wlmax to avoid in the fit (known) line
     """
     # -- LOAD DATA -------------------------------------------------
     f = fits.open(filename)
-
+    #useP2vm = not isFlatCorrected(f)
+    useP2vm = False
     # -- check if telluric already computed
     alreadyComputed = False
     for h in f:
@@ -360,6 +380,7 @@ def gravity(
             "kernp_max": 1.0,
             "pwv": 2.0,
             "pow": 1.0,  #'p_2.3717':0.8
+            'p2vm': useP2vm,
         }
     else:
         p = {
@@ -375,6 +396,7 @@ def gravity(
             "pwv": 2.0,
             "pow": 1,
             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
+            'p2vm': useP2vm,
         }
 
     # -- spectrum model using spline nodes
@@ -480,7 +502,8 @@ def gravity(
             ],
         )
 
-    p = {k: fit["best"][k] for k in fit["best"].keys() if not "S" in k}
+    # -- all params, except spline continuum
+    p = {k: fit["best"][k] for k in fit["best"] if not "S" in k}
     if save:
         # -- SAVE telluric as fits extension in fits file
         f = fits.open(filename, mode="update")
@@ -612,7 +635,7 @@ def showTellurics(filename, fig=99):
         return
     if not fig is None:
         plt.close(fig)
-        plt.figure(fig, figsize=(pmoired.FIG_MAX_WIDTH, 0.4 * pmoired.FIG_MAX_WIDTH))
+        plt.figure(fig, figsize=(pmoired.FIG_MAX_WIDTH, 0.6 * pmoired.FIG_MAX_WIDTH))
 
     ax1 = plt.subplot(211)
     plt.plot(

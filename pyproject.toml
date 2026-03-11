@@ -11,7 +11,8 @@ pmoired = ["newVltiHzn_obsDoors.txt",
            "transir_gravity.pckl",
            "Model definitions and examples.ipynb",
            "Rosseland_SATLAS_giants.dat",
-           "Rosseland_SATLAS_dwarfs.dat"]
+           "Rosseland_SATLAS_dwarfs.dat",
+	   "p2vm_flux.pckl"]
 
 [tool.setuptools.dynamic]
 version = {attr='pmoired.__version__'}
