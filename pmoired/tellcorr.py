@@ -104,10 +104,10 @@ with resources.as_file(tfile) as p:
     with open(p, "rb") as f:
         tran, lbda = pickle.load(f)
 
-with resources.as_file(pfile) as p:
-    # print(tfile)
-    with open(p, "rb") as f:
-        _p2vm = pickle.load(f)
+if os.path.exists(resources.files("pmoired").joinpath(p2vm_file)):
+    pfile = resources.files("pmoired").joinpath(p2vm_file)
+with open(pfile, 'rb') as f:
+    gravityP2vm = pickle.load(f)
 
 def isFlatCorrected(f):
     """
@@ -116,7 +116,7 @@ def isFlatCorrected(f):
     """
     P = [k for k in f[0].header.keys() if 'PRO REC' in k and 'PARAM' in k and 'NAME' in k and 'flat-flux' in f[0].header[k]]
     if len(P)==1:
-        return f[0].header[P[0]]=='true'
+        return f[0].header[P[0].replace('NAME', 'VALUE')]=='true'
     else:
         return None
 
@@ -245,8 +245,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     """
     # -- LOAD DATA -------------------------------------------------
     f = fits.open(filename)
-    #useP2vm = not isFlatCorrected(f)
-    useP2vm = False
+    useP2vm = not isFlatCorrected(f)
+    #useP2vm = False # make things works somehow !?
     # -- check if telluric already computed
     alreadyComputed = False
     for h in f:
@@ -349,6 +349,13 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     # -- close FITS file
     f.close()
 
+    if useP2vm:
+        print('apply P2VM Flat')
+        if MR:
+            sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['MEDIUM'])
+        else:
+            sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['HIGH'])
+
     # -- avoid some known lines
     w = (wl > wlmin) * (wl < wlmax) * ~fl * ~np.isnan(sp) * (sp != 0)
 
@@ -367,36 +374,36 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     # -- FIT TELLURIC MODEL -------------------------------------------
     if MR:
         p = {
-            "dl0": 0.000,
+            "dl0": 1e-4,
             "wl0": 2.22,
             "dl1": 1.0,
-            "dl2": 0.0,
-            "dl3": 0.0,
+            "dl2": 1e-4,
+            "dl3": 1e-4,
             #'kern':1e-3,
             "kern_min": 3e-3,
             "kern_max": 5e-3,
             #'kernp':1.0,
-            "kernp_min": 0.8,
-            "kernp_max": 1.0,
-            "pwv": 2.0,
-            "pow": 1.0,  #'p_2.3717':0.8
-            'p2vm': useP2vm,
+            "kernp_min": 1.9,
+            "kernp_max": 2.1,
+            "pwv": 3.0,
+            "pow": .5,  #'p_2.3717':0.8
+            #'p2vm': useP2vm,
         }
     else:
         p = {
-            "dl0": 0.0,
-            "wl0": 2.0,
+            "dl0": 1e-4,
+            "wl0": 2.2,
             "dl1": 1.0,
-            "dl2": 0.0,
-            "dl3": 0.0,
+            "dl2": 1.e-4,
+            "dl3": 1.e-4,
             "kern_min": 2.8e-4,
             "kern_max": 3.4e-4,
             "kernp_min": 1.7,
             "kernp_max": 1.7,
-            "pwv": 2.0,
+            "pwv": 3.0,
             "pow": 1,
             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
-            'p2vm': useP2vm,
+            #'p2vm': useP2vm,
         }
 
     # -- spectrum model using spline nodes
@@ -501,7 +508,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                 "kernp_max",
             ],
         )
-
+    print(fit["best"])
     # -- all params, except spline continuum
     p = {k: fit["best"][k] for k in fit["best"] if not "S" in k}
     if save:

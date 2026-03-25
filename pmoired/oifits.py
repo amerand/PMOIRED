@@ -2,6 +2,7 @@ import copy
 import glob
 import os
 from collections import OrderedDict
+import pickle
 
 import numpy as np
 from astropy.io import fits
@@ -9,6 +10,12 @@ import scipy.signal
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
 import astropy.units as aU
+
+try:
+    # Necessary while Python versions below 3.9 are supported.
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
 
 def _isiterable(x):
     res = True
@@ -36,10 +43,16 @@ def _globlist(filenames, strict=False):
             assert len(g)>0, 'no file(s) found for '+str(filenames)
         return g
 
+p2vm_file = 'p2vm_flux.pckl'
+if os.path.exists(resources.files("pmoired").joinpath(p2vm_file)):
+    pfile = resources.files("pmoired").joinpath(p2vm_file)
+with open(pfile, 'rb') as f:
+    gravityP2vm = pickle.load(f)
+
 def loadOI(filename, insname=None, targname=None, verbose=True,
            withHeader=False, medFilt=None, tellurics=None, debug=False,
            binning=None, useTelluricsWl=True, barycentric=False, ignoreCF=False,
-           wlOffset=0.0, orderedWl=True):
+           wlOffset=0.0, orderedWl=True, autoFlat=True):
     """
     load OIFITS "filename" and return a dict:
 
@@ -69,7 +82,10 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     useTelluricsWL: use wavelength calibration provided by the tellurics (default==True)
     barycentric: compute barycentric velocities (default=False)
 
+    autoFlat: correct P2VM flat is not ran during reduction
+
     """
+    global gravityP2vm
     if debug:
         print('DEBUG: loadOI', type(filename), type(filename)==np.str_)#filename)
     if tellurics is True:
@@ -976,6 +992,17 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 for e in O[o]:
                     if e in res[o][k]:
                         res[o][k][e] = res[o][k][e][:,wls]
+
+    # -- correct for GRAVITY P2VM, is relevant
+    if 'OI_FLUX' in res and autoFlat:
+        P = [k for k in res['header'] if 'PRO REC' in k and 'PARAM' in k and 'NAME' in k
+                                        and 'flat-flux' in res['header'][k]]
+        if len(P) and res['header'][P[0].replace('NAME', 'VALUE')]=='false':
+            reso = res['header']['ESO INS SPEC RES']
+            for k in res['OI_FLUX']:
+                res['OI_FLUX'][k]['FLUX'] /= np.interp(res['WL'], gravityP2vm['WL'], gravityP2vm[reso])
+            res['header'][P[0].replace('NAME', 'VALUE')]='pmoired'
+
     return res
 
 def _binOI(res, binning=None, medFilt=None, noError=False):
