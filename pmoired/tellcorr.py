@@ -352,7 +352,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
     f.close()
 
     if useP2vm:
-        print('apply P2VM Flat')
+        if not quiet:
+            print('apply P2VM Flat')
         if MR:
             sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['MEDIUM'])
         else:
@@ -401,7 +402,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             "kern_min": 2.8e-4,
             "kern_max": 3.4e-4,
             "kernp_min": 1.7,
-            "kernp_max": 1.7,
+            "kernp_max": 2.1,
             "pwv": 3.0,
             "pow": 1,
             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
