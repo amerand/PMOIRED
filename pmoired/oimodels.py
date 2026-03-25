@@ -3413,8 +3413,17 @@ def _applyTF(res):
                         w = res[O[o]]["all"]["NAME"] != None
                     else:
                         w = res[O[o]]["all"]["NAME"] == b
-                    if "+" in TF[o][b]:
+                    if '+' in TF[o][b] :
                         res[O[o]]["all"][o][w] += TF[o][b]["+"]
+                    if '+0' in TF[o][b] :
+                        res[O[o]]["all"][o][w] += TF[o][b]["+0"]
+                    if '+1' in TF[o][b]:
+                        res[O[o]]["all"][o][w] += TF[o][b]["+1"]*(res["WL"] - np.mean(res["WL"]))[None, :]
+                    if '+2' in TF[o][b]:
+                        res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**2                        
+                    if '+3' in TF[o][b]:
+                        res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**3
+
                     if "*" in TF[o][b]:
                         res[O[o]]["all"][o][w] *= TF[o][b]["*"]
                     if "s" in TF[o][b]:
