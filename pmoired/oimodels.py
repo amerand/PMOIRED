@@ -3480,7 +3480,7 @@ def _applyTF(res):
                                 )
                             # -- polynomial multiplicative factor
                             for sn in filter(
-                                lambda x: x.startswith("s") and x[1:].isdigit(),
+                                lambda x: x.startswith("*") and x[1:].isdigit(),
                                 TF[o][b],
                             ):
                                 _n = int(sn[1:])
