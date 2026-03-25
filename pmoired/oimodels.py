@@ -3441,7 +3441,7 @@ def _applyTF(res):
                     #         1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
                     #     )
                     # -- polynomial multiplicative factor
-                    for sn in filter(lambda x: x.startswith("s") and x[1:].isdigit(), TF[o][b]):
+                    for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(), TF[o][b]):
                         _n = int(sn[1:])
                         res[O[o]]["all"][o][w] *= (
                             1
