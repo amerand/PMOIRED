@@ -3962,7 +3962,7 @@ def _recsizeof(s):
         return sys.getsizeof(s)
 
 
-def _getTfParamsOI(oi, obs=None, withVSlope=False):
+def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
     if type(oi) == list:
         res = {}
         for d in oi:
@@ -3983,6 +3983,9 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False):
                     res["#TF_" + e + "_" + k + "_s"] = 0.01
             else:
                 res["#TF_" + e + "_" + k + "_+"] = 0.01
+                if 'T3' in e and withT3Slope:
+                    res["#TF_" + e + "_" + k + "_s"] = 0.01
+
     return res
 
 

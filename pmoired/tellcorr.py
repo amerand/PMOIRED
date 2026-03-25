@@ -346,6 +346,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             fl = _fl
         else:
             fl = np.logical_or(fl, _fl)
+        fl *= sp<=0
+
     # -- close FITS file
     f.close()
 
@@ -508,7 +510,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                 "kernp_max",
             ],
         )
-    print(fit["best"])
+    #print(fit["best"])
     # -- all params, except spline continuum
     p = {k: fit["best"][k] for k in fit["best"] if not "S" in k}
     if save:
