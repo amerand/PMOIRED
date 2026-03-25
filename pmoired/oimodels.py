@@ -3413,32 +3413,35 @@ def _applyTF(res):
                         w = res[O[o]]["all"]["NAME"] != None
                     else:
                         w = res[O[o]]["all"]["NAME"] == b
-                    if '+' in TF[o][b] :
-                        res[O[o]]["all"][o][w] += TF[o][b]["+"]
-                    if '+0' in TF[o][b] :
-                        res[O[o]]["all"][o][w] += TF[o][b]["+0"]
-                    if '+1' in TF[o][b]:
-                        res[O[o]]["all"][o][w] += TF[o][b]["+1"]*(res["WL"] - np.mean(res["WL"]))[None, :]
-                    if '+2' in TF[o][b]:
-                        res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**2                        
-                    if '+3' in TF[o][b]:
-                        res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**3
+                    # if '+' in TF[o][b] :
+                    #     res[O[o]]["all"][o][w] += TF[o][b]["+"]
+                    # if '+0' in TF[o][b] :
+                    #     res[O[o]]["all"][o][w] += TF[o][b]["+0"]
+                    # if '+1' in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] += TF[o][b]["+1"]*(res["WL"] - np.mean(res["WL"]))[None, :]
+                    # if '+2' in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**2                        
+                    # if '+3' in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**3
 
-                    if "*" in TF[o][b]:
-                        res[O[o]]["all"][o][w] *= TF[o][b]["*"]
-                    if "s" in TF[o][b]:
-                        res[O[o]]["all"][o][w] *= (
-                            1
-                            + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["s"]
-                        )
-                    if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
-                        res[O[o]]["all"][o][w] *= (
-                            1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
-                        )
+                    # if "*" in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] *= TF[o][b]["*"]
+                    # if "*1" in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] *= (
+                    #         1
+                    #         + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["*1"]
+                    #     )
+                    # if "*2" in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] *= (
+                    #         1
+                    #         + (res["WL"] - np.mean(res["WL"]))[None, :]**2 * TF[o][b]["*2"]
+                    #     )
+                    # if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
+                    #     res[O[o]]["all"][o][w] *= (
+                    #         1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
+                    #     )
                     # -- polynomial multiplicative factor
-                    for sn in filter(
-                        lambda x: x.startswith("s") and x[1:].isdigit(), TF[o][b]
-                    ):
+                    for sn in filter(lambda x: x.startswith("s") and x[1:].isdigit(), TF[o][b]):
                         _n = int(sn[1:])
                         res[O[o]]["all"][o][w] *= (
                             1
@@ -3446,9 +3449,7 @@ def _applyTF(res):
                             * TF[o][b][sn]
                         )
                     # -- polynomial additive factor
-                    for sn in filter(
-                        lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b]
-                    ):
+                    for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b]):
                         _n = int(sn[1:])
                         res[O[o]]["all"][o][w] += (res["WL"] - np.mean(res["WL"]))[
                             None, :
