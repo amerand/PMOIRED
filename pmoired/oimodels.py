@@ -3441,19 +3441,16 @@ def _applyTF(res):
                     #         1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
                     #     )
                     # -- polynomial multiplicative factor
+                    _tfmult = 0
                     for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(), TF[o][b]):
                         _n = int(sn[1:])
-                        res[O[o]]["all"][o][w] *= (
-                            1
-                            + (res["WL"] - np.mean(res["WL"]))[None, :] ** _n
-                            * TF[o][b][sn]
-                        )
+                        _tfmult +=  (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
+                    if type(_tfmult)==np.ndarray:
+                        res[O[o]]["all"][o][w] *= _tfmult[None,:]
                     # -- polynomial additive factor
                     for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b]):
                         _n = int(sn[1:])
-                        res[O[o]]["all"][o][w] += (res["WL"] - np.mean(res["WL"]))[
-                            None, :
-                        ] ** _n * TF[o][b][sn]
+                        res[O[o]]["all"][o][w] += (res["WL"] - np.mean(res["WL"]))[None,:] ** _n * TF[o][b][sn]
 
                 else:
                     if b == "all":
@@ -3479,21 +3476,15 @@ def _applyTF(res):
                                     * TF[o][b]["wl2"]
                                 )
                             # -- polynomial multiplicative factor
-                            for sn in filter(
-                                lambda x: x.startswith("*") and x[1:].isdigit(),
-                                TF[o][b],
-                            ):
+                            _tfmult = 0
+                            for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(),TF[o][b]):
                                 _n = int(sn[1:])
-                                res[O[o]][_b][o] *= (
-                                    1
-                                    + (res["WL"] - np.mean(res["WL"]))[None, :] ** _n
-                                    * TF[o][b][sn]
-                                )
+                                _tfmult += (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
+                            if type(_tfmult)==np.ndarray:
+                                res[O[o]][_b][o] *= _tfmult[None,:] 
+
                             # -- polynomial additive factor
-                            for sn in filter(
-                                lambda x: x.startswith("+") and x[1:].isdigit(),
-                                TF[o][b],
-                            ):
+                            for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(),TF[o][b]):
                                 _n = int(sn[1:])
                                 res[O[o]][_b][o] += (res["WL"] - np.mean(res["WL"]))[
                                     None, :
