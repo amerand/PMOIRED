@@ -640,6 +640,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
 def showTellurics(filename, fig=99):
     h = fits.open(filename)
+    useP2vm = not isFlatCorrected(h)
+
     if not "TELLURICS" in h:
         print("no tellurics model found")
         return
@@ -647,10 +649,16 @@ def showTellurics(filename, fig=99):
         plt.close(fig)
         plt.figure(fig, figsize=(pmoired.FIG_MAX_WIDTH, 0.6 * pmoired.FIG_MAX_WIDTH))
 
+    flat = 1
+    if useP2vm:
+        k = h[0].header["ESO INS SPEC RES"].strip()
+        flat = np.interp(h["TELLURICS"].data["EFF_WAVE"] * 1e6, 
+                         gravityP2vm['WL'], gravityP2vm[k])
+
     ax1 = plt.subplot(211)
     plt.plot(
         h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"],
+        h["TELLURICS"].data["RAW_SPEC"]/flat,
         "-",
         alpha=0.5,
         label="raw spectrum",
@@ -659,7 +667,7 @@ def showTellurics(filename, fig=99):
     )
     plt.plot(
         h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["CORR_CONT"],
+        h["TELLURICS"].data["CORR_CONT"]/flat,
         ":g",
         alpha=0.5,
         label="estimated continuum",
@@ -667,14 +675,14 @@ def showTellurics(filename, fig=99):
     )
     plt.plot(
         h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["TELL_TRANS"],
+        h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["TELL_TRANS"] /flat,
         "-k",
         label="corrected spectrum",
         lw=1,
     )
     plt.plot(
         h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["TELL_TRANS"] * h["TELLURICS"].data["CORR_CONT"],
+        h["TELLURICS"].data["TELL_TRANS"] * h["TELLURICS"].data["CORR_CONT"]/flat,
         "-b",
         label="telluric*continuum (PWV=%.2fmm)" % h["TELLURICS"].header["PWV"],
         alpha=0.5,
