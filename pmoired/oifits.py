@@ -2288,12 +2288,16 @@ def getESOPipelineParams(H, verbose=True):
                             'files':F}
                 p = OrderedDict()
             last_rec = rec
-        if H[k.replace('NAME', 'VALUE')]=='true':
+        if H[k.replace('NAME', 'VALUE')].lower()=='true':
             c = '\033[32m'
-        elif H[k.replace('NAME', 'VALUE')]=='false':
+        elif H[k.replace('NAME', 'VALUE')].lower()=='false':
             c = '\033[31m'
         else:
-            c = '\033[34m'
+            try:
+                float(H[k.replace('NAME', 'VALUE')])
+                c = '\033[35m'                
+            except:   
+                c = '\033[34m'
         p[H[k]] = H[k.replace('NAME', 'VALUE')]
         if verbose:
             print(H[k]+'='+c+H[k.replace('NAME', 'VALUE')]+'\033[0m', end=' ')

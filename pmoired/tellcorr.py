@@ -116,9 +116,10 @@ def isFlatCorrected(f):
     """
     P = [k for k in f[0].header.keys() if 'PRO REC' in k and 'PARAM' in k and 'NAME' in k and 'flat-flux' in f[0].header[k]]
     if len(P)==1:
+        #print(P[0].replace('NAME', 'VALUE'), f[0].header[P[0].replace('NAME', 'VALUE')])
         return f[0].header[P[0].replace('NAME', 'VALUE')]=='true'
     else:
-        return None
+        return False
 
 def Ftran(l, param, retWL=False, retS=False):
     """
@@ -300,7 +301,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         pola = False
 
     # -- sum of fluxes, remove outliers -----------------------------
-    sp, n = 0.0, 3
+    sp, n, we = 0.0, 3, 0
     fl = None
 
     def checkExt():
@@ -316,6 +317,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                    print(f[i].data['FLUXDATA'].shape)
 
     kflux = 'FLUX'
+    ekflux = 'FLUXERR'
 
     for i in range(4):
         if pola:
@@ -324,7 +326,13 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             try:
                 if not kflux in [c.name for c in f[ext[0]].columns]:
                     kflux = 'FLUXDATA'
-                _sp = f[ext[0]].data[kflux][i, :] + f[ext[1]].data[kflux][i, :]
+                if not ekflux in [c.name for c in f[ext[0]].columns]:
+                    ekflux = 'FLUXDATAERR'
+
+                _sp = f[ext[0]].data[kflux][i, :]/np.maximum(f[ext[0]].data[ekflux][i, :],1) + \
+                      f[ext[1]].data[kflux][i, :]/np.maximum(f[ext[1]].data[ekflux][i, :],1)
+                _we = 1/np.maximum(f[ext[0]].data[ekflux][i, :],1) +\
+                      1/np.maximum(f[ext[1]].data[ekflux][i, :],1)
                 _fl = np.logical_or(f[ext[0]].data["FLAG"][i, :], f[ext[1]].data["FLAG"][i, :])
             except:
                 checkExt()
@@ -332,28 +340,31 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         else:
             if ext=='default':
                 ext = 12
+            if not kflux in [c.name for c in f[ext].columns]:
+                kflux = 'FLUXDATA'
+            if not ekflux in [c.name for c in f[ext].columns]:
+                ekflux = 'FLUXDATAERR'
             try:
-                if not kflux in [c.name for c in f[ext].columns]:
-                    kflux = 'FLUXDATA'
-                _sp = f[ext].data[kflux][i, :].copy()
+                _sp = f[ext].data[kflux][i, :].copy()/np.maximum(f[ext].data[ekflux][i, :], 1)
+                _we = 1/np.maximum(f[ext].data[ekflux][i, :], 1)
                 _fl = f[ext].data["FLAG"][i, :].copy()
             except:
-               checkExt()
-               raise Exception('please use "ext=i0" option to define the relevant OI_FLUX extension (#i0)')
+                checkExt()
+                raise Exception('please use "ext=i0" option to define the relevant OI_FLUX extension (#i0)')
 
         sp += _sp
+        we += _we
         if fl is None:
             fl = _fl
         else:
             fl = np.logical_or(fl, _fl)
-        fl *= sp<=0
-
+    sp /= we
     # -- close FITS file
     f.close()
 
     if useP2vm:
-        if not quiet:
-            print('apply P2VM Flat')
+        #if not quiet:
+        #print('apply P2VM Flat')
         if MR:
             sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['MEDIUM'])
         else:
@@ -401,17 +412,23 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             "dl3": 1.e-4,
             "kern_min": 2.8e-4,
             "kern_max": 3.4e-4,
-            "kernp_min": 1.7,
-            "kernp_max": 2.1,
+            "kernp_min": 0.9,
+            "kernp_max": 1.1,
             "pwv": 3.0,
             "pow": 1,
             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
             #'p2vm': useP2vm,
         }
+        # old value
+        p = {'dl0':0.0, 'wl0':2.2, 'dl1':1.0, 'dl2':0.0, 'dl3':0.0,
+             'kern_min':2.8e-4, 'kern_max':3.4e-4, 'kernp_min':2, 'kernp_max':2,
+             'pwv':2.0, 'pow':0.7,
+             #'p_2.09913':0.8, 'p_2.11905':1.0, 'p_2.12825':1.0, 'p_2.1691':1.0,
+             }
 
     # -- spectrum model using spline nodes
-    Nn = 12 if MR else 60
-
+    Nn = 12 if MR else 35
+    
     wlspace = np.linspace(wl[w].min(), wl[w].max(), Nn)
     # denser at shorted wavelength
     wlspace = np.interp(
@@ -428,8 +445,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                 if x >= _wlmin and x <= _wlmax:
                     test = False
         if test:
-            p["xS" + str(i)] = x
-            p["yS" + str(i)] = np.mean(sp[w])
+            p["xS%03d"%i] = x
+            p["yS%03d"%i] = np.mean(sp[w])
 
     fitOnly = list(filter(lambda k: k.startswith("yS"), p.keys()))
     fitOnly.append("dl0")
@@ -511,7 +528,8 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
                 "kernp_max",
             ],
         )
-    #print(fit["best"])
+    fit['best']['pwv'] = np.abs(fit['best']['pwv'])
+
     # -- all params, except spline continuum
     p = {k: fit["best"][k] for k in fit["best"] if not "S" in k}
     if save:
@@ -540,10 +558,12 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         hdu.header["ORIGIN"] = "https://github.com/amerand/PMOIRED"
         hdu.header["AUTHOR"] = "amerand@eso.org"
         hdu.header["DATE"] = time.asctime()
-        hdu.header["PWV"] = (round(fit["best"]["pwv"], 3), "mm of precipitable water")
+        hdu.header["PWV"] = (round(np.abs(fit["best"]["pwv"]), 3), "mm of precipitable water")
+        for k in sorted(fit["best"]):
+            hdu.header["HIERARCH PMOIRED FTRAN "+k.upper()] = fit['best'][k] #f"{fit['best'][k]:.8e}"
         f.append(hdu)
         f.close()
-
+    #print(fit["best"])
     if quiet:
         return
 
@@ -688,6 +708,11 @@ def showTellurics(filename, fig=99):
         alpha=0.5,
         lw=1,
     )
+    ref = h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["TELL_TRANS"] /flat
+    pseudoSigma = np.percentile(ref, 100-16)-np.percentile(ref, 16)
+    ymin = np.median(ref)-5*pseudoSigma
+    ymax = np.median(ref)+5*pseudoSigma
+    plt.ylim(ymin, ymax)
 
     plt.legend()
     plt.ylabel("flux (arb. unit)")

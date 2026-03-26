@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-__version__ = "1.3.13"
+__version__ = "1.3.14"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -683,8 +683,7 @@ class OI:
             if "header" in d:
                 print("\033[5m=", d["filename"], "=" * 20, "\033[0m")
                 self.data[i]["recipes"] = oifits.getESOPipelineParams(
-                    d["header"], verbose=verbose
-                )
+                    d["header"], verbose=verbose)
         return
 
     def setSED(self, wl, sed, err=0.01, unit=None):
