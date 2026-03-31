@@ -71,11 +71,16 @@ This repository comes with a [Jupyter Notebook showing basic model syntax](https
 
 Full examples, how to load real data and analyse them, are available in a separate repository: [PMOIRED_examples](https://github.com/amerand/PMOIRED_examples). These examples are Jupyter Notebooks reproducing published results with other tools, and serve both as tutorials and verification of `PMOIRED`. They cover most of the features of `PMOIRED`, from the basics to more advanced operations.
 
+You can also check the following material:
+- Tutorial from the [2024 VLTI School](https://vltischool2024.sciencesconf.org/?lang=en): [modelling of GRAVITY observations of the Herbig Ae star HD 58647](https://github.com/amerand/PMOIRED_VLTI2024): in the continuum and in the Brackett gamma Hydrogen line.
+- [Binary fit tutorial](https://github.com/robert-klement/PMOIRED_tutorial_binary_fitting) from Robert Klement, for the 2026 CHARA Days
+
+
 ## Using and quoting `PMOIRED`
 
 References to `PMOIRED` should point to the [2022 SPIE Telescopes+Instrumentation conference proceeding paper](https://ui.adsabs.harvard.edu/abs/2022SPIE12183E..1NM/abstract).
 
-This code is a __research project in continuous development__ and not yet properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
+This code is a __research project in continuous development__ and not properly fully documented. If you want to get the best analysis for your data, do not hesitate to contact me: I try to be responsive, in particular with junior scientists. New features are driven by collaborations: if you think  `PMOIRED` is missing something, definitely contact me!
 
 I maintain a list of works published using `PMOIRED` in a [curated bibliography](https://ui.adsabs.harvard.edu/public-libraries/dz7RG915Swq5yAB1KwmgTA).
 
