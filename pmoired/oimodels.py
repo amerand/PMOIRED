@@ -2725,7 +2725,7 @@ def VmodelOI(
 
         # -- apply before differential computations:
         res = _applyWlKernel(res, debug=debug, fullWlRange=True)
-        res = _applyTF(res)
+        res = oifits._applyTF(res)
 
         if (
             "fit" in oi
@@ -3170,7 +3170,7 @@ def VmodelOI(
 
     # -- must be before computeDiffPhiOI and computeNormFluxOI
     res = _applyWlKernel(res, debug=debug, fullWlRange=True)
-    res = _applyTF(res)
+    res = oifits._applyTF(res)
 
     t0 = time.time()
     if (
@@ -3372,123 +3372,6 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
             ):
                 res["MODEL"][k] = conv(res["MODEL"][k])
 
-    return res
-
-
-def _applyTF(res):
-    """
-    res -> a OIFITS structured dict
-    """
-    # == single target self-calibration -> assumes tel name have no '-'!!!
-    # "#TF_|V|_U1U2_*" -> overall coefficient
-    # "#TF_|V|_U1U2_+" -> overall coefficient
-    if any(["#TF" in k for k in res["param"].keys()]):
-        _debug = False
-        if _debug:
-            print("computing TF")
-        # -- organise the TF coefficient
-        TF = {}
-        for k in res["param"]:
-            if k.startswith("#TF"):
-                obs = k.split("_")[1]
-                if not obs in TF:
-                    TF[obs] = {}
-                b = k.split("_")[2]
-                if not b in TF[obs]:
-                    TF[obs][b] = {}
-                TF[obs][b][k.split("_")[3]] = res["param"][k]
-
-        if _debug:
-            print("TF:", TF)
-
-        O = {"V2": "OI_VIS2", "|V|": "OI_VIS", "T3PHI": "OI_T3", "PHI": "OI_VIS"}
-        for o in TF:
-            if _debug:
-                print(" -> applying TF to", o)
-            for b in TF[o]:  # for each baselines / triangles
-                if not O[o] in res:
-                    continue
-                if "all" in res[O[o]]:
-                    if b == "all":
-                        w = res[O[o]]["all"]["NAME"] != None
-                    else:
-                        w = res[O[o]]["all"]["NAME"] == b
-                    # if '+' in TF[o][b] :
-                    #     res[O[o]]["all"][o][w] += TF[o][b]["+"]
-                    # if '+0' in TF[o][b] :
-                    #     res[O[o]]["all"][o][w] += TF[o][b]["+0"]
-                    # if '+1' in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] += TF[o][b]["+1"]*(res["WL"] - np.mean(res["WL"]))[None, :]
-                    # if '+2' in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**2                        
-                    # if '+3' in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] += TF[o][b]["+2"]*(res["WL"] - np.mean(res["WL"]))[None, :]**3
-
-                    # if "*" in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] *= TF[o][b]["*"]
-                    # if "*1" in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] *= (
-                    #         1
-                    #         + (res["WL"] - np.mean(res["WL"]))[None, :] * TF[o][b]["*1"]
-                    #     )
-                    # if "*2" in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] *= (
-                    #         1
-                    #         + (res["WL"] - np.mean(res["WL"]))[None, :]**2 * TF[o][b]["*2"]
-                    #     )
-                    # if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
-                    #     res[O[o]]["all"][o][w] *= (
-                    #         1 + (res["WL"] - TF[o][b]["wl0"])[None, :] * TF[o][b]["wl2"]
-                    #     )
-                    # -- polynomial multiplicative factor
-                    _tfmult = 0
-                    for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(), TF[o][b]):
-                        _n = int(sn[1:])
-                        _tfmult +=  (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
-                    if type(_tfmult)==np.ndarray:
-                        res[O[o]]["all"][o][w] *= _tfmult[None,:]
-                    # -- polynomial additive factor
-                    for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b]):
-                        _n = int(sn[1:])
-                        res[O[o]]["all"][o][w] += (res["WL"] - np.mean(res["WL"]))[None,:] ** _n * TF[o][b][sn]
-
-                else:
-                    if b == "all":
-                        B = list(res[O[o]].keys())
-                    else:
-                        B = [b]
-                    for _b in B:
-                        if _b in res[O[o]]:
-                            if "+" in TF[o][b]:
-                                res[O[o]][_b][o] += TF[o][b]["+"]
-                            if "*" in TF[o][b]:
-                                res[O[o]][_b][o] *= TF[o][b]["*"]
-                            if "s" in TF[o][b]:
-                                res[O[o]][_b][o] *= (
-                                    1
-                                    + (res["WL"] - np.mean(res["WL"]))[None, :]
-                                    * TF[o][b]["s"]
-                                )
-                            if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
-                                res[O[o]][_b][o] *= (
-                                    1
-                                    + (res["WL"] - TF[o][b]["wl0"])[None, :]
-                                    * TF[o][b]["wl2"]
-                                )
-                            # -- polynomial multiplicative factor
-                            _tfmult = 0
-                            for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(),TF[o][b]):
-                                _n = int(sn[1:])
-                                _tfmult += (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
-                            if type(_tfmult)==np.ndarray:
-                                res[O[o]][_b][o] *= _tfmult[None,:] 
-
-                            # -- polynomial additive factor
-                            for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(),TF[o][b]):
-                                _n = int(sn[1:])
-                                res[O[o]][_b][o] += (res["WL"] - np.mean(res["WL"]))[
-                                    None, :
-                                ] ** _n * TF[o][b][sn]
     return res
 
 
