@@ -1468,19 +1468,18 @@ class OI:
             else:  # assume number
                 _y0 = lambda z: y0
 
-            R = np.array(
-                [
-                    np.sqrt((x[px] - _x0(x)) ** 2 + (x[py] - _y0(x)) ** 2)
-                    for x in self.limgrid
-                ]
-            )
+            R = np.array([np.sqrt((x[px] - _x0(x)) ** 2 + 
+                                  (x[py] - _y0(x)) ** 2)
+                          for x in self.limgrid])
+
             r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
             plt.plot(R, c, ".k", alpha=0.2)
             _r, _f = [], []
             for i in range(len(r) - 1):
                 w = (R >= r[i]) * (R <= r[i + 1])
                 if sum(w):
-                    _r.append(0.5 * (r[i] + r[i + 1]))
+                    #_r.append(0.5 * (r[i] + r[i + 1]))
+                    _r.append(np.mean(R[w]))
                     _f.append(np.median(c[w]))
             plt.plot(_r, _f, "-r", linewidth=5, alpha=0.5)
             plt.xlabel("radial distance (mas)")
@@ -1488,7 +1487,7 @@ class OI:
             if mag:
                 ax3.invert_yaxis()
             plt.title("radial detection limit")
-
+            self.detLimRadProfile = {'r':_r, 'lim':_f}
         try:
             plt.tight_layout()
         except:
@@ -3960,7 +3959,6 @@ def _recsizeof(s):
     else:
         return sys.getsizeof(s)
 
-
 def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
     if type(oi) == list:
         res = {}
@@ -3987,6 +3985,29 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
 
     return res
 
+def GRAVITYfiberLoss(sep, D=8.2, wl=2.2e-6, verbose=False):
+    """
+    coupling efficiency in GRAVITY's single mode fibers
+    
+    sep: off-axis separation in mas
+    D : telescope diameter in m (default 8.2m)
+    wl: wavelength in m (default 2.2e-6m)
+    
+    see Wang+ 2021: https://iopscience.iop.org/article/10.3847/1538-3881/abdb2d/pdf 
+        annex A, equation A4
+    """
+    if type(sep)==list or type(sep)==np.ndarray:
+        return np.array([lossWang2021(s, D=D, wl=wl) for s in sep])
+        
+    N = 101
+    X, Y = np.meshgrid(np.linspace(-D/2, D/2, N), np.linspace(-D/2, D/2, N))
+    R2 = X**2+Y**2
+    P = 1.0*(np.sqrt(R2)<(D/2))
+    off = sep*np.pi/(180*3600*1000)
+    w0 = 0.32*D
+    res = np.trapezoid(np.trapezoid(P*np.exp(2j*np.pi*off*X/wl - R2/(2*w0**2))))
+    res /= np.trapezoid(np.trapezoid(P*np.exp(-R2/(2*w0**2))))
+    return np.abs(res)**2
 
 if __name__ == "__main__":
     pass
