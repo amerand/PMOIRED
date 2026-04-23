@@ -179,6 +179,7 @@ class OI:
         self._bootAxes = {}
         self._gridFig = None
         self._gridAxes = {}
+        self.limgrid = []
 
     def __del__(self):
         """not doing anything"""
@@ -1279,6 +1280,8 @@ class OI:
         multi=True,
         prior=None,
         constrain=None,
+        append=False,
+        verbose=2
     ):
         """
         check the detection limit for parameter "param" from "model" (default
@@ -1304,7 +1307,7 @@ class OI:
 
         self._merged = oifits.mergeOI(self.data, collapse=True, verbose=False)
         oimodels.MAX_THREADS = MAX_THREADS
-        self.limgrid = oimodels.gridFitOI(
+        tmp = oimodels.gridFitOI(
             self._merged,
             model,
             expl,
@@ -1314,7 +1317,13 @@ class OI:
             dLimSigma=nsigma,
             prior=prior,
             constrain=constrain,
+            verbose=verbose
         )
+        if append :
+            self.limgrid += tmp
+        else:
+            self.limgrid = tmp
+
         # self.limgrid = [{'best':g} for g in self.limgrid]
         self._limexpl = expl
         self._limexpl["param"] = param
@@ -1334,6 +1343,7 @@ class OI:
         x0=None,
         y0=None,
         radProfile=True,
+        logRad=False,
     ):
         """
         show the results from `detectionLimit` as 2D coloured map.
@@ -1373,6 +1383,8 @@ class OI:
         ):
             aspect = "equal"
             xy = True
+        else:
+            aspect='auto'
 
         self.fig += 1
         oimodels.closefig(self.fig)
@@ -1446,6 +1458,8 @@ class OI:
         if xy and radProfile:
             # -- radial detection limit
             ax3 = plt.subplot(133)
+            if logRad:
+                ax3.set_xscale('log')
             if x0 is None:
                 _x0 = lambda z: 0
             elif type(x0) == str:
@@ -1472,7 +1486,12 @@ class OI:
                                   (x[py] - _y0(x)) ** 2)
                           for x in self.limgrid])
 
-            r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
+            if logRad:
+                r = np.logspace(np.log10(min(R)), np.log10(max(R)), 
+                                int(np.sqrt(len(self.limgrid))))
+            else:
+                r = np.linspace(min(R), max(R), int(np.sqrt(len(self.limgrid))))
+
             plt.plot(R, c, ".k", alpha=0.2)
             _r, _f = [], []
             for i in range(len(r) - 1):
@@ -3997,7 +4016,7 @@ def GRAVITYfiberLoss(sep, D=8.2, wl=2.2e-6, verbose=False):
         annex A, equation A4
     """
     if type(sep)==list or type(sep)==np.ndarray:
-        return np.array([lossWang2021(s, D=D, wl=wl) for s in sep])
+        return np.array([GRAVITYfiberLoss(s, D=D, wl=wl) for s in sep])
         
     N = 101
     X, Y = np.meshgrid(np.linspace(-D/2, D/2, N), np.linspace(-D/2, D/2, N))
