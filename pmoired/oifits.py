@@ -1014,105 +1014,134 @@ def _applyTF(res, param=None):
     '#TF_|V|_U1U3_*n' : multiplicative factor of polynomial (Wl-mean(WL))**n for 
         baseline U1U3 and visibility amplitude.
 
-    Observables: V2, |V|, T3PHI or PHI
+    '#TF_T3PHI_U2U1U3_+n' : additive factor of polynomial (Wl-mean(WL))**n for 
+        triangle U2U1U3 and phase closure.
+    
+    can also provide per instrument [replace '_' with '']
+    '#TFGRAVITYSC_T3PHI_U2U1U3_+n' : additive factor of polynomial (Wl-mean(WL))**n for 
+        triangle U2U1U3 and phase closure.
+
+    Observables: V2, |V|, T3PHI, PHI or CF
 
     baselines / triangles: same as in the datastructure
 
     type: *n or +n for multiplicative or additive TF
-
     """
-    # == single target self-calibration -> assumes tel name have no '-'!!!
-    # "#TF_|V|_U1U2_*" -> overall coefficient
-    # "#TF_|V|_U1U2_+" -> overall coefficient
 
     if param is None and 'param' in res:
         param = res['param']
 
-    if any(["#TF" in k for k in param.keys()]):
+    if 'insname' in res:
+        insname = res['insname'].replace('_', '')
+    else:
+        insname = ''
+
+    if any([k.startswith('#TF_') or k.startswith('#TF'+insname+'_') for k in param.keys()]):
         _debug = False
         if _debug:
             print("computing TF")
         # -- organise the TF coefficient
         TF = {}
         for k in param:
-            if k.startswith("#TF"):
+            if k.startswith("#TF_") or k.startswith('#TF'+insname+'_'):
                 obs = k.split("_")[1]
+                if len(k.split("_"))>=5 :
+                    mjd = float(k.split("_")[4])
+                else:
+                    mjd = None
                 if not obs in TF:
                     TF[obs] = {}
                 b = k.split("_")[2]
                 if not b in TF[obs]:
                     TF[obs][b] = {}
-                TF[obs][b][k.split("_")[3]] = param[k]
+                if not mjd in TF[obs][b]:
+                    TF[obs][b][mjd] = {}
+                TF[obs][b][mjd][k.split("_")[3]] = param[k]
 
         if _debug:
-            print("TF:", TF)
+            print(f"{TF=}")
 
-        O = {"V2": "OI_VIS2", "|V|": "OI_VIS", "T3PHI": "OI_T3", "PHI": "OI_VIS"}
+        O = {"V2": "OI_VIS2", 
+             "|V|": "OI_VIS", 
+             "T3PHI": "OI_T3", 
+             "PHI": "OI_VIS",
+             'CF': "OI_CF",
+             }
+
         for o in TF:
             if _debug:
                 print(" -> applying TF to", o)
-            for b in TF[o]:  # for each baselines / triangles
-                if not O[o] in res:
+            for b in TF[o]:  # for each baselines / triangles in the TF definition
+                if not O[o] in res: # nothing to calibrate
                     continue
-                if "all" in res[O[o]]:
-                    if b == "all":
-                        w = res[O[o]]["all"]["NAME"] != None
-                    else:
-                        w = res[O[o]]["all"]["NAME"] == b
-                    if '+' in TF[o][b] :
-                        res[O[o]]["all"][o][w] += TF[o][b]["+"]
-                    
-                    if "*" in TF[o][b]:
-                        res[O[o]]["all"][o][w] *= TF[o][b]["*"]
-                    _tfmult = 0
-                    for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(), TF[o][b]):
-                        _n = int(sn[1:])
-                        _tfmult +=  (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
-                    if type(_tfmult)==np.ndarray:
-                        res[O[o]]["all"][o][w] *= _tfmult[None,:]
-                    # -- polynomial additive factor
-                    for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b]):
-                        _n = int(sn[1:])
-                        res[O[o]]["all"][o][w] += (res["WL"] - np.mean(res["WL"]))[None,:] ** _n * TF[o][b][sn]
 
+                # -- calibrate with MJD interpolation
+                _tfmult = {}
+                _tfadd = {}
+                _weight = {}
+                for mjd in TF[o][b]:
+                    SN = list(filter(lambda x: x.startswith("*") and x[1:].isdigit(), TF[o][b][mjd]))
+                    if len(SN)>0:
+                        _tfmult[mjd] = np.zeros(res["WL"].shape)
+                        for sn in SN:
+                            _n = int(sn[1:])
+                            _tfmult[mjd] += (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][mjd][sn]
+                    SN = list(filter(lambda x: x.startswith("+") and x[1:].isdigit(),TF[o][b][mjd]))
+                    if len(SN)>0:
+                        _tfadd[mjd] = np.zeros(res["WL"].shape)                            
+                        for sn in SN:
+                            _n = int(sn[1:])
+                            _tfadd[mjd] += (res["WL"] - np.mean(res["WL"]))**_n*TF[o][b][mjd][sn]
+                    if not mjd is None:
+                        # -- weight based on proximity in time HARD CODED!!!
+                        if 'all' in res[O[o]]:
+                            w = res[O[o]]["all"]["NAME"] == b
+                            _weight[mjd] = np.exp(-((res[O[o]]['all']['MJD2'][w,:]-mjd)/(1/24))**2)
+                        else:
+                            _weight[mjd] = np.exp(-((res[O[o]][b]['MJD2']-mjd)/(1/24))**2)
+
+                # -- merged data
+                if 'all' in res[O[o]]:
+                    #print('merged data')
+                    w = res[O[o]]["all"]["NAME"] == b
+                    _b = 'all'
                 else:
-                    if b == "all":
-                        B = list(res[O[o]].keys())
-                    else:
-                        B = [b]
-                    for _b in B:
-                        if _b in res[O[o]]:
-                            if "+" in TF[o][b]:
-                                res[O[o]][_b][o] += TF[o][b]["+"]
-                            if "*" in TF[o][b]:
-                                res[O[o]][_b][o] *= TF[o][b]["*"]
-                            if "s" in TF[o][b]:
-                                res[O[o]][_b][o] *= (
-                                    1
-                                    + (res["WL"] - np.mean(res["WL"]))[None, :]
-                                    * TF[o][b]["s"]
-                                )
-                            if "wl0" in TF[o][b] and "wl2" in TF[o][b]:
-                                res[O[o]][_b][o] *= (
-                                    1
-                                    + (res["WL"] - TF[o][b]["wl0"])[None, :]
-                                    * TF[o][b]["wl2"]
-                                )
-                            # -- polynomial multiplicative factor
-                            _tfmult = 0
-                            for sn in filter(lambda x: x.startswith("*") and x[1:].isdigit(),TF[o][b]):
-                                _n = int(sn[1:])
-                                _tfmult += (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][sn]
-                            if type(_tfmult)==np.ndarray:
-                                res[O[o]][_b][o] *= _tfmult[None,:] 
+                    #print('baselines')
+                    w = np.isfinite(res[O[o]][b]['MJD'])
+                    _b = b
 
-                            # -- polynomial additive factor
-                            for sn in filter(lambda x: x.startswith("+") and x[1:].isdigit(),TF[o][b]):
-                                _n = int(sn[1:])
-                                res[O[o]][_b][o] += (res["WL"] - np.mean(res["WL"]))[
-                                    None, :
-                                ] ** _n * TF[o][b][sn]
+                # -- non MJD case:
+                if None in _tfadd:
+                    res[O[o]][_b][o][w,:] += _tfadd[None][None,:]
+                elif None in _tfmult:
+                    res[O[o]][_b][o][w,:] *= _tfmult[None][None,:] 
+
+                mjd = [x for x in _tfadd if not x is None]
+                if len(mjd)>0:
+                    _tf = 0
+                    _n = 0
+                    for x in mjd:
+                        _tf += _weight[x]*_tfadd[x][None,:]
+                        _n += _weight[x]
+                    res[O[o]][_b][o][w,:] += _tf/_n
+
+                mjd = [x for x in _tfmult if not x is None]
+                if len(mjd)>0:
+                    _tf = 0
+                    _n = 0
+                    for x in mjd:
+                        _tf += _weight[x]*_tfmult[x][None,:]
+                        _n += _weight[x]
+                    res[O[o]][_b][o][w,:] *= _tf/_n
+
     return res
+
+def getTF(param, obs, b, wl):
+    addTF = 0
+    multTF = 1
+
+    return addTf, multTF
+
 
 def _binOI(res, binning=None, medFilt=None, noError=False):
     """
@@ -1724,7 +1753,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
 
             # -- merge data in the extension:
             for k in sorted(oi[l].keys()):
-                # -- for each telescpe / baseline / triangle
+                # -- for each telescope / baseline / triangle
                 if not k in res[i0][l].keys():
                     # -- unknown telescope / baseline / triangle
                     # -- just add it in the the dict
