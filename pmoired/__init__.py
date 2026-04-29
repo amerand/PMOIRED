@@ -1674,9 +1674,9 @@ class OI:
         logV=False,
         cmap="gist_stern",
         fig=None,
-        interpolate=False,
+        interpolate=True,
         legend=True,
-        tight=False,
+        tight=True,
         significance=False,
     ):
         """
