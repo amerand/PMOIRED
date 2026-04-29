@@ -121,6 +121,14 @@ def isFlatCorrected(f):
     else:
         return False
 
+def slidingRMS(Y, dx=10):
+    med, rms = [], []
+    for i,y in enumerate(Y):
+        tmp = Y[max(i-dx, 0): min(i+dx, len(Y))]
+        med.append(np.median(tmp))
+        rms.append(0.5*(np.percentile(tmp, 100-16)-np.percentile(tmp, 16)))
+    return np.array(med), np.array(rms)
+
 def Ftran(l, param, retWL=False, retS=False):
     """
     'dl0', 'wl0', 'dl1',
@@ -200,7 +208,6 @@ def Ftran(l, param, retWL=False, retS=False):
         tmpT = (1 - c) * np.convolve(tmpT, kern_min, "same") + c * np.convolve(
             tmpT, kern_max, "same"
         )
-
 
     if 'p2vm' in param and param['p2vm'] is True:
         #print('using p2vm flat')
@@ -359,6 +366,11 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         else:
             fl = np.logical_or(fl, _fl)
     sp /= we
+
+    med, rms = slidingRMS(sp)
+    fl = np.logical_or(fl, sp>med+5*rms)
+    fl = np.logical_or(fl, sp>med-5*rms)
+    
     # -- close FITS file
     f.close()
 
@@ -371,6 +383,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
             sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['HIGH'])
 
     # -- avoid some known lines
+    #print(wlmin, wlmax)
     w = (wl > wlmin) * (wl < wlmax) * ~fl * ~np.isnan(sp) * (sp != 0)
 
     if avoid is None:
@@ -427,7 +440,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
              }
 
     # -- spectrum model using spline nodes
-    Nn = 12 if MR else 35
+    Nn = 12 if MR else 45
     
     wlspace = np.linspace(wl[w].min(), wl[w].max(), Nn)
     # denser at shorted wavelength
@@ -675,10 +688,15 @@ def showTellurics(filename, fig=99):
         flat = np.interp(h["TELLURICS"].data["EFF_WAVE"] * 1e6, 
                          gravityP2vm['WL'], gravityP2vm[k])
 
+    
+    med, rms = slidingRMS(h["TELLURICS"].data["RAW_SPEC"]/flat)
+    w = (h["TELLURICS"].data["RAW_SPEC"]/flat<med+5*rms)*\
+        (h["TELLURICS"].data["RAW_SPEC"]/flat>med-5*rms)
+
     ax1 = plt.subplot(211)
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"]/flat,
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["RAW_SPEC"][w]/flat[w],
         "-",
         alpha=0.5,
         label="raw spectrum",
@@ -686,29 +704,29 @@ def showTellurics(filename, fig=99):
         lw=2,
     )
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["CORR_CONT"]/flat,
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["CORR_CONT"][w]/flat[w],
         ":g",
         alpha=0.5,
         label="estimated continuum",
         lw=1,
     )
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["TELL_TRANS"] /flat,
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["RAW_SPEC"][w] / h["TELLURICS"].data["TELL_TRANS"][w] /flat[w],
         "-k",
         label="corrected spectrum",
         lw=1,
     )
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["TELL_TRANS"] * h["TELLURICS"].data["CORR_CONT"]/flat,
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["TELL_TRANS"][w] * h["TELLURICS"].data["CORR_CONT"][w]/flat[w],
         "-b",
         label="telluric*continuum (PWV=%.2fmm)" % h["TELLURICS"].header["PWV"],
         alpha=0.5,
         lw=1,
     )
-    ref = h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["TELL_TRANS"] /flat
+    ref = h["TELLURICS"].data["RAW_SPEC"][w] / h["TELLURICS"].data["TELL_TRANS"][w] /flat[w]
     pseudoSigma = np.percentile(ref, 100-16)-np.percentile(ref, 16)
     ymin = np.median(ref)-5*pseudoSigma
     ymax = np.median(ref)+5*pseudoSigma
@@ -719,8 +737,8 @@ def showTellurics(filename, fig=99):
 
     ax2 = plt.subplot(212, sharex=ax1)
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"] / h["TELLURICS"].data["CORR_CONT"],
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["RAW_SPEC"][w] / h["TELLURICS"].data["CORR_CONT"][w],
         "-",
         alpha=0.5,
         label="raw normalised spectrum",
@@ -728,18 +746,18 @@ def showTellurics(filename, fig=99):
         lw=2,
     )
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["TELL_TRANS"],
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["TELL_TRANS"][w],
         "-b",
         label="telluric model (PWV=%.2fmm)" % h["TELLURICS"].header["PWV"],
         alpha=0.5,
         lw=1,
     )
     plt.plot(
-        h["TELLURICS"].data["EFF_WAVE"] * 1e6,
-        h["TELLURICS"].data["RAW_SPEC"]
-        / h["TELLURICS"].data["TELL_TRANS"]
-        / h["TELLURICS"].data["CORR_CONT"],
+        h["TELLURICS"].data["EFF_WAVE"][w] * 1e6,
+        h["TELLURICS"].data["RAW_SPEC"][w]
+        / h["TELLURICS"].data["TELL_TRANS"][w]
+        / h["TELLURICS"].data["CORR_CONT"][w],
         "-k",
         label="corrected spectrum",
         lw=1,
