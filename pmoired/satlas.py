@@ -4,7 +4,6 @@ import numpy as np
 
 this_dir, this_filename = os.path.split(__file__)
 
-
 def createRossTable():
     # -- Load the LD/Ross sent by Hilding, where LD is the outer diameter
     cols = ["mass", "L", "Teff", "logg", "Ross", "Outer", "Ross/Outer"]
@@ -44,9 +43,7 @@ def createRossTable():
             + f"planar/ld_t{rossTable['Teff'][i]:.0f}"
             + f"g{100 * rossTable['logg'][i]:.0f}_surface.dat"
         )
-
     return rossTable
-
 
 # == init
 rossTable = createRossTable()
@@ -119,8 +116,7 @@ def getClosestModel(
             print(localfilename, "already exists")
     return localfilename
 
-
-def readFile(filename, band, component=None, verbose=False):
+def readFile(filename, band=None, component=None, verbose=False):
     """
     returns PMOIRED limbdarkened model (optionaly for a named component)
     based on SATLAS model stored in "filename", in a given band ("B", "V",
