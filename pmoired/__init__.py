@@ -2785,7 +2785,7 @@ class OI:
                 )
                 plt.legend(fontsize=6)
             if "spatial kernel" in model:
-                print(f"DBG> {model['spatial kernel']=}")
+                #print(f"DBG> {model['spatial kernel']=}")
                 xk = np.max(self.images["X"]) - model["spatial kernel"]
                 yk = np.min(self.images["Y"]) + model["spatial kernel"]
                 c = plt.Circle(
