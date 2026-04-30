@@ -454,6 +454,64 @@ class OI:
                 GR.append((INS.index(p1), INS.index(p2)))
         return GR
 
+    def computeIsoplanetism(self, verbose=False, H=10.0):
+        """
+        H: height of turbulence, in km
+
+        assumes ESO VLTI header
+
+        https://www.aanda.org/articles/aa/pdf/2022/09/aa43941-22.pdf
+        """
+        # == isoplanetic angle
+        seeing_500nm = np.array([0.5*(d['header']['ESO ISS AMBI FWHM START']+
+                                      d['header']['ESO ISS AMBI FWHM END']) for d in self.data])
+        r0_500nm = 0.98*0.5e-6/(seeing_500nm*np.pi/180/3600)
+        alt = np.array([d['header']['ESO ISS ALT'] for d in self.data])
+        theta0_500nm = 0.314*np.cos((90-alt)*np.pi/180)*r0_500nm/(1000*H)
+        theta0_500nm *= 180*3600/np.pi
+        if verbose:
+            print(f'{seeing_500nm=}')
+            print(f'{r0_500nm=}')
+            print(f'{theta0_500nm=}')
+        for i in range(len(self.data)):
+            self.data[i]['TURB'] = {}
+            self.data[i]['TURB']['seeing_500nm'] = seeing_500nm[i]
+            self.data[i]['TURB']['theta0_500nm'] = theta0_500nm[i]
+            self.data[i]['TURB']['R0'] = r0_500nm[i]*(self.data[i]['WL']/0.5)**(6/5)
+            self.data[i]['TURB']['THETA0'] = theta0_500nm[i]*(self.data[i]['WL']/0.5)**(6/5)
+
+        deg2hms = lambda x: '%02d:%02d:%06.3f'%(int(x/15), 
+                                        int(60*(x/15-int(x/15))), 
+                                        60*(x*4-int(x*4)))
+
+        deg2dms = lambda x: '%s%02d:%02d:%06.3f'%('-' if x<0 else '+', 
+                                                  int(np.abs(x)), 
+                                                  int(60*(np.abs(x)-int(np.abs(x)))), 
+                                                  60*(np.abs(x*60)-int(np.abs(x*60))))
+
+        num2dotted = lambda s: '.'.join([':'.join([s.split('.')[0][:-4], s.split('.')[0][-4:-2], s.split('.')[0][-2:]]), s.split('.')[1]])
+        hms2deg = lambda x: 15*np.sum(np.float64(x.split(':'))*np.array([1,1/60,1/3600]))
+        dms2deg = lambda x: np.sum(np.abs(np.float64(x.split(':')))*np.array([1,1/60,1/3600]))*(-1 if x.strip()[0]=='-' else 1)
+
+        for i,d in enumerate(self.data):
+            ra1 = hms2deg(num2dotted(d['header']['ESO INS SOBJ ALPHA']))
+            ra2 = hms2deg(num2dotted(d['header']['ESO FT ROBJ ALPHA']))
+            dec1 = dms2deg(num2dotted(d['header']['ESO INS SOBJ DELTA']))
+            dec2 = dms2deg(num2dotted(d['header']['ESO FT ROBJ DELTA']))
+            dRA  = (ra1 - ra2)*np.cos(0.5*(dec1+dec2)*np.pi/180)
+            dDEC = dec1 - dec2
+            self.data[i]['TURB']['FT-SC'] = 3600*np.sqrt(dRA**2 + dDEC**2)
+            # -- assumes no AT+UT combination shenanigans here:
+            if any(['U' in b for b in d['baselines']]):
+                D = 8.2
+            else:
+                D = 1.8
+            sigmap = 0.12*np.pi**(1/3)*self.data[i]['WL']*\
+                (D/self.data[i]['TURB']['R0'])**(-1/6)*\
+                self.data[i]['TURB']['FT-SC']/self.data[i]['TURB']['THETA0']
+            self.data[i]['TURB']['VLOSS'] = np.exp(-2*np.pi**2/self.data[i]['WL']**2*sigmap**2)
+        return 
+    
     def fromTemplate(self, oi, model):
         self.data = oimodels.VmodelOI(oi.data, model, asTemplate=True)
         E = ["fit", "configurations per MJD", "LST", "dWL", "header", "units"]
