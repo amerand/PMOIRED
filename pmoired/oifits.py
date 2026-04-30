@@ -1068,6 +1068,8 @@ def _applyTF(res, param=None):
              'CF': "OI_CF",
              }
 
+        smooth = 0.5/24 # smoothing time for TF
+
         for o in TF:
             if _debug:
                 print(" -> applying TF to", o)
@@ -1096,9 +1098,9 @@ def _applyTF(res, param=None):
                         # -- weight based on proximity in time HARD CODED!!!
                         if 'all' in res[O[o]]:
                             w = res[O[o]]["all"]["NAME"] == b
-                            _weight[mjd] = np.exp(-((res[O[o]]['all']['MJD2'][w,:]-mjd)/(1/24))**2)
+                            _weight[mjd] = np.exp(-((res[O[o]]['all']['MJD2'][w,:]-mjd)/smooth)**2)
                         else:
-                            _weight[mjd] = np.exp(-((res[O[o]][b]['MJD2']-mjd)/(1/24))**2)
+                            _weight[mjd] = np.exp(-((res[O[o]][b]['MJD2']-mjd)/smooth)**2)
 
                 # -- merged data
                 if 'all' in res[O[o]]:
