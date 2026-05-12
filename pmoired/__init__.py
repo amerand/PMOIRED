@@ -4052,13 +4052,13 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
     for e in ext:
         for k in oi[ext[e]]:
             if "VIS" in ext[e]:
-                res["#TF_" + e + "_" + k + "_*"] = 1.0
+                res["#TF_" + e + "_" + k + "_*0"] = 1.0
                 if withVSlope:
-                    res["#TF_" + e + "_" + k + "_s"] = 0.01
+                    res["#TF_" + e + "_" + k + "_*1"] = 0.01
             else:
-                res["#TF_" + e + "_" + k + "_+"] = 0.01
+                res["#TF_" + e + "_" + k + "_+0"] = 0.01
                 if 'T3' in e and withT3Slope:
-                    res["#TF_" + e + "_" + k + "_s"] = 0.01
+                    res["#TF_" + e + "_" + k + "_+1"] = 0.01
 
     return res
 
