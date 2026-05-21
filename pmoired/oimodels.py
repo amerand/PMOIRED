@@ -1643,7 +1643,7 @@ def VsingleOI(
             _kl = 1
         if not imFov is None:
             if len(I.shape) == 3:
-                print("fftconvolve", I.shape, ker.shape)
+                #print("fftconvolve", I.shape, ker.shape)
                 I = scipy.signal.fftconvolve(
                     I, ker[None, :, :], mode="same", axes=(1, 2)
                 )
@@ -3131,6 +3131,7 @@ def VmodelOI(
             print(
                 " " * indent + "VmodelOI > fluxes %.3fms" % (1000 * (time.time() - t0))
             )
+
     t0 = time.time()
 
     if "smear" in res:

@@ -108,16 +108,18 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     dist: dispance in pc
     """
     res = {'colat':[], 'lon':[], 'dS':[], }
-    dcolat = np.pi/N
-    for c in np.linspace(0, np.pi, N): # colatitude:
-        r ,_ ,_ ,_ , _ = RGcola(np.array([c]), Rpole, Mass, w)
+    #C = np.linspace(0, np.pi, N)
+    C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
+    dcolat = np.mean(np.diff(C))
+    for c in C: # colatitude:
+        r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
         nl = max(int(2*N*np.sin(c)*r/Rpole), 1)
         dlon = 2*np.pi/nl
         ds = r**2*np.sin(c)*dlon*dcolat
-        for l in np.linspace(-np.pi, np.pi, nl):
+        for l in np.linspace(-np.pi, np.pi, nl)[:-1]:
             res['colat'].append(c)
             res['lon'].append(l)
-            res['dS'].append(ds) # surface 
+            res['dS'].append(ds) # surface element
             
     res['colat'] = np.array(res['colat'])
     res['lon'] = np.array(res['lon'])
@@ -431,7 +433,7 @@ def addFluxImu(star, wl, plot=False, verbose=False):
     plt.tight_layout()
     return star
 
-Ncolat= 31
+Ncolat= 91
 def Vrota(u, v, wl, param, plot=False, fullOutput=False,
           imFov=None, imPix=None, imX=0, imY=0, imN=None,):
     """
@@ -444,9 +446,8 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     - 'Mass' in Msun
     - 'omega': fractional rotational rate (/OmegaCrit)
     - 'dist' in pc 
-    - beta: optional (default 0.25)
-    - vpuls: optional pulsation velocity, in km/s (default=0)
-
+    - 'beta': optional (default 0.25)
+    - 'vpuls': optional pulsation velocity, in km/s (default=0)
     result: complex visibility (np.array of dimension N x M)
 
     """
@@ -476,7 +477,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
 
     # -- visible points
     w = star['nz']>=0
-    # -- do I need the dS here or not ?!?
+    # -- do I need the dS here or not -> yes according to comparison with V from image 
     flx = star['flux'][w]*star['ld'][w]*star['proj dS'][w][:,None]
     # -- x,y phase offset is taken care somewhere else (in "oimodels.py")
     vis = np.exp(-2j*np.pi*c*(u[:,None,None]*(star['x_mas'][w][None,:,None]+x0) + 
@@ -492,10 +493,10 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         _r2 = star['x_mas'][w]**2 + star['y_mas'][w]**2
         _pa = np.arctan2(star['x_mas'][w], star['y_mas'][w])
         palim = np.linspace(-np.pi, np.pi, int(np.sqrt(len(star['x_mas'][w])))+1)
-        dpa = np.max(np.diff(palim))
+        dpa = np.max(np.diff(palim))/2
         r2lim = np.zeros(len(palim))
         for i in range(len(palim)):
-            r2lim[i] = np.max(_r2[np.abs(_pa-palim[i])<=dpa])
+            r2lim[i] = np.max(_r2[np.abs((_pa-palim[i]+np.pi)%np.pi-np.pi)<=dpa])
 
         # -- compute cube
         if imN is None:
@@ -506,12 +507,28 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
 
         cube = np.zeros((len(wl), len(X), len(Y)))
 
-        # -- closest neighbor
+        # -- interpolations scale
+        dr2 = 0.1*np.max(r2lim)/np.sqrt(len(star['x_mas'][w]))
+        n = 3 # interpolations points
         for i,x in enumerate(X):
             for j,y in enumerate(Y):
                 if (x-x0)**2+(y-y0)**2 <= np.interp(np.arctan2(x-x0, y-y0), palim, r2lim):
-                    k = np.argmin((x-x0-star['x_mas'][w])**2 + (y-y0-star['y_mas'][w])**2)
-                    cube[:,j,i] = star['flux'][w][k,:]*star['ld'][w][k,:]
+                    # -- some kind of inverse distance
+                    d2 = 1/(dr2 + (x-x0-star['x_mas'][w])**2 + (y-y0-star['y_mas'][w])**2)
+                    k = np.argsort(d2)[::-1]
+
+                    # -- no need to take into account the surface of the node here
+                    # -- the x,y grid provide the sampling
+
+                    # -- closest neighbor        
+                    #cube[:,j,i] = star['flux'][w][k[0],:]*star['ld'][w][k[0],:]
+                
+                    # -- interpolation
+                    norm = 0
+                    for l in range(n):
+                        cube[:,j,i] += d2[k[l]]*star['flux'][w][k[l],:]*star['ld'][w][k[l],:] 
+                        norm += d2[k[l]]
+                    cube[:,j,i] /= norm
 
         # @@@@@@@ THIS IS EXTREMELY SLOW! @@@@@@@@@@@@@@@@@@@@
         # grP = [(float(star['x_mas'][w][i]+x0), float(star['y_mas'][w][i]+y0)) for i in range(len(star['x'][w]))]

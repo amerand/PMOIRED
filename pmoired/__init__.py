@@ -3222,7 +3222,7 @@ class OI:
 
         result is stored in the dictionnary self.images:
         'WL': wavelength (in um), sorted
-        'cube': image cube, cube[i] is the i-th wavelength
+        'image': image cube, cube[i] is the i-th wavelength
         'X', 'Y': 2D arrays of coordinates of pixels
         'scale': actual pixel scale (in mas)
 

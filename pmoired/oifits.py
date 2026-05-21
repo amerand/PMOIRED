@@ -1822,7 +1822,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                             tmp = oi[l][k][t]
                         else:
                             oops = True
-                            #print('!', l, k, t)
+                            print('!', l, k, t)
                         if not oops:
                             res[i0][l][k][t] = np.append(res[i0][l][k][t], tmp)
                             try:
