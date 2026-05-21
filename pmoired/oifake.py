@@ -1020,6 +1020,9 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
         tmp['observable'] = tmp['observable'][tmp['observable']]
         # print(tmp)
 
+    # for k in tmp["u"]:
+    #     print(f'DBG> {k=}, {tmp["u"][k].shape=}')
+
     # -- fake MJD
     if mjd0 == None:
         # -- needed to simulate data taken at different dates
@@ -1085,6 +1088,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                 'V2': np.abs(VIS[b])**2, #+nv2*np.random.randn(len(lst), len(wl)),
                 'EV2': np.zeros((len(lst), len(wl))),
                 }
+
         if debug:
             print(b, list(OIV2[b].keys()))
 

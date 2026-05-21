@@ -1,6 +1,8 @@
 from matplotlib import pyplot as plt
 import matplotlib.tri as mtri
 import numpy as np
+import scipy.interpolate
+
 from astropy import constants as CONST
 from astropy import units as U
 import urllib, os, glob, time, pickle
@@ -13,13 +15,13 @@ except ImportError:
     from importlib import resources
 
 if os.path.exists(resources.files("pmoired")):
-	_dir_data = resources.files("pmoired")
-	print(_dir_data)
+    _dir_data = resources.files("pmoired")
+    print(_dir_data)
 
 with open(os.path.join(_dir_data, 'imudata.pckl'), 'rb') as f:
-	_imudata = pickle.load(f)
-	_imuTeff = np.array([d['TEFF'] for d in _imudata])
-	_imulogg = np.array([d['LOGG'] for d in _imudata])
+    _imudata = pickle.load(f)
+    _imuTeff = np.array([d['TEFF'] for d in _imudata])
+    _imulogg = np.array([d['LOGG'] for d in _imudata])
 
 def RGcola(colat, Rpole, Mass, w, verbose=False):
     """
@@ -27,7 +29,7 @@ def RGcola(colat, Rpole, Mass, w, verbose=False):
     Rpole in Rsol, Mass in Msol, w as omega/omegacrit.
     -> R is in Rsol, logg log10(cgs), V in km/s, dR/dcolat in Rsol/rad
     return R, g/gpole, logg, velocity, dR/dcolat
-	"""
+    """
 
     # -- critical angular rotation rate 
     # https://arxiv.org/pdf/astro-ph/0603327, eq 13
@@ -92,7 +94,19 @@ def normaliseV(x, y, z):
     n += n==0
     return x/n, y/n, z/n
 
-def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vpuls=0):
+def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vpuls=0, dist=None):
+    """
+    N: number of co-latitudes (better of odd)
+    Rpole: polar radius (in Rsun)
+    Mass: mass in Msun
+    w: fractional rotational rate
+    Tpole: polar temperature (K)
+    incl: inclination in radians
+    pa: position angle in radians
+    beta: gravity darkening coef (0.25 canonical)
+    vpuls: pulsation velocity in km/s
+    dist: dispance in pc
+    """
     res = {'colat':[], 'lon':[], 'dS':[], }
     dcolat = np.pi/N
     for c in np.linspace(0, np.pi, N): # colatitude:
@@ -108,7 +122,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     res['colat'] = np.array(res['colat'])
     res['lon'] = np.array(res['lon'])
     # -- fractional surface of the node (compared to the whole star)
-    res['dS'] = np.array(res['dS'])
+    res['dS'] = np.array(res['dS'])[:,0]
     res['dS'] /= np.sum(res['dS'])
     
     res['R'], res['g/gpole'], res['logg'], res['V'], res['dR/dcolat'] = RGcola(res['colat'], Rpole, Mass, w, verbose=verbose)
@@ -158,18 +172,20 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     res['vy']+= res['ny']*vpuls
     res['vz']+= res['nz']*vpuls
 
+    if not dist is None:
+        c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
+        for k in ['x', 'y', 'z']:
+            res[k+'_mas'] = res[k]*c.value
+
     if verbose:
         print(f"{res['vz'].min()=}, {res['vz'].max()=}")
     
     # -- for LD computation
     res['mu'] = np.arccos(res['nz'])
-    # -- projected surface of the node toward observer 
+    # -- projected surface of the node towards observer 
     res['proj dS'] = res['dS']*res['nz']
 
     return res
-
-
-
 
 def getAllAtlas9Files(directory='gridp00k2odfnew', table=None, TeffMax=12000, TeffMin=4000, overwrite=False):
     global _dir_data
@@ -260,7 +276,7 @@ def ReadOneAtlas9File(filename, plot=False):
         pyplot.xscale('log')
 
     return {'atlas9': filename,
-    		'TEFF':TEFF, 
+            'TEFF':TEFF, 
             'LOGG': LOGG, 
             'VTURB':VTURB, 
             'LH':LH, # mixing length
@@ -278,8 +294,8 @@ def Imudata(savedata=False):
     bands = {"B": 0.45, "V": 0.55, "R": 0.65, "I": 1.0, "H": 1.65, "K": 2.2}
     # -- approximate mass from Teff 
     teff2mass = lambda teff: np.interp(d['TEFF'], 
-    					[4000, 6000, 8000, 10000, 15000], 
-    					[0.5, 1, 1.5, 2., 4], right=4, left=0.5)
+                        [4000, 6000, 8000, 10000, 15000], 
+                        [0.5, 1, 1.5, 2., 4], right=4, left=0.5)
     powlaw = lambda mu,p: mu**p['alpha']
     
     for i,d in enumerate(data):
@@ -312,6 +328,9 @@ def Imudata(savedata=False):
     return data 
 
 def addFluxImu(star, wl, plot=False, verbose=False):
+    """
+    add borad band flux to a model dict "star" for the wavelength vector "wl"
+    """
     global _imudata, _imuTeff, _imulogg
     
     t0 = time.time()
@@ -324,14 +343,14 @@ def addFluxImu(star, wl, plot=False, verbose=False):
 
     # == total flux over disk should be 1
     # alpha = np.linspace(0, 1, 41)
-	# print('_a=', [round(float(a), 3) for a in alpha])
-	# mu = np.linspace(0, 1, 1000)
-	# res = []
-	# for a in alpha:
-	#     res.append(np.trapezoid(mu**a*np.sqrt(1-mu**2), mu))
-	# res = np.array(res)
-	# res /= res[0]
-	# print('_c=', [round(float(a), 5) for a in res])
+    # print('_a=', [round(float(a), 3) for a in alpha])
+    # mu = np.linspace(0, 1, 1000)
+    # res = []
+    # for a in alpha:
+    #     res.append(np.trapezoid(mu**a*np.sqrt(1-mu**2), mu))
+    # res = np.array(res)
+    # res /= res[0]
+    # print('_c=', [round(float(a), 5) for a in res])
 
     _a= [0.0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975, 1.0]
     _c= [1.0, 0.97042, 0.9429, 0.91671, 0.89175, 0.86795, 0.84522, 0.82351, 0.80275, 0.78288, 0.76384, 0.74559, 0.72808, 0.71128, 0.69513, 0.6796, 0.66466, 0.65028, 0.63642, 0.62307, 0.61019, 0.59777, 0.58577, 0.57418, 0.56298, 0.55215, 0.54167, 0.53153, 0.52171, 0.51219, 0.50297, 0.49403, 0.48536, 0.47695, 0.46878, 0.46085, 0.45314, 0.44565, 0.43837, 0.43129, 0.42441]
@@ -345,12 +364,12 @@ def addFluxImu(star, wl, plot=False, verbose=False):
         i0 = np.argsort(d)[0]
         i1 = np.argsort(d)[1]
         f0 = 10**np.interp(np.log10(wl), 
-        		np.log10(_imudata[i0]['WAVEL']), 
-        		np.log10(_imudata[i0]['FLAMBDA']))
+                np.log10(_imudata[i0]['WAVEL']), 
+                np.log10(_imudata[i0]['FLAMBDA']))
 
         f1 = 10**np.interp(np.log10(wl), 
-        		np.log10(_imudata[i1]['WAVEL']), 
-        		np.log10(_imudata[i1]['FLAMBDA']))
+                np.log10(_imudata[i1]['WAVEL']), 
+                np.log10(_imudata[i1]['FLAMBDA']))
 
         # -- this ignores doppler wavelength shift!
         if _imudata[i0]['TEFF'] != _imudata[i1]['TEFF']:
@@ -370,7 +389,7 @@ def addFluxImu(star, wl, plot=False, verbose=False):
         return star
         
     if type(plot)!=int:
-    	plot=0
+        plot=0
     plt.close(plot)
     plt.figure(plot, figsize=(2.5*len(wl),8))
     
@@ -411,5 +430,108 @@ def addFluxImu(star, wl, plot=False, verbose=False):
     plt.ylim(-2.5,2.5)
     plt.tight_layout()
     return star
+
+Ncolat= 31
+def Vrota(u, v, wl, param, plot=False, fullOutput=False,
+          imFov=None, imPix=None, imX=0, imY=0, imN=None,):
+    """
+    u, v: baselines in m (1D np.array: dimension N)
+    wl: wavelength in um (1D np.array: dimension M)
+
+    parameters:
+    - 'Rpole' in Rsun
+    - 'Tpole' in K
+    - 'Mass' in Msun
+    - 'omega': fractional rotational rate (/OmegaCrit)
+    - 'dist' in pc 
+    - beta: optional (default 0.25)
+    - vpuls: optional pulsation velocity, in km/s (default=0)
+
+    result: complex visibility (np.array of dimension N x M)
+
+    """
+    global star, Ncolat
+    if 'beta' in param:
+        beta = param['beta']
+    else:
+        beta = 0.25
+
+    if 'vpuls' in param:
+        vpuls = param['vpuls']
+    else:
+        vpuls = 0
+
+    # -- mas to radians
+    c =  np.pi/180/3600/1000*1e6
+
+    if "x" in param and "y" in param:
+        x0, y0 = param["x"], param["y"]
+    else:
+        x0, y0 = 0, 0
+
+    star = surface(Ncolat, param['Rpole'], param['Mass'], param['omega'], param['Tpole'], 
+                incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
+                beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
+    star = addFluxImu(star, wl)
+
+    # -- visible points
+    w = star['nz']>=0
+    # -- do I need the dS here or not ?!?
+    flx = star['flux'][w]*star['ld'][w]*star['proj dS'][w][:,None]
+    # -- x,y phase offset is taken care somewhere else (in "oimodels.py")
+    vis = np.exp(-2j*np.pi*c*(u[:,None,None]*(star['x_mas'][w][None,:,None]+x0) + 
+                              v[:,None,None]*(star['y_mas'][w][None,:,None]+y0))/wl[None,None,:])
+
+    # -- complex visibilities
+    vis = np.sum(flx[None,:,:]*vis, axis=1)/np.sum(flx, axis=0)[None,:]
+    # -- SED
+    flx = np.sum(flx, axis=0)
+
+    if not imFov is None:
+        # -- find the shape of the star in polar coordinates
+        _r2 = star['x_mas'][w]**2 + star['y_mas'][w]**2
+        _pa = np.arctan2(star['x_mas'][w], star['y_mas'][w])
+        palim = np.linspace(-np.pi, np.pi, int(np.sqrt(len(star['x_mas'][w])))+1)
+        dpa = np.max(np.diff(palim))
+        r2lim = np.zeros(len(palim))
+        for i in range(len(palim)):
+            r2lim[i] = np.max(_r2[np.abs(_pa-palim[i])<=dpa])
+
+        # -- compute cube
+        if imN is None:
+            imN = 2 * int(imFov / imPix / 2) + 1
+        X = np.linspace(imX - imFov / 2, imX + imFov / 2, imN)
+        Y = np.linspace(imY - imFov / 2, imY + imFov / 2, imN)
+        _X, _Y = np.meshgrid(X, Y)
+
+        cube = np.zeros((len(wl), len(X), len(Y)))
+
+        # -- closest neighbor
+        for i,x in enumerate(X):
+            for j,y in enumerate(Y):
+                if (x-x0)**2+(y-y0)**2 <= np.interp(np.arctan2(x-x0, y-y0), palim, r2lim):
+                    k = np.argmin((x-x0-star['x_mas'][w])**2 + (y-y0-star['y_mas'][w])**2)
+                    cube[:,j,i] = star['flux'][w][k,:]*star['ld'][w][k,:]
+
+        # @@@@@@@ THIS IS EXTREMELY SLOW! @@@@@@@@@@@@@@@@@@@@
+        # grP = [(float(star['x_mas'][w][i]+x0), float(star['y_mas'][w][i]+y0)) for i in range(len(star['x'][w]))]
+        # print('DBG>', grP[:10])
+        # gr = np.array([_X, _Y]).reshape(2, -1).T
+        # for i in range(len(wl)):
+        #     cube[i, :, :] = scipy.interpolate.RBFInterpolator(
+        #         grP, star['flux'][w][:,i]*star['ld'][w][:,i],
+        #         #kernel="gaussian", neighbors=2
+        #         )(gr).reshape((imN, imN))
+    else:
+        _X, _Y, cube = None, None, None
+
+    if fullOutput:
+        # -- visibility, total spectrum (SED), x, y, cube, 
+        #.      0.   1.   2.  3.  4
+        return vis, flx, _X, _Y, cube
+    else:
+        # -- only (complex) visibility
+        return vis
+
 
 

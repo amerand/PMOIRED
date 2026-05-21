@@ -30,6 +30,7 @@ from astropy import constants
 import pmoired.dpfit as dpfit
 import pmoired.dw as dw
 import pmoired.oifits as oifits
+import pmoired.rotastar as rotastar
 
 try:
     import pmoired.microprogress as microprogress
@@ -1042,36 +1043,20 @@ def VsingleOI(
 
             R = np.sqrt(_X**2 + _Y**2)
 
-    # -- phase offset
+    # -- phase offset due to position in the field
     # phi = lambda z: -2j*_c*(z['u/wl']*x+z['v/wl']*y)
-    PHI = lambda o: np.exp(
-        -2j
-        * _c
-        * (
-            o["u/wl"][:, wwl] / cwl * x(o)[:, wwl]
-            + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]
-        )
-    )
+    PHI = lambda o: np.exp(-2j*_c*(o["u/wl"][:, wwl] / cwl * x(o)[:, wwl]+ 
+                                   o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]))
 
     if du:
         # dPHIdu = lambda z: -2j*_c*x*PHI(z)/oi['WL']
         # dPHIdv = lambda z: -2j*_c*y*PHI(z)/oi['WL']
-        PHIdu = lambda o: np.exp(
-            -2j
-            * _c
-            * (
+        PHIdu = lambda o: np.exp(-2j*_c*(
                 (o["u/wl"][:, wwl] / cwl + du / res["WL"][:, wwl]) * x(o)[:, wwl]
-                + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]
-            )
-        )
-        PHIdv = lambda o: np.exp(
-            -2j
-            * _c
-            * (
+                + o["v/wl"][:, wwl] / cwl * y(o)[:, wwl]))
+        PHIdv = lambda o: np.exp(-2j*_c*(
                 o["u/wl"][:, wwl] / cwl * x(o)[:, wwl]
-                + (o["v/wl"][:, wwl] / cwl + dv / res["WL"][wwl]) * y(o)[:, wwl]
-            )
-        )
+                + (o["v/wl"][:, wwl] / cwl + dv / res["WL"][wwl]) * y(o)[:, wwl]))
 
     # -- guess which visibility function
     if "sparse" in _param:
@@ -1135,14 +1120,45 @@ def VsingleOI(
         # -- TEST
         # kt = list(oi['OI_VIS2'].keys())[0]
         # print('test', kt, np.abs(Vf(oi['OI_VIS2'][kt])))
+    elif "Rpole" in _param and "Tpole" in _param:
+        # -- rotating star
+        if imFov is None:
+            imN = None
+        else:
+            imN = int(np.sqrt(len(X.flatten())))
+        tmp = rotastar.Vrota(
+            np.array([1]),
+            np.array([1]),
+            res["WL"][wwl],
+            _param,
+            fullOutput=True,
+            imFov=imFov,
+            imPix=imPix,
+            imX=imX,
+            imY=imY,
+            imN=imN,
+        )
+        flux = np.zeros(len(res["WL"]))
+        flux[wwl] = tmp[1]
+
+        if not I is None:
+            # print('shape', tmp[4].shape)
+            I = np.zeros((len(res["WL"]), tmp[4].shape[1], tmp[4].shape[2]))
+            I[wwl, :, :] = tmp[4]
+            I *= np.sum(flux[:, None, None]) / np.sum(I)
+        # for k in oi['OI_VIS']:
+        #     print(f'DBG> {oi["OI_VIS"][k]["u"].shape=}')
+        # for k in oi['OI_VIS2']:
+        #     print(f'DBG> {oi["OI_VIS2"][k]["u"].shape=}')
+
+        Vf = lambda z: rotastar.Vrota(z["u"].flatten(), z["v"].flatten(), res["WL"][wwl], _param)
+
     elif "ud" in _param.keys():  # == uniform disk ================================
         Rout = _param["ud"] / 2
         if any(flux > 0):
             Vf = lambda z: (
-                2
-                * scipy.special.j1(_c * _param["ud"] * _Bwl(z) + 1e-12)
-                / (_c * _param["ud"] * _Bwl(z) + 1e-12)
-            )
+                2*scipy.special.j1(_c * _param["ud"] * _Bwl(z) + 1e-12)
+                / (_c * _param["ud"] * _Bwl(z) + 1e-12))
         else:
             # -- save time
             Vf = lambda z: np.zeros(_Bwl(z).shape)
@@ -1668,10 +1684,12 @@ def VsingleOI(
                 / Rout
                 * dVdv
             )
+            # -- this takes care of the x,y shift
             V[:, wwl] *= PHI(res[key][k])
         else:
             # print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
             #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
+            # -- this takes care of the x,y shift
             V[:, wwl] = Vf(res[key][k]) * PHI(res[key][k])
 
         if not kfwhm is None:
@@ -2344,16 +2362,8 @@ def Vkepler(
     if len(v.shape) > 1:
         v = v.flatten()
 
-    Vpoints = np.exp(
-        -2j
-        * np.pi
-        * c
-        * (
-            u[:, None, None] * P[:, 0][None, None, :]
-            + v[:, None, None] * P[:, 1][None, None, :]
-        )
-        / wl[None, :, None]
-    )
+    Vpoints = np.exp(-2j*np.pi*c*(u[:,None,None]*P[:,0][None,None,:]
+                                + v[:,None,None]*P[:, 1][None,None,:])/wl[None,:,None])
     # print(P.shape, Vpoints.shape)
     flux = np.zeros((len(wl), P.shape[0]))
     # -- continuum
@@ -2508,6 +2518,7 @@ def Vkepler(
     else:
         x, y = 0, 0
 
+    # -- are we taking this into account twice !?
     vis *= np.exp(
         -2j * c * (u[:, None] / wl[None, :] * x + v[:, None] / wl[None, :] * y)
     )
@@ -2591,6 +2602,7 @@ def Vkepler(
 
     if fullOutput:
         # -- visibility, total spectrum, x, y, cube, points in disk
+        #       0.   1.   2.  3.   4.  5.  6
         return vis, flx, _X, _Y, cube, P, flux
     else:
         # -- only (complex) visibility
