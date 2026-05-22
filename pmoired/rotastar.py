@@ -39,23 +39,25 @@ def RGcola(colat, Rpole, Mass, w, verbose=False):
     if verbose:
         print(f"{Omegacrit=}")
     
+
     # -- https://arxiv.org/pdf/astro-ph/0603327, eq 12
-    R = Rpole + colat*0    
+    R = Rpole*np.ones(len(colat))
+    dR = np.zeros(len(colat))
+    dcolat = 1e-6
+
     if np.abs(w)>0:
         wsinc = np.abs(w)*np.sin(colat)
         _w = np.abs(np.sin(colat))>1e-6
         R[_w] = 3*Rpole/(wsinc[_w])*np.cos((np.pi + np.arccos(wsinc[_w]))/3)
 
+        dR = 3*Rpole/(np.abs(w)*np.sin(colat+dcolat))*\
+                np.cos((np.pi + np.arccos(np.abs(w)*np.sin(colat+dcolat)))/3) - R
+
     # -- based on eq 15
     V = (R*U.Rsun).to(U.km)*Omega # in km/s
-
     if verbose:
         print(f"{R.min()=}, {R.max()=}")
-        print(f"Veq = {(R.max()*U.Rsun).to(U.km)*Omega:.1f}")
-    
-    dcolat = 1e-6
-    dR = 3*Rpole/(np.abs(w)*np.sin(colat+dcolat))*\
-            np.cos((np.pi + np.arccos(np.abs(w)*np.sin(colat+dcolat)))/3) -R
+        print(f"Veq = {(R.max()*U.Rsun).to(U.km)*Omega:.1f}")    
 
     gpole = CONST.G*(Mass*U.Msun).to(U.kg)/(Rpole*U.Rsun).to(U.m)**2 
     if w==0:
@@ -120,7 +122,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
             res['colat'].append(c)
             res['lon'].append(l)
             res['dS'].append(ds) # surface element
-            
+
     res['colat'] = np.array(res['colat'])
     res['lon'] = np.array(res['lon'])
     # -- fractional surface of the node (compared to the whole star)
@@ -170,9 +172,9 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     v2 = np.array([res['dx2'], res['dy2'], res['dz2']])
     res['nx'], res['ny'], res['nz'] = np.cross(v1, v2, axis=0)
 
-    res['vx']+= res['nx']*vpuls
-    res['vy']+= res['ny']*vpuls
-    res['vz']+= res['nz']*vpuls
+    res['vx'] += res['nx']*vpuls
+    res['vy'] += res['ny']*vpuls
+    res['vz'] += res['nz']*vpuls
 
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
@@ -329,9 +331,9 @@ def Imudata(savedata=False):
             pickle.dump(data, f)
     return data 
 
-def addFluxImu(star, wl, plot=False, verbose=False):
+def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
     """
-    add borad band flux to a model dict "star" for the wavelength vector "wl"
+    add broad band flux to a model dict "star" for the wavelength vector "wl"
     """
     global _imudata, _imuTeff, _imulogg
     
@@ -339,6 +341,7 @@ def addFluxImu(star, wl, plot=False, verbose=False):
     star['flux'] = np.zeros((len(star['x']), len(wl)) )
     star['ld'] = np.zeros((len(star['x']), len(wl)) )
     star['wl'] = wl
+    star['doppler wl'] = wl[None,:]*(1-star['vz'][:,None]/299792.4580)
 
     # take advantage of colatitude layering
     T = set(star['Teff'][star['nz']>=0])
@@ -385,8 +388,41 @@ def addFluxImu(star, wl, plot=False, verbose=False):
         # -- flux normalisation
         star['ld'][w] /= norma(alpha)[None,:]
 
+    spectrum = np.ones(len(wl))
+    if not lines is None:
+        """
+        dict
+        'wl0' : central wl in um
+        'gaussian': full width half maximum (nm)
+        'f': depth compared to 1. <0 for abs, >0 for emission
+        opt: 'f XXXX': depth compared 1, at Teff=XXXX
+        """
+        w = star['nz']>=0
+        #w = np.isfinite(star['nz'])
+
+        for l in lines:
+            #print('DBG>', l)
+            # -- temp dependent depth
+            D = {float(k.split(' ')[1]):l[k] for k in l if k.startswith('f') and ' ' in k}
+            if len(D)==1:
+                raise Exception('need at least 2 line depths at Teff!')
+            if len(D)>1:
+                Teff = np.array(sorted(D.keys()))
+                F = np.array([D[k] for k in Teff])
+                tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
+                        np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
+                                (2*(l['gaussian']/1000/2.35482)**2))
+            else:
+                tmp = l['f']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
+                                     (2*(l['gaussian']/1000/2.35482)**2))
+            star['flux'][w,:] *= 1+tmp
+            #star['flux'][w,:] *= star['dS'][w][:,None]*(1+tmp)
+            spectrum += np.sum(star['proj dS'][w][:,None]*tmp, axis=0)/np.sum(star['proj dS'][w])
+
+    star['spectrum'] = spectrum
     if verbose:
         print(f"flux computation in {1000*(time.time()-t0):.1f}ms for {len(wl)} wavelengths")
+
     if not plot:
         return star
         
@@ -433,6 +469,7 @@ def addFluxImu(star, wl, plot=False, verbose=False):
     plt.tight_layout()
     return star
 
+
 Ncolat= 91
 def Vrota(u, v, wl, param, plot=False, fullOutput=False,
           imFov=None, imPix=None, imX=0, imY=0, imN=None,):
@@ -473,10 +510,18 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     star = surface(Ncolat, param['Rpole'], param['Mass'], param['omega'], param['Tpole'], 
                 incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
                 beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
-    star = addFluxImu(star, wl)
+
+    tmp = {k:param[k] for k in param if k.startswith('line_')}
+    if len(tmp)>0:
+        L = set(['_'.join(k.split('_')[:2]) for k in tmp])
+        lines = [{k.split('_')[2]:param[k] for k in param if k.startswith(l)} for l in L]
+    else:
+        lines = None
+    star = addFluxImu(star, wl, lines=lines)
 
     # -- visible points
     w = star['nz']>=0
+    #print('DBG>', param['omega'], np.sum(w))
     # -- do I need the dS here or not -> yes according to comparison with V from image 
     flx = star['flux'][w]*star['ld'][w]*star['proj dS'][w][:,None]
     # -- x,y phase offset is taken care somewhere else (in "oimodels.py")
@@ -544,8 +589,8 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
 
     if fullOutput:
         # -- visibility, total spectrum (SED), x, y, cube, 
-        #.      0.   1.   2.  3.  4
-        return vis, flx, _X, _Y, cube
+        #.      0.   1.   2.  3.  4,     5
+        return vis, flx, _X, _Y, cube, star['spectrum']
     else:
         # -- only (complex) visibility
         return vis

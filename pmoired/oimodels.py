@@ -1139,7 +1139,8 @@ def VsingleOI(
             imN=imN,
         )
         flux = np.zeros(len(res["WL"]))
-        flux[wwl] = tmp[1]
+        flux[wwl] = tmp[1]*tmp[5]
+
 
         if not I is None:
             # print('shape', tmp[4].shape)
