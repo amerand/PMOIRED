@@ -2034,6 +2034,7 @@ class OI:
         t3B="max",
         modelNames=None,
         modelColors=None,
+        unwrap180=False,
         avgData=False,
     ):
         """
@@ -2057,6 +2058,7 @@ class OI:
             computed for the averaged (u,v) instead!!!
         - barycentric: use barycentric velocities, if possible
         - autoLimV: automatic limits for visibility (|V|, V2) plots (default=False).
+        - unwrap180: unwrap phases with 180 (useful if phases flip abruptly)
 
         show image(s) and spectrum of model: set imFov to a value to show image
         - imFov: field of view in mas
@@ -2289,6 +2291,7 @@ class OI:
                     t3B=t3B,
                     modelNames=modelNames,
                     modelColors=modelColors,
+                    unwrap180=unwrap180,
                 )
                 self._dataAxes[perSetup[j]] = oimodels.ai1ax
                 self._dataFig = oimodels.ai1fig
@@ -2402,6 +2405,7 @@ class OI:
                 t3B=t3B,
                 modelNames=modelNames,
                 modelColors=modelColors,
+                unwrap180=unwrap180,
             )
 
             self._dataAxes["ALL"] = oimodels.ai1ax
@@ -2496,6 +2500,8 @@ class OI:
                         t3B=t3B,
                         modelNames=modelNames,
                         modelColors=modelColors,
+                        unwrap180=unwrap180,
+
                     )
                 )
                 self.fig += 1
