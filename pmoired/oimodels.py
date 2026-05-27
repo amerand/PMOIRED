@@ -98,11 +98,7 @@ def Ssingle(oi, param, noLambda=False, allParams=None):
         if "line_" + i + "_lorentzian" in _param.keys():
             dwl = _param["line_" + i + "_lorentzian"]  # in nm
             # f += _param[l]*1/(1+(oi['WL']-wl0)**2/(dwl/1000)**2)
-            f += (
-                _param[l]
-                * (0.5 * dwl / 1000) ** 2
-                / ((oi["WL"] - wl0) ** 2 + (0.5 * dwl / 1000) ** 2)
-            )
+            f += (_param[l]*(0.5*dwl/1000)**2/((oi["WL"]-wl0)**2+(0.5*dwl/1000)**2))
         elif "line_" + i + "_truncexp" in _param.keys():
             dwl = _param["line_" + i + "_truncexp"]  # in nm
             if "line_" + i + "_pow" in _param:
@@ -1138,9 +1134,13 @@ def VsingleOI(
             imY=imY,
             imN=imN,
         )
-        flux = np.zeros(len(res["WL"]))
-        flux[wwl] = tmp[1]*tmp[5]
+        # -- tmp[1] -> SED 
+        # -- tmp[5] -> spectral lines
+        #flux = np.zeros(len(res["WL"]))
+        #flux[wwl] = tmp[1]*tmp[5]
 
+        # -- use usual spectrum and add photospheric lines
+        flux[wwl] *= tmp[5]
 
         if not I is None:
             # print('shape', tmp[4].shape)
@@ -2262,19 +2262,11 @@ def Vkepler(
     tmp = []
     for a in As:
         if a.replace("wl0", "gaussian") in param:
-            tmp.append(
-                param[a]
-                * np.sqrt(Vin**2 + Vrad**2)
-                / 2.998e5
-                / max(param[a.replace("wl0", "gaussian")] / 1000, obs_dwl)
+            tmp.append(param[a]*np.sqrt(Vin**2 + Vrad**2)/2.998e5/max(param[a.replace("wl0", "gaussian")]/1000, obs_dwl)
             )
         elif a.replace("wl0", "lorentzian") in param:
             tmp.append(
-                0.5
-                * param[a]
-                * np.sqrt(Vin**2 + Vrad**2)
-                / 2.998e5
-                / max(param[a.replace("wl0", "lorentzian")] / 1000, obs_dwl)
+                0.5*param[a]*np.sqrt(Vin**2 + Vrad**2)/2.998e5/max(param[a.replace("wl0", "lorentzian")]/1000, obs_dwl)
             )
         else:
             # -- default gaussian profile based on spectral resolution
@@ -3529,7 +3521,7 @@ def computeDiffPhiOI(
     # -- exclude where lines are in the models
     elif not _param is None:
         for k in _param.keys():
-            if "line_" in k and "wl0" in k:
+            if "line_" in k and "wl0" in k: # capture "line" and "pline" for rotating stars
                 dwl = 0
                 if k.replace("_wl0", "_gaussian") in _param.keys():
                     dwl = 1.5 * _param[k.replace("wl0", "gaussian")] / 1000.0
@@ -6702,6 +6694,7 @@ def showOI(
     t3B="max",
     modelNames=None,
     modelColors=None,
+    unwrap180=False,
 ):
     """
     oi: result from oifits.loadOI
@@ -6810,6 +6803,7 @@ def showOI(
                 t3B=t3B,
                 modelNames=modelNames,
                 modelColors=modelColors,
+                unwrap180=unwrap180,
             )
             if not param is None:
                 if "fit" in o and "obs" in o["fit"] and "NFLUX" in o["fit"]["obs"]:
@@ -7567,12 +7561,22 @@ def showOI(
                 # -- data:
                 y = oi[data[l]["ext"]][k][data[l]["var"]][j, :]
                 if "PHI" in l and any(mask):  # and np.ptp(y[mask])>300:
-                    y[mask] = np.unwrap(y[mask] * np.pi / 180) * 180 / np.pi
-                    y[mask] = (
-                        np.mod(y[mask] - np.mean(y[mask]) + 180, 360)
-                        + np.mean(y[mask] - 180) % 360
-                        - 360
-                    )
+                    if unwrap180:
+                        #print('unwrap180 data')
+                        y[mask] = np.unwrap(y[mask], period=180) 
+                        y[mask] = (
+                            np.mod(y[mask] - np.mean(y[mask]) + 90, 180)
+                            + np.mean(y[mask] - 90) % 180
+                            - 180
+                        )
+                    else:
+                        y[mask] = np.unwrap(y[mask], period=360) 
+                        y[mask] = (
+                            np.mod(y[mask] - np.mean(y[mask]) + 180, 360)
+                            + np.mean(y[mask] - 180) % 360
+                            - 360
+                        )
+
                     # y[flagged] = np.unwrap(y[flagged]*np.pi/180)*180/np.pi
                     # y[flagged] = np.mod(y[flagged]+180, 360)-180
                     pass
@@ -7821,13 +7825,23 @@ def showOI(
                         if not k in m[data[l]["ext"]].keys():
                             k = list(m[data[l]["ext"]].keys())[0]
                         ym = m[data[l]["ext"]][k][data[l]["var"]][j, :]
-                        ym[mask] = np.unwrap(ym[mask] * np.pi / 180) * 180 / np.pi
-                        ym[mask] = (
-                            np.mod(ym[mask] + 180 - np.mean(ym[mask]), 360)
-                            + (np.mean(ym[mask]) - 180) % 360
-                            - 360
-                        )
+                        if 'PHI' in l:
+                            if unwrap180:
+                                #print('unwrap180 model')
+                                ym[mask] = np.unwrap(ym[mask], period=180)
+                                ym[mask] = (
+                                    np.mod(ym[mask] + 90 - np.mean(ym[mask]), 180)
+                                    + (np.mean(ym[mask]) - 90) % 180
+                                    - 180
+                                )
 
+                            else:
+                                ym[mask] = np.unwrap(ym[mask], period=360)
+                                ym[mask] = (
+                                    np.mod(ym[mask] + 180 - np.mean(ym[mask]), 360)
+                                    + (np.mean(ym[mask]) - 180) % 360
+                                    - 360
+                                )
                         # -- computed chi2 *in the displayed window*
                         maskc2 = mask * (oi["WL"] >= wlMin) * (oi["WL"] <= wlMax)
 
@@ -8097,6 +8111,8 @@ def showOI(
                     title += " (%s)" % oi["units"][l]
                 elif "unit" in data[l]:
                     title += " (%s)" % data[l]["unit"]
+                if 'PHI' in l and unwrap180:
+                    title += ' mod 180º'
 
                 ax.set_title(title)
                 if not vWl0 is None:

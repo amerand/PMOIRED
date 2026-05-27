@@ -172,9 +172,10 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     v2 = np.array([res['dx2'], res['dy2'], res['dz2']])
     res['nx'], res['ny'], res['nz'] = np.cross(v1, v2, axis=0)
 
-    res['vx'] += res['nx']*vpuls
-    res['vy'] += res['ny']*vpuls
-    res['vz'] += res['nz']*vpuls
+    # -- convention: positive radial velocity means decreasing radius
+    res['vx'] -= res['nx']*vpuls
+    res['vy'] -= res['ny']*vpuls
+    res['vz'] -= res['nz']*vpuls
 
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
@@ -331,9 +332,13 @@ def Imudata(savedata=False):
             pickle.dump(data, f)
     return data 
 
-def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
+def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     """
     add broad band flux to a model dict "star" for the wavelength vector "wl"
+
+    plines = photospheric lines, affected by rotation and pulsation
+    lines = line of sight line, not affected by rotation or pulsations
+
     """
     global _imudata, _imuTeff, _imulogg
     
@@ -341,6 +346,7 @@ def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
     star['flux'] = np.zeros((len(star['x']), len(wl)) )
     star['ld'] = np.zeros((len(star['x']), len(wl)) )
     star['wl'] = wl
+    # -- positive vz points towards observer -> blue shifted
     star['doppler wl'] = wl[None,:]*(1-star['vz'][:,None]/299792.4580)
 
     # take advantage of colatitude layering
@@ -389,7 +395,7 @@ def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
         star['ld'][w] /= norma(alpha)[None,:]
 
     spectrum = np.ones(len(wl))
-    if not lines is None:
+    if not plines is None:
         """
         dict
         'wl0' : central wl in um
@@ -400,8 +406,8 @@ def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
         w = star['nz']>=0
         #w = np.isfinite(star['nz'])
 
-        for l in lines:
-            #print('DBG>', l)
+        for l in plines:
+            #print(f'DBG> {l=}')
             # -- temp dependent depth
             D = {float(k.split(' ')[1]):l[k] for k in l if k.startswith('f') and ' ' in k}
             if len(D)==1:
@@ -409,17 +415,29 @@ def addFluxImu(star, wl, plot=False, verbose=False, lines=None):
             if len(D)>1:
                 Teff = np.array(sorted(D.keys()))
                 F = np.array([D[k] for k in Teff])
-                tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
-                        np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
-                                (2*(l['gaussian']/1000/2.35482)**2))
+                if 'gaussian' in l:
+                    tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
+                            np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
+                                    (2*(l['gaussian']/1000/2.35482)**2))
+                elif 'lorentzian' in l:
+                    tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
+                     (_param[l]*(0.5*l['lorentzian']/1000)**2/
+                        ((star['doppler wl'][w,:] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2))
+
             else:
-                tmp = l['f']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
+                if 'gaussian' in l:
+                    tmp = l['f']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
                                      (2*(l['gaussian']/1000/2.35482)**2))
+                elif 'lorentzian' in l:
+                    tmp = l['f']*_param[l]*(0.5*l['lorentzian']/1000)**2/\
+                        ((star['doppler wl'] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2)
+
             star['flux'][w,:] *= 1+tmp
             #star['flux'][w,:] *= star['dS'][w][:,None]*(1+tmp)
             spectrum += np.sum(star['proj dS'][w][:,None]*tmp, axis=0)/np.sum(star['proj dS'][w])
 
     star['spectrum'] = spectrum
+
     if verbose:
         print(f"flux computation in {1000*(time.time()-t0):.1f}ms for {len(wl)} wavelengths")
 
@@ -511,13 +529,16 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
                 incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
                 beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
 
-    tmp = {k:param[k] for k in param if k.startswith('line_')}
+    # -- only account for plines, i.e photospheric lines
+    tmp = {k:param[k] for k in param if k.startswith('pline_')}
     if len(tmp)>0:
         L = set(['_'.join(k.split('_')[:2]) for k in tmp])
-        lines = [{k.split('_')[2]:param[k] for k in param if k.startswith(l)} for l in L]
+        plines = [{k.split('_')[2]:param[k] for k in param if k.startswith(l)} for l in L]
     else:
-        lines = None
-    star = addFluxImu(star, wl, lines=lines)
+        plines = None
+    tmp = {k:param[k] for k in param if k.startswith('line_')}
+    #print(f'DBG> {plines=}')
+    star = addFluxImu(star, wl, plines=plines)
 
     # -- visible points
     w = star['nz']>=0
