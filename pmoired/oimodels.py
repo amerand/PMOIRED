@@ -8140,8 +8140,10 @@ def showOI(
                 if l == "NFLUX":
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
-                ax.legend(fontsize=5.5, loc='upper center',
-                    ncol=4 if l=='T3PHI' else 6)
+                if not showUV or l=='T3PHI':
+                    ax.legend(fontsize=5.5 if showUV else 6.5, 
+                        loc='upper center',
+                        ncol=4 if l=='T3PHI' else 6)
         i_col += 1
         if debug:
             print()
