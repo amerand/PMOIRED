@@ -7362,7 +7362,7 @@ def showOI(
                 ax.plot(b * np.cos(t), b * np.sin(t), ":k", alpha=0.2)
 
             bmax = 1.1 * np.max(bmax)
-            ax.legend(fontsize=5, loc="upper left", ncol=3)
+            ax.legend(fontsize=6, loc="upper left", ncol=3)
             # ax.set_title('u,v (m)', fontsize=10)
             # ax.set_xlabel('u')
             # ax.set_ylabel('v')
@@ -8082,7 +8082,6 @@ def showOI(
                 if bckgGrid:
                     # ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
                     ax.grid(color=(0.4, 0.6, 0.9), alpha=0.15)
-
             else:
                 if l in ["V2", "|V|"]:
                     if logV:
@@ -8140,8 +8139,9 @@ def showOI(
                     axv.set_xlabel("velocity (km/s)", fontsize=6)
                 if l == "NFLUX":
                     ax.set_xlabel(Xlabel)
-            # if (allInOne or l=='T3PHI') and showLegend:
-            #    ax.legend(fontsize=5, ncol=4)
+            if (allInOne or l=='T3PHI') and showLegend:
+                ax.legend(fontsize=5.5, loc='upper center',
+                    ncol=4 if l=='T3PHI' else 6)
         i_col += 1
         if debug:
             print()
