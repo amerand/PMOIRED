@@ -7212,12 +7212,20 @@ def showOI(
 
     markers = ["d", "o", "*", "^", "v", ">", "<", "P", "X"]
     if not spectro:
-        # colors = list(itertools.permutations([0.2, 0.7, 0.9])) + ["0.5"]
-        # colors += [(0.2, 0.2, 0.8), (0.2, 0.8, 0.2), (0.8, 0.2, 0.2)]
-        # colors = matplotlib.colormaps['Set2'](np.linspace(0.05, 0.95, 8))
-        colors = matplotlib.colormaps["Paired"](
-            np.linspace(1 / 24, 1 - 1 / 6 - 1 / 24, 10)
-        )
+        # colors = matplotlib.colormaps["Paired"](
+        #     np.linspace(1 / 24, 1 - 1 / 24, 12))
+        # colors = list(colors[1::2])+list(colors[0::2])
+
+        colors = matplotlib.colormaps["tab10"](
+            np.linspace(1/20, 1 - 1/20, 10))
+        colors = matplotlib.colormaps["Dark2"](
+            np.linspace(1/16, 1 - 1/16, 8))
+        #colors = list(colors)[-1::-2] + list(colors)[-2::-2]
+
+        colors = matplotlib.colormaps["Set1"](
+            np.linspace(1/18, 1 - 1/18, 9))[[0,1,2,3,4,6,7,8]]
+        colors = list(colors)[1:5] + list(colors)[-1:-3:-1]
+        #colors = list(colors)[-1::-2] + list(colors)[-2::-2]
 
     else:
         colors = matplotlib.colormaps[cmapBaselines](

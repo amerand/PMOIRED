@@ -469,10 +469,10 @@ class OI:
         alt = np.array([d['header']['ESO ISS ALT'] for d in self.data])
         theta0_500nm = 0.314*np.cos((90-alt)*np.pi/180)*r0_500nm/(1000*H)
         theta0_500nm *= 180*3600/np.pi
-        if verbose:
-            print(f'{seeing_500nm=}')
-            print(f'{r0_500nm=}')
-            print(f'{theta0_500nm=}')
+        # if verbose:
+        #     print(f'{seeing_500nm=} arcsec')
+        #     print(f'{r0_500nm=} m')
+        #     print(f'{theta0_500nm=} arcsec')
         for i in range(len(self.data)):
             self.data[i]['TURB'] = {}
             self.data[i]['TURB']['seeing_500nm'] = seeing_500nm[i]
@@ -493,6 +493,8 @@ class OI:
         hms2deg = lambda x: 15*np.sum(np.float64(x.split(':'))*np.array([1,1/60,1/3600]))
         dms2deg = lambda x: np.sum(np.abs(np.float64(x.split(':')))*np.array([1,1/60,1/3600]))*(-1 if x.strip()[0]=='-' else 1)
 
+        Cs = np.zeros(2)
+
         for i,d in enumerate(self.data):
             ra1 = hms2deg(num2dotted(d['header']['ESO INS SOBJ ALPHA']))
             ra2 = hms2deg(num2dotted(d['header']['ESO FT ROBJ ALPHA']))
@@ -510,6 +512,14 @@ class OI:
                 (D/self.data[i]['TURB']['R0'])**(-1/6)*\
                 self.data[i]['TURB']['FT-SC']/self.data[i]['TURB']['THETA0']
             self.data[i]['TURB']['VLOSS'] = np.exp(-2*np.pi**2/self.data[i]['WL']**2*sigmap**2)
+            if verbose:
+                c = np.polyfit(self.data[i]['WL']-np.mean(self.data[i]['WL']), self.data[i]['TURB']['VLOSS'], 1)
+                #print(f"<Vloss> data[{i}]: {np.mean(self.data[i]['TURB']['VLOSS']):.3f}")
+                print(f"<Vloss> data[{i}] 1*={c[0]:.3f}, 0*={c[1]:.3f}")
+                Cs += c
+        Cs /= len(self.data)
+        print(f"<Vloss> all data 1*={Cs[0]:.3f}, 0*={Cs[1]:.3f}")
+        
         return 
     
     def fromTemplate(self, oi, model):
