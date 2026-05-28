@@ -7008,6 +7008,7 @@ def showOI(
     # -- force recomputing differential quantities
     if "WL cont" in oi.keys():
         oi.pop("WL cont")
+
     if "DPHI" in obs or "N|V|" in obs or "NV2" in obs:
         if debug:
             print(" (re-)compute DiffPhi in data")
@@ -7071,6 +7072,18 @@ def showOI(
         if debug:
             print("no parameters given")
         m = None
+        Ms = []
+
+    if type(param)==dict:
+        Ps = [param]
+    elif type(param)==list:
+        Ps = param
+
+    for i,_m in enumerate(Ms):
+        if 'DPHI' in obs or 'N|V|' in obs or 'NV2' in obs:
+            _m = computeDiffPhiOI(_m, computeLambdaParams(Ps[i], MJD=np.mean(_m["MJD"])))
+        if 'NFLUX' in obs:
+            _m = computeNormFluxOI(_m, computeLambdaParams(Ps[i], MJD=np.mean(_m["MJD"])))
 
     c = 1  # column
     ax0 = None
