@@ -16,7 +16,7 @@ except ImportError:
 
 if os.path.exists(resources.files("pmoired")):
     _dir_data = resources.files("pmoired")
-    print(_dir_data)
+    #print(_dir_data)
 
 with open(os.path.join(_dir_data, 'imudata.pckl'), 'rb') as f:
     _imudata = pickle.load(f)
