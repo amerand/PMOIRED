@@ -518,9 +518,126 @@ class OI:
                 print(f"<Vloss> data[{i}] 1*={c[0]:.3f}, 0*={c[1]:.3f}")
                 Cs += c
         Cs /= len(self.data)
-        print(f"<Vloss> all data 1*={Cs[0]:.3f}, 0*={Cs[1]:.3f}")
+        if verbose:
+            print(f"<Vloss> all data 1*={Cs[0]:.3f}, 0*={Cs[1]:.3f}")
         
         return 
+
+    def isoplanetismTf(self, obs=None, plot=False, Hturb='Hturb', forB=None):
+        """
+        computes an isoplanetic transfer function based on the info in the header 
+        of the data (seeing, altitude, FT-SC separation) and Marechal approximation.
+
+        see https://www.aanda.org/articles/aa/pdf/2022/09/aa43941-22.pdf
+
+        will return a TF for |V|, V2, or both (depending of obs from setupFit),
+        parametrised usinf the height of turbulence in km, as "Hturb" (you can 
+        change the name of the variable).
+
+        -- how to use it?
+
+        # define your model and add the TF
+
+        oi.setupFit(...)
+        m = {'ud':3.14}
+        m |= oi.oi.getTfParameters()
+        m |= oi.isoplanetismTf()
+        
+        # then:
+
+        m = {'ud':                  3.14,
+             '#TF_T3PHI_J2G1A0_+0': 0.01,
+             'Hturb':               4.417, 
+             '#TF_|V|_G1A0_*0':     '0.996*np.exp(-$Hturb**2/4.417**2)',
+             '#TF_|V|_G1A0_*1':     '$Hturb**2.000*0.046*np.exp(-$Hturb**2/4.401**2)',
+             '#TF_|V|_J2A0_*0':     '0.996*np.exp(-$Hturb**2/4.417**2)',
+             '#TF_|V|_J2A0_*1':     '$Hturb**2.000*0.046*np.exp(-$Hturb**2/4.401**2)',
+             '#TF_|V|_J2G1_*0':     '0.996*np.exp(-$Hturb**2/4.417**2)',
+             '#TF_|V|_J2G1_*1':     '$Hturb**2.000*0.046*np.exp(-$Hturb**2/4.401**2)',
+            }
+
+        see also: getTfParameters, computeIsoplanetism
+        """
+        gauss = lambda x, p: x**p['pow']*p['amp']*np.exp(-x**2/p['sigma']**2)
+        sgauss = lambda x, p: (f"{x}**{p['pow']:.3f}*" if p['pow']!=0 else '') + \
+                    f"{p['amp']:.3f}*np.exp(-{x}**2/{p['sigma']:.3f}**2)"
+        # -- guess the 
+        if obs is None:
+            obs = []
+            Bv2, Bv = [], []
+            for d in self.data:
+                if 'fit' in d and 'obs' in d['fit']:
+                    if 'V2' in d['fit']['obs']:
+                        obs.append('V2')
+                        Bv2.extend(d['baselines'])
+                    if '|V|' in d['fit']['obs']:
+                        obs.append('|V|')
+                        Bv.extend(d['baselines'])
+                else:
+                    raise Exception("run setupFit before, or specify obs='V2' or obs='|V|'")
+            obs = list(set(obs))
+            Bv2 = list(set(Bv2))
+            Bv = list(set(Bv))
+            
+            if len(obs)==2:
+                return self.isoplanetismTF(obs='V2', Hturb=Hturb, forB=Bv2) | \
+                       self.isoplanetismTF(obs='|V|', Hturb=Hturb, forB=Bv)
+            else:
+                obs = obs[0]
+                forB = Bv2 if obs=='V2' else Bv
+
+        H = np.linspace(1, 12, 20)
+        C = []
+        if forB is None:
+            B = []
+        for h in H:
+            self.computeIsoplanetism(H=h)
+            _C = []
+            for d in self.data:
+                if obs == 'V2':
+                    c = np.polyfit(d['WL']-np.mean(d['WL']), d['TURB']['VLOSS']**2, 1)
+                    for k in d['OI_VIS2']:
+                        if forB is None and not k in B:
+                            B.append(k)
+                elif obs == '|V|':
+                    c = np.polyfit(d['WL']-np.mean(d['WL']), d['TURB']['VLOSS'], 1)
+                    for k in d['OI_VIS']:
+                        if forB is None and not k in B:
+                            B.append(k)
+                else:
+                    raise Exception('obs should be "V2" or "|V|"')
+                _C.append(c)
+            C.append(np.mean(_C, axis=0))
+        if not forB is None:
+            B = forB
+
+        C = np.array(C)
+        fit0 = dpfit.leastsqFit(gauss, H, {'amp':1, 'sigma':5, 'pow':2}, C[:,0], 
+                                        #doNotFit=['pow'], 
+                                        verbose=0) 
+        TF = {Hturb: float(fit0['best']['sigma'])}
+        #print(sgauss('$Hturb', fit0['best']))
+        TF |= {'#TF_'+obs+'_'+k+'_*1':sgauss('$'+Hturb, fit0['best']) for k in B}
+        fit1 = dpfit.leastsqFit(gauss, H, {'amp':1, 'sigma':4, 'pow':0}, C[:,1], 
+                                        doNotFit=['pow'], verbose=0)
+        #print(sgauss('$Hturb', fit['best']))
+        TF |= {'#TF_'+obs+'_'+k+'_*0':sgauss('$'+Hturb, fit1['best']) for k in B}
+
+        if plot:
+            if not type(plot)==int:
+                plot = self.fig
+                self.fig+=1
+            plt.close(plot)
+            plt.figure(plot)
+            plt.plot(H, C[:,0], 'ob', label='1*')
+            plt.plot(H, fit0['model'], ':b')    
+            plt.plot(H, C[:,1], 'sr', label='0*')
+            plt.plot(H, fit1['model'], ':r')
+            plt.legend()
+            plt.xlabel('turbulence altitude')
+            plt.ylabel('parameters')
+        
+        return TF
     
     def fromTemplate(self, oi, model):
         self.data = oimodels.VmodelOI(oi.data, model, asTemplate=True)
