@@ -1,7 +1,8 @@
 from matplotlib import pyplot as plt
 import matplotlib.tri as mtri
 import numpy as np
-import scipy.interpolate
+#import scipy.interpolate
+from scipy.special import assoc_legendre_p
 
 from astropy import constants as CONST
 from astropy import units as U
@@ -85,8 +86,8 @@ def RGcola(colat, Rpole, Mass, w, verbose=False):
 
 def rotations(x, y, z, incl, pa):
     x, y, z = x, \
-              y*np.cos(np.pi/2-incl) + z*np.sin(np.pi/2-incl), \
-             -y*np.sin(np.pi/2-incl) + z*np.cos(np.pi/2-incl)
+              y*np.cos(incl) + z*np.sin(incl), \
+             -y*np.sin(incl) + z*np.cos(incl)
     return x*np.cos(pa) + y*np.sin(pa), \
           -x*np.sin(pa) + y*np.cos(pa), \
            z
@@ -96,7 +97,8 @@ def normaliseV(x, y, z):
     n += n==0
     return x/n, y/n, z/n
 
-def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vpuls=0, dist=None):
+def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, 
+            vpuls=0, dist=None):
     """
     N: number of co-latitudes (better of odd)
     Rpole: polar radius (in Rsun)
@@ -107,11 +109,14 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     pa: position angle in radians
     beta: gravity darkening coef (0.25 canonical)
     vpuls: pulsation velocity in km/s
+        for non radial, {(l,m):amplitude_km/s} or {(l,m):(amplitude_km/s, phase_in_lon_rad)}
+        the l=0, m=0 is radial mode. Note that the phase is irrelevant for m=0!
+
     dist: dispance in pc
     """
     res = {'colat':[], 'lon':[], 'dS':[], }
-    #C = np.linspace(0, np.pi, N)
-    C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
+    C = np.linspace(0, np.pi, N)
+    #C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
     dcolat = np.mean(np.diff(C))
     for c in C: # colatitude:
         r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
@@ -173,9 +178,34 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, vp
     res['nx'], res['ny'], res['nz'] = np.cross(v1, v2, axis=0)
 
     # -- convention: positive radial velocity means decreasing radius
-    res['vx'] -= res['nx']*vpuls
-    res['vy'] -= res['ny']*vpuls
-    res['vz'] -= res['nz']*vpuls
+    res['vpx'] = 0
+    res['vpy'] = 0
+    res['vpz'] = 0
+
+    if type(vpuls)==dict:
+        # non radial, {(l,m):amplitude_km/s} or {(l,m):(amplitude_km/s, phase_in_lon_rad)}
+        
+        for l,m in vpuls:
+            if type(vpuls[(l,m)])==tuple or type(vpuls[(l,m)])==list:
+                amp, phi = vpuls[(l,m)]
+            else:
+                amp = vpuls[(l,m)]
+                phi = 0
+            z = np.cos(m*(res['lon']-phi))*assoc_legendre_p(l, m, np.cos(res['colat']))
+            z *= amp/np.max(z)
+            #print(res['lon'].shape, res['colat'].shape, res['vx'].shape, res['nx'].shape, z.shape)
+            res['vpx'] -= res['nx']*z[0]
+            res['vpy'] -= res['ny']*z[0]
+            res['vpz'] -= res['nz']*z[0]
+    else:
+        res['vpx'] -= res['nx']*vpuls
+        res['vpy'] -= res['ny']*vpuls
+        res['vpz'] -= res['nz']*vpuls
+
+    res['vx'] += res['vpx']
+    res['vy'] += res['vpy']
+    res['vz'] += res['vpz']
+    
 
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
@@ -416,12 +446,12 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
                 Teff = np.array(sorted(D.keys()))
                 F = np.array([D[k] for k in Teff])
                 if 'gaussian' in l:
-                    tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
+                    tmp = np.interp(star['Teff'], Teff, F)[w,None]*\
                             np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
                                     (2*(l['gaussian']/1000/2.35482)**2))
                 elif 'lorentzian' in l:
-                    tmp = np.interp(star['Teff'], Teff, F)[:,None]*\
-                     (_param[l]*(0.5*l['lorentzian']/1000)**2/
+                    tmp = np.interp(star['Teff'], Teff, F)[w,None]*\
+                     ((0.5*l['lorentzian']/1000)**2/
                         ((star['doppler wl'][w,:] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2))
 
             else:
@@ -429,7 +459,7 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
                     tmp = l['f']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
                                      (2*(l['gaussian']/1000/2.35482)**2))
                 elif 'lorentzian' in l:
-                    tmp = l['f']*_param[l]*(0.5*l['lorentzian']/1000)**2/\
+                    tmp = l['f']*(0.5*l['lorentzian']/1000)**2/\
                         ((star['doppler wl'] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2)
 
             star['flux'][w,:] *= 1+tmp
@@ -488,7 +518,7 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     return star
 
 
-Ncolat= 91
+Ncolat= 51
 def Vrota(u, v, wl, param, plot=False, fullOutput=False,
           imFov=None, imPix=None, imX=0, imY=0, imN=None,):
     """
@@ -502,7 +532,9 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     - 'omega': fractional rotational rate (/OmegaCrit)
     - 'dist' in pc 
     - 'beta': optional (default 0.25)
-    - 'vpuls': optional pulsation velocity, in km/s (default=0)
+    - 'vpuls': optional pulsation velocity, in km/s (default=0) 
+        or {'vamp 2 1': ,'lon0 2 1':} for l=2,m=1 non radial mode 
+            in km/s for and and degrees for lon0
     result: complex visibility (np.array of dimension N x M)
 
     """
@@ -516,6 +548,16 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         vpuls = param['vpuls']
     else:
         vpuls = 0
+    V = {k:param[k] for k in param if k.startswith('vamp')}
+    if len(V)>0:
+        vpuls = {}
+        for k in V:
+            l,m = int(k.split(' ')[1]), int(k.split(' ')[2])
+            if k.replace('amp', 'lon0') in param:
+                vpuls[(l,m)] = (param[k], param[k.replace('amp', 'lon0')]*np.pi/180)
+            else:
+                vpuls[(l,m)] = param[k]
+        #print(vpuls)
 
     # -- mas to radians
     c =  np.pi/180/3600/1000*1e6
@@ -524,6 +566,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         x0, y0 = param["x"], param["y"]
     else:
         x0, y0 = 0, 0
+
 
     star = surface(Ncolat, param['Rpole'], param['Mass'], param['omega'], param['Tpole'], 
                 incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
@@ -543,8 +586,14 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     # -- visible points
     w = star['nz']>=0
     #print('DBG>', param['omega'], np.sum(w))
-    # -- do I need the dS here or not -> yes according to comparison with V from image 
-    flx = star['flux'][w]*star['ld'][w]*star['proj dS'][w][:,None]
+
+    if True:
+        # -- with LD effects
+        flx = star['flux'][w]*star['ld'][w]*star['proj dS'][w][:,None]
+    else:
+        # -- without LD effects
+        flx = star['flux'][w]*star['proj dS'][w][:,None]
+    
     # -- x,y phase offset is taken care somewhere else (in "oimodels.py")
     vis = np.exp(-2j*np.pi*c*(u[:,None,None]*(star['x_mas'][w][None,:,None]+x0) + 
                               v[:,None,None]*(star['y_mas'][w][None,:,None]+y0))/wl[None,None,:])
