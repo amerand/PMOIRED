@@ -120,7 +120,10 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     dcolat = np.mean(np.diff(C))
     for c in C: # colatitude:
         r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
-        nl = max(int(2*N*np.sin(c)*r/Rpole), 1)
+        try:
+            nl = max(int(2*N*np.sin(c)*r/Rpole), 1)
+        except:
+            print(f"{Rpole=} {Mass=} {w=} {Tpole=} {incl=} {pa=} {beta=} {dist=}")
         dlon = 2*np.pi/nl
         ds = r**2*np.sin(c)*dlon*dcolat
         for l in np.linspace(-np.pi, np.pi, nl)[:-1]:
@@ -148,9 +151,9 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     res['z'] = res['R']*np.cos(res['colat'])
 
     # -- rotational velocity in km/s
-    res['vx'] = res['V']*np.sin(res['lon'])
-    res['vy'] = res['V']*np.cos(res['lon'])
-    res['vz'] = res['V']*0
+    res['vrotx'] = res['V']*np.sin(res['lon'])
+    res['vroty'] = res['V']*np.cos(res['lon'])
+    res['vrotz'] = res['V']*0
     
     # -- tangantial vector along co-latitude
     res['dx1'] = res['R']*np.cos(res['colat']) + np.sin(res['colat'])*res['dR/dcolat']
@@ -168,7 +171,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
 
     # -- rotations (inclination, PA):
     res['x'], res['y'], res['z'] = rotations(res['x'], res['y'], res['z'], incl, pa)
-    res['vx'], res['vy'], res['vz'] = rotations(res['vx'], res['vy'], res['vz'], incl, pa)
+    res['vrotx'], res['vroty'], res['vrotz'] = rotations(res['vrotx'], res['vroty'], res['vrotz'], incl, pa)
     res['dx1'], res['dy1'], res['dz1'] = rotations(res['dx1'], res['dy1'], res['dz1'], incl, pa)
     res['dx2'], res['dy2'], res['dz2'] = rotations(res['dx2'], res['dy2'], res['dz2'], incl, pa)    
 
@@ -177,10 +180,10 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     v2 = np.array([res['dx2'], res['dy2'], res['dz2']])
     res['nx'], res['ny'], res['nz'] = np.cross(v1, v2, axis=0)
 
-    # -- convention: positive radial velocity means decreasing radius
-    res['vpx'] = 0
-    res['vpy'] = 0
-    res['vpz'] = 0
+    # -- convention: positive pulsation velocity means decreasing radius
+    res['vpulsx'] = 0
+    res['vpulsy'] = 0
+    res['vpulsz'] = 0
 
     if type(vpuls)==dict:
         # non radial, {(l,m):amplitude_km/s} or {(l,m):(amplitude_km/s, phase_in_lon_rad)}
@@ -192,19 +195,19 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
                 amp = vpuls[(l,m)]
                 phi = 0
             z = np.cos(m*(res['lon']-phi))*assoc_legendre_p(l, m, np.cos(res['colat']))
-            z *= amp/np.max(z)
+            z *= amp/np.max(np.abs(z))
             #print(res['lon'].shape, res['colat'].shape, res['vx'].shape, res['nx'].shape, z.shape)
-            res['vpx'] -= res['nx']*z[0]
-            res['vpy'] -= res['ny']*z[0]
-            res['vpz'] -= res['nz']*z[0]
+            res['vpulsx'] -= res['nx']*z[0]
+            res['vpulsy'] -= res['ny']*z[0]
+            res['vpulsz'] -= res['nz']*z[0]
     else:
-        res['vpx'] -= res['nx']*vpuls
-        res['vpy'] -= res['ny']*vpuls
-        res['vpz'] -= res['nz']*vpuls
+        res['vpulsx'] -= res['nx']*vpuls
+        res['vpulsy'] -= res['ny']*vpuls
+        res['vpulsz'] -= res['nz']*vpuls
 
-    res['vx'] += res['vpx']
-    res['vy'] += res['vpy']
-    res['vz'] += res['vpz']
+    res['vx'] = res['vrotx'] + res['vpulsx']
+    res['vy'] = res['vroty'] + res['vpulsy']
+    res['vz'] = res['vrotz'] + res['vpulsz']
     
 
     if not dist is None:
@@ -528,7 +531,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     parameters:
     - 'Rpole' in Rsun
     - 'Tpole' in K
-    - 'Mass' in Msun
+    - 'mass' in Msun
     - 'omega': fractional rotational rate (/OmegaCrit)
     - 'dist' in pc 
     - 'beta': optional (default 0.25)
@@ -567,10 +570,36 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     else:
         x0, y0 = 0, 0
 
+    if 'Rpole' in param:
+        Rpole = param['Rpole']
+    if 'diampole' in param and not 'Rpole' in param:
+        Rpole = param['diampole']/2*param['dist']/1000*(1*U.au).to(U.m)/(1*U.Rsun).to(U.m)
+        Rpole = Rpole.value
 
-    star = surface(Ncolat, param['Rpole'], param['Mass'], param['omega'], param['Tpole'], 
-                incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
-                beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
+    if 'mass' in param:
+        mass = param['mass']
+    else:
+        mass = 2.0
+        print('WARNING rotastar.Vrota: default mass {mass}Msun')
+
+    if 'omega' in param:
+        omega = min(param['omega'], 1)
+        omega = max(omega, -1)
+        
+    if 'Req' in param or 'diameq' in param:
+        # -- pole and equator:
+        _colat = np.array([0, np.pi/2])
+        _R, _, _logg, _V, _ = RGcola(_colat, 1, mass, omega)
+        if 'Req' in param:
+            Rpole = Req/_R[1]*_R[0]
+        elif 'diameq' in param:
+            Rpole = param['diameq']/2*param['dist']/1000*(1*U.au).to(U.m)/(1*U.Rsun).to(U.m)/_R[1]*_R[0]
+            Rpole = Rpole.value
+    #print(f'{Rpole=}Rsun')
+
+    star = surface(Ncolat, Rpole, mass, omega, param['Tpole'], 
+                   incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
+                   beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
 
     # -- only account for plines, i.e photospheric lines
     tmp = {k:param[k] for k in param if k.startswith('pline_')}
