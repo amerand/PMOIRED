@@ -1116,7 +1116,7 @@ def VsingleOI(
         # -- TEST
         # kt = list(oi['OI_VIS2'].keys())[0]
         # print('test', kt, np.abs(Vf(oi['OI_VIS2'][kt])))
-    elif "Rpole" in _param and "Tpole" in _param:
+    elif "Rpole" in _param or "Tpole" in _param or 'diampole' in _param or 'diameq' in _param:
         # -- rotating star
         if imFov is None:
             imN = None
@@ -3127,14 +3127,6 @@ def VmodelOI(
 
     t0 = time.time()
 
-    if "smear" in res:
-        print("!smear!")
-        # needs to happen before T3PHI, differential phase and normalise flux
-        if True or debug:
-            print("VmodelOI: closing smearing (binning)")
-        # print('smear: binning', res['WL'].shape, '->', end=' ')
-        res = oifits._binOI(res, binning=res["smear"], noError=True)
-        # print(res['WL'].shape)
 
     if "OI_T3" in oi.keys():
         res["OI_T3"] = {}
@@ -3174,20 +3166,27 @@ def VmodelOI(
         if timeit:
             print(" " * indent + "VmodelOI > T3 %.3fms" % (1000 * (time.time() - t0)))
 
+    if "smear" in res:
+        # needs to happen before T3PHI, differential phase and normalise flux
+        if  debug:
+            print(f"VmodelOI: closing smearing (binning) {res['smear']}")
+        if 'fit' in res and 'wl kernel' in res['fit']:
+            # -- kernel expressed in orginal wavelength resolution 
+            wlKernel = res['smear']*res['fit']['wl kernel']
+        else:
+            wlKernel = 0
+        res = _applyWlKernel(res, wlKernel=np.sqrt(res["smear"]**2+wlKernel**2))
+        res = oifits._binOI(res, binning=res["smear"], noError=True)
+
     # -- must be before computeDiffPhiOI and computeNormFluxOI
-    res = _applyWlKernel(res, debug=debug, fullWlRange=True)
+    if not 'smear' in res:
+        # -- was already done in smearing above
+        res = _applyWlKernel(res, debug=debug, fullWlRange=True)
     res = oifits._applyTF(res)
 
     t0 = time.time()
-    if (
-        "fit" in oi
-        and "obs" in oi["fit"]
-        and (
-            "DPHI" in oi["fit"]["obs"]
-            or "N|V|" in oi["fit"]["obs"]
-            or "NV2" in oi["fit"]["obs"]
-        )
-    ):
+    if ("fit" in oi and "obs" in oi["fit"] and 
+        ("DPHI" in oi["fit"]["obs"] or "N|V|" in oi["fit"]["obs"] or "NV2" in oi["fit"]["obs"]) ):
         if debug:
             print("VmodelOI: differential phase")
         res = computeDiffPhiOI(res, param, debug=debug)
@@ -3295,26 +3294,28 @@ def _injectFeatures(oi, truth, inject):
         res[e] = tmp
     return res
 
-
 def _convolve(y, ker):
-    k = len(ker)
+    k = min(len(ker), len(y))
     _y = np.append(y, y[-k:][::-1])
     _y = np.append(_y[::-1], y[:k])[::-1]
     return np.convolve(_y, ker, mode="same")[k:-k]
 
-
-def _applyWlKernel(res, debug=False, fullWlRange=False):
+def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=False):
     """ """
-    if not ("fit" in res and "wl kernel" in res["fit"]):
+    if not wlKernel is None:
+        pass
+    elif not ("fit" in res and "wl kernel" in res["fit"]):
         return res
+    else:
+        wlKernel = res["fit"]["wl kernel"]
+
     # -- convolve by spectral Resolution
-    N = 2 * int(2 * res["fit"]["wl kernel"]) + 3
+    N = 2 * int(2 * wlKernel) + 3
     x = np.arange(N)
     ker = np.exp(
-        -((x - np.mean(x)) ** 2) / (2.0 * (res["fit"]["wl kernel"] / 2.35482) ** 2)
+        -((x - np.mean(x)) ** 2) / (2.0 * (wlKernel / 2.35482) ** 2)
     )
     ker /= np.sum(ker)
-
     # conv = lambda x: np.convolve(x, ker, mode='same')
     conv = lambda x: _convolve(x, ker)
     # conv = lambda x: x
@@ -3330,7 +3331,6 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
     if "OI_FLUX" in res:
         for k in res["OI_FLUX"].keys():
             for i in range(res["OI_FLUX"][k]["FLUX"].shape[0]):
-                # print(res['OI_FLUX'][k]['FLUX'][i].shape, w.shape)
                 res["OI_FLUX"][k]["FLUX"][i][w] = conv(res["OI_FLUX"][k]["FLUX"][i][w])
 
     if "NFLUX" in res.keys():
@@ -3339,10 +3339,17 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
                 res["NFLUX"][k]["NFLUX"][i][w] = conv(res["NFLUX"][k]["NFLUX"][i][w])
 
     if "OI_VIS" in res:
-        for k in res["OI_VIS"].keys():
+        for k in res["OI_VIS"].keys(): # for each baseline
             for i in range(res["OI_VIS"][k]["|V|"].shape[0]):
-                res["OI_VIS"][k]["|V|"][i][w] = conv(res["OI_VIS"][k]["|V|"][i][w])
-                res["OI_VIS"][k]["PHI"][i][w] = conv(res["OI_VIS"][k]["PHI"][i][w])
+                #res["OI_VIS"][k]["|V|"][i][w] = conv(res["OI_VIS"][k]["|V|"][i][w])
+                #res["OI_VIS"][k]["PHI"][i][w] = conv(res["OI_VIS"][k]["PHI"][i][w])
+                
+                # -- mimic phasor average:
+                tmp = res["OI_VIS"][k]["|V|"][i][w]*np.exp(-np.pi*1j*res["OI_VIS"][k]["PHI"][i][w]/180)
+                tmp = conv(tmp)
+                res["OI_VIS"][k]["|V|"][i][w] = np.abs(tmp)
+                res["OI_VIS"][k]["PHI"][i][w] = np.angle(tmp)*180/np.pi
+
                 if "DVIS" in res.keys() and "DPHI" in res["DVIS"][k]:
                     res["DVIS"][k]["DPHI"][i][w] = conv(res["DVIS"][k]["DPHI"][i][w])
                 if "DVIS" in res.keys() and "|V|" in res["DVIS"][k]:
@@ -3352,8 +3359,15 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
         if "OI_CF" in res:
             for k in res["OI_CF"].keys():
                 for i in range(res["OI_CF"][k]["CF"].shape[0]):
-                    res["OI_CF"][k]["CF"][i][w] = conv(res["OI_CF"][k]["CF"][i][w])
-                    res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
+                    #res["OI_CF"][k]["CF"][i][w] = conv(res["OI_CF"][k]["CF"][i][w])
+                    #res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
+
+                    # -- mimic phasor average:
+                    tmp = res["OI_CF"][k]["CF"][i][w]*np.exp(-np.pi*1j*res["OI_CF"][k]["PHI"][i][w]/180)
+                    tmp = conv(tmp)
+                    res["OI_CF"][k]["CF"][i][w] = np.abs(tmp)
+                    res["OI_CF"][k]["PHI"][i][w] = np.angle(tmp)*180/np.pi
+
 
     if "OI_VIS2" in res:
         for k in res["OI_VIS2"].keys():
@@ -3362,11 +3376,18 @@ def _applyWlKernel(res, debug=False, fullWlRange=False):
                 if "DVIS2" in res.keys() and "NV2" in res["DVIS2"][k]:
                     res["DVIS2"][k]["NV2"][i][w] = conv(res["DVIS2"][k]["NV2"][i][w])
 
-    if "OI_T3" in res:
+    if not noT3 and "OI_T3" in res:
         for k in res["OI_T3"].keys():
             for i in range(res["OI_T3"][k]["MJD"].shape[0]):
-                res["OI_T3"][k]["T3PHI"][i][w] = conv(res["OI_T3"][k]["T3PHI"][i][w])
-                res["OI_T3"][k]["T3AMP"][i][w] = conv(res["OI_T3"][k]["T3AMP"][i][w])
+                #res["OI_T3"][k]["T3PHI"][i][w] = conv(res["OI_T3"][k]["T3PHI"][i][w])
+                #res["OI_T3"][k]["T3AMP"][i][w] = conv(res["OI_T3"][k]["T3AMP"][i][w])
+
+                # -- mimic phasor average:
+                tmp = res["OI_T3"][k]["T3AMP"][i][w]*np.exp(-np.pi*1j*res["OI_T3"][k]["T3PHI"][i][w]/180)
+                tmp = conv(tmp)
+                res["OI_T3"][k]["T3AMP"][i][w] = np.abs(tmp)
+                res["OI_T3"][k]["T3PHI"][i][w] = np.angle(tmp)*180/np.pi
+
 
     if "MODEL" in res:
         for k in res["MODEL"]:
