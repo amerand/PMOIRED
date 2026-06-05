@@ -3345,8 +3345,7 @@ def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=Fals
                 #res["OI_VIS"][k]["PHI"][i][w] = conv(res["OI_VIS"][k]["PHI"][i][w])
                 
                 # -- mimic phasor average:
-                tmp = res["OI_VIS"][k]["|V|"][i][w]*np.exp(-np.pi*1j*res["OI_VIS"][k]["PHI"][i][w]/180)
-                tmp = conv(tmp)
+                tmp = conv(res["OI_VIS"][k]["|V|"][i][w]*np.exp(np.pi*1j*res["OI_VIS"][k]["PHI"][i][w]/180))
                 res["OI_VIS"][k]["|V|"][i][w] = np.abs(tmp)
                 res["OI_VIS"][k]["PHI"][i][w] = np.angle(tmp)*180/np.pi
 
@@ -3363,8 +3362,7 @@ def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=Fals
                     #res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
 
                     # -- mimic phasor average:
-                    tmp = res["OI_CF"][k]["CF"][i][w]*np.exp(-np.pi*1j*res["OI_CF"][k]["PHI"][i][w]/180)
-                    tmp = conv(tmp)
+                    tmp = conv(res["OI_CF"][k]["CF"][i][w]*np.exp(np.pi*1j*res["OI_CF"][k]["PHI"][i][w]/180))
                     res["OI_CF"][k]["CF"][i][w] = np.abs(tmp)
                     res["OI_CF"][k]["PHI"][i][w] = np.angle(tmp)*180/np.pi
 
@@ -3383,11 +3381,9 @@ def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=Fals
                 #res["OI_T3"][k]["T3AMP"][i][w] = conv(res["OI_T3"][k]["T3AMP"][i][w])
 
                 # -- mimic phasor average:
-                tmp = res["OI_T3"][k]["T3AMP"][i][w]*np.exp(-np.pi*1j*res["OI_T3"][k]["T3PHI"][i][w]/180)
-                tmp = conv(tmp)
+                tmp = conv(res["OI_T3"][k]["T3AMP"][i][w]*np.exp(np.pi*1j*res["OI_T3"][k]["T3PHI"][i][w]/180))
                 res["OI_T3"][k]["T3AMP"][i][w] = np.abs(tmp)
                 res["OI_T3"][k]["T3PHI"][i][w] = np.angle(tmp)*180/np.pi
-
 
     if "MODEL" in res:
         for k in res["MODEL"]:
