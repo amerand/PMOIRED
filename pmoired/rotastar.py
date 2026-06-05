@@ -115,8 +115,8 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     dist: dispance in pc
     """
     res = {'colat':[], 'lon':[], 'dS':[], }
-    #C = np.linspace(0, np.pi, N)
-    C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
+    C = np.linspace(0, np.pi, N)
+    #C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
     dcolat = np.mean(np.diff(C))
     for c in C: # colatitude:
         r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
@@ -126,7 +126,10 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
             print(f"{Rpole=} {Mass=} {w=} {Tpole=} {incl=} {pa=} {beta=} {dist=}")
         dlon = 2*np.pi/nl
         ds = r**2*np.sin(c)*dlon*dcolat
-        for l in np.linspace(-np.pi, np.pi, nl)[:-1]:
+        lon = np.linspace(-np.pi, np.pi, nl)
+        if len(lon)>1:
+            lon = lon[:-1]
+        for l in lon:
             res['colat'].append(c)
             res['lon'].append(l)
             res['dS'].append(ds) # surface element
