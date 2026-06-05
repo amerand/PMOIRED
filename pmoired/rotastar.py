@@ -115,8 +115,8 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     dist: dispance in pc
     """
     res = {'colat':[], 'lon':[], 'dS':[], }
-    C = np.linspace(0, np.pi, N)
-    #C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
+    #C = np.linspace(0, np.pi, N)
+    C = np.linspace(np.pi/(2*N), np.pi-np.pi/(2*N), N)
     dcolat = np.mean(np.diff(C))
     for c in C: # colatitude:
         r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
@@ -145,14 +145,14 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
 
     # -- star seen pole-on
 
-    # -- position in Rsol
+    # -- position in Rsol, z towards pole
     res['x'] = res['R']*np.cos(res['lon'])*np.sin(res['colat'])
     res['y'] = res['R']*np.sin(res['lon'])*np.sin(res['colat']) 
     res['z'] = res['R']*np.cos(res['colat'])
 
     # -- rotational velocity in km/s
-    res['vrotx'] = res['V']*np.sin(res['lon'])
-    res['vroty'] = res['V']*np.cos(res['lon'])
+    res['vrotx'] = res['V']*np.sin(res['lon'])*np.sin(res['colat'])
+    res['vroty'] = res['V']*np.cos(res['lon'])*np.sin(res['colat'])
     res['vrotz'] = res['V']*0
     
     # -- tangantial vector along co-latitude
@@ -209,7 +209,6 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     res['vy'] = res['vroty'] + res['vpulsy']
     res['vz'] = res['vrotz'] + res['vpulsz']
     
-
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
         for k in ['x', 'y', 'z']:
@@ -456,18 +455,17 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
                     tmp = np.interp(star['Teff'], Teff, F)[w,None]*\
                      ((0.5*l['lorentzian']/1000)**2/
                         ((star['doppler wl'][w,:] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2))
-
             else:
                 if 'gaussian' in l:
                     tmp = l['f']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
-                                     (2*(l['gaussian']/1000/2.35482)**2))
+                                         (2*(l['gaussian']/1000/2.35482)**2))
                 elif 'lorentzian' in l:
                     tmp = l['f']*(0.5*l['lorentzian']/1000)**2/\
                         ((star['doppler wl'] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2)
 
             star['flux'][w,:] *= 1+tmp
-            #star['flux'][w,:] *= star['dS'][w][:,None]*(1+tmp)
-            spectrum += np.sum(star['proj dS'][w][:,None]*tmp, axis=0)/np.sum(star['proj dS'][w])
+            spectrum += np.sum(star['ld'][w]*star['proj dS'][w][:,None]*tmp, axis=0)/\
+                        np.sum(star['ld'][w]*star['proj dS'][w][:,None], axis=0)
 
     star['spectrum'] = spectrum
 
@@ -519,7 +517,6 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     plt.ylim(-2.5,2.5)
     plt.tight_layout()
     return star
-
 
 Ncolat= 51
 def Vrota(u, v, wl, param, plot=False, fullOutput=False,
@@ -580,7 +577,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         mass = param['mass']
     else:
         mass = 2.0
-        print('WARNING rotastar.Vrota: default mass {mass}Msun')
+        print(f'WARNING rotastar.Vrota: default mass {mass} Msun')
 
     if 'omega' in param:
         omega = min(param['omega'], 1)
