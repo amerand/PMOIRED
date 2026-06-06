@@ -2984,8 +2984,10 @@ class OI:
                     / self.images["WL"][i0]
                     * 299792
                 )
-            plt.title(r''+title, fontsize=9, y=1.05 if imPlx else None)
-
+            try:
+                plt.title(r''+title, fontsize=9, y=1.05 if imPlx else None)
+            except:
+                print('ERROR!', title)
             cmodel = oimodels.computeLambdaParams(model)
             if imLegend:
                 # -- show position of each components
