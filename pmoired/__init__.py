@@ -2967,7 +2967,7 @@ class OI:
                     cb.set_label(r"$\sqrt[%d]{Flux}$" % int(1 / imPow))
                 else:
                     # title = '$\mathrm{I}^{%.2f}$ at '%imPow
-                    cb.set_label("$Flux^{%.2f}$" % imPow)
+                    cb.set_label(r"$Flux^{%.2f}$" % imPow)
             else:
                 cb.set_label("linear scale")
                 title = ""
