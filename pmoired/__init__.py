@@ -2977,7 +2977,7 @@ class OI:
                 n = 3
 
             title += r"$\lambda$=%." + str(int(n)) + r"f$\mu$m"
-            title = title % self.images["WL"][i0]
+            title = r''+title % self.images["WL"][i0]
             if not vWl0 is None:
                 title += "\n v= %.0fkm/s" % (
                     (self.images["WL"][i0] * bcorr - vWl0)
