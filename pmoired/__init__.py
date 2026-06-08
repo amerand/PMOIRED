@@ -25,14 +25,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-__version__ = "1.3.14"
+__version__ = "1.3.15"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
 MAX_THREADS = multiprocessing.cpu_count()
 US_SPELLING = False
 oimodels.US_SPELLING = US_SPELLING
-
 
 def setUSspelling(b):
     US_SPELLING = b
