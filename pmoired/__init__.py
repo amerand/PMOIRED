@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-__version__ = "1.3.15"
+__version__ = "1.3.16"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6

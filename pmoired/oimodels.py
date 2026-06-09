@@ -1084,9 +1084,8 @@ def VsingleOI(
                 imN=imN,
             )
             I = tmp[1] / np.sum(tmp[1])
-    elif (
-        "Vin" in _param or "V1mas" in _param or "Vin_Mm/s" in _param
-    ):  # == Keplerian disk ==
+    elif ("Vin" in _param or "V1mas" in _param or "Vin_Mm/s" in _param):  
+        # == Keplerian disk ==
         # == TODO: make this faster by only computing for needed wavelength
         if imFov is None:
             imN = None
@@ -2139,7 +2138,7 @@ def Vkepler(
     wl,
     param,
     plot=False,
-    _fudge=1.5,
+    _fudge=1.,
     _p=1.5,
     fullOutput=False,
     imFov=None,

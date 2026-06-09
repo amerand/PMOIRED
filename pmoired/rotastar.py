@@ -40,7 +40,6 @@ def RGcola(colat, Rpole, Mass, w, verbose=False):
     if verbose:
         print(f"{Omegacrit=}")
     
-
     # -- https://arxiv.org/pdf/astro-ph/0603327, eq 12
     R = Rpole*np.ones(len(colat))
     dR = np.zeros(len(colat))
@@ -55,7 +54,7 @@ def RGcola(colat, Rpole, Mass, w, verbose=False):
                 np.cos((np.pi + np.arccos(np.abs(w)*np.sin(colat+dcolat)))/3) - R
 
     # -- based on eq 15
-    V = (R*U.Rsun).to(U.km)*Omega # in km/s
+    V = np.sin(colat)*(R*U.Rsun).to(U.km)*Omega # in km/s
     if verbose:
         print(f"{R.min()=}, {R.max()=}")
         print(f"Veq = {(R.max()*U.Rsun).to(U.km)*Omega:.1f}")    
@@ -120,10 +119,12 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     dcolat = np.mean(np.diff(C))
     for c in C: # colatitude:
         r ,_ ,_ ,_ ,_ = RGcola(np.array([c]), Rpole, Mass, w)
+        r = r[0]
         try:
             nl = max(int(2*N*np.sin(c)*r/Rpole), 1)
         except:
-            print(f"{Rpole=} {Mass=} {w=} {Tpole=} {incl=} {pa=} {beta=} {dist=}")
+            print(2*N*np.sin(c)*r/Rpole)
+            print(f"{N=} {Rpole=} {Mass=} {w=} {Tpole=} {incl=} {pa=} {beta=} {dist=} {r=}")
         dlon = 2*np.pi/nl
         ds = r**2*np.sin(c)*dlon*dcolat
         lon = np.linspace(-np.pi, np.pi, nl)
@@ -137,7 +138,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     res['colat'] = np.array(res['colat'])
     res['lon'] = np.array(res['lon'])
     # -- fractional surface of the node (compared to the whole star)
-    res['dS'] = np.array(res['dS'])[:,0]
+    res['dS'] = np.array(res['dS'])#[:,0]
     res['dS'] /= np.sum(res['dS'])
     
     res['R'], res['g/gpole'], res['logg'], res['V'], res['dR/dcolat'] = RGcola(res['colat'], Rpole, Mass, w, verbose=verbose)
@@ -154,8 +155,8 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     res['z'] = res['R']*np.cos(res['colat'])
 
     # -- rotational velocity in km/s
-    res['vrotx'] = res['V']*np.sin(res['lon'])*np.sin(res['colat'])
-    res['vroty'] = res['V']*np.cos(res['lon'])*np.sin(res['colat'])
+    res['vrotx'] = res['V']*np.sin(res['lon'])#*np.sin(res['colat'])
+    res['vroty'] = res['V']*np.cos(res['lon'])#*np.sin(res['colat'])
     res['vrotz'] = res['V']*0
     
     # -- tangantial vector along co-latitude
@@ -573,7 +574,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     if 'Rpole' in param:
         Rpole = param['Rpole']
     if 'diampole' in param and not 'Rpole' in param:
-        Rpole = param['diampole']/2*param['dist']/1000*(1*U.au).to(U.m)/(1*U.Rsun).to(U.m)
+        Rpole = (param['diampole']/2)*(param['dist']/1000)*(1*U.au).to(U.m)/(1*U.Rsun).to(U.m)
         Rpole = Rpole.value
 
     if 'mass' in param:
@@ -600,6 +601,9 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     star = surface(Ncolat, Rpole, mass, omega, param['Tpole'], 
                    incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
                    beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
+
+    star['Rpole'] = Rpole
+    star['Veq'] = np.max(np.abs(star['V']))
 
     # -- only account for plines, i.e photospheric lines
     tmp = {k:param[k] for k in param if k.startswith('pline_')}
