@@ -9078,9 +9078,8 @@ def showBootstrap(
                     tmp[2] = tmp[2]%boot["uncer"][k1]
                     tmp = [eval('r"'+t+'"') for t in tmp]
                     tmp = '\n'.join(tmp)
-                    print(tmp)
-                    #tmp = eval('r"'+tmp+'"')
                     #print(tmp)
+                    #tmp = eval('r"'+tmp+'"')
                     plt.title(tmp, fontsize=fontsize)
                 else:
                     tmp = [T1, 
@@ -9091,11 +9090,11 @@ def showBootstrap(
                     tmp[1] = tmp[1]%boot["best"][k1]
                     #tmp[2] = tmp[2]%(boot["uncer+"][k1], boot["uncer-"][k1])
                     tmp[2] = tmp[2]%(boot["uncer-"][k1], boot["uncer+"][k1])
-                    print('eval!', end=' ')
+                    #print('eval!', end=' ')
                     tmp = [eval('r"'+t+'"') for t in tmp]
-                    print(tmp)
+                    #print(tmp)
                     tmp = '\n'.join(tmp)
-                    tmp = eval('r"'+tmp+'"')
+                    #tmp = eval('r"'+tmp+'"')
                     plt.title(tmp, fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
