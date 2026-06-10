@@ -9096,7 +9096,9 @@ def showBootstrap(
                     print('eval!', end=' ')
                     tmp = [eval('r"'+t+'"') for t in tmp]
                     print(tmp)
-                    plt.title(''.join(tmp), fontsize=fontsize,)
+                    tmp = '\n'.join(tmp)
+                    tmp = eval('r"'+tmp+'"')
+                    plt.title(tmp, fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
             plt.legend(fontsize=5)
