@@ -9038,7 +9038,7 @@ def showBootstrap(
                 )
 
                 n = int(np.ceil(-np.log10(boot["uncer"][k1]) + 1))
-                fmt = "%s\n"+"%."+"%d" % max(n, 0)+"f\n"+"$\pm$"+"%."+"%d" % max(n, 0)+"f"
+                fmt = "%s\n"+"%."+"%d" % max(n, 0)+"f\n"+r"$\pm$"+"%."+"%d" % max(n, 0)+"f"
                 
                 plt.title(
                    r''+fmt % (T1, boot["best"][k1], boot["uncer"][k1]), fontsize=fontsize
@@ -9303,7 +9303,10 @@ def showBootstrap(
                 _AY[i2].tick_params(axis="y", labelsize=fontsize * 0.8)
             else:
                 ax.yaxis.set_visible(False)
-    plt.tight_layout()
+    try:
+        plt.tight_layout()
+    except:
+        print('failed to run tight_layout()')
     plt.subplots_adjust(
         hspace=0,  # 0.65*fig.subplotpars.hspace,
         wspace=0,  # 0.65*fig.subplotpars.wspace
