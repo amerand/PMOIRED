@@ -9088,6 +9088,7 @@ def showBootstrap(
                     fmt = "%s\n" + "%." + "%d" % max(n, 0) + "f\n"
                     fmt += r"$^{+" + "%." + "%d" % max(n, 0) + "f}"
                     fmt += r"_{-" + "%." + "%d" % max(n, 0) + "f}$"
+                    print(fmt)
                     plt.title(
                         r''+fmt
                         % (
