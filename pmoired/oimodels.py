@@ -9070,20 +9070,18 @@ def showBootstrap(
                     < 0.2
                 )
                 if check:
-                    fmt = (
-                        "%s\n"
-                        + "%."
-                        + "%d" % max(n, 0)
-                        + "f\n"
-                        + r"$\pm$"
-                        + "%."
-                        + "%d" % max(n, 0)
-                        + "f"
-                    )
-                    plt.title(
-                        fmt % (T1, boot["best"][k1], boot["uncer"][k1]),
-                        fontsize=fontsize,
-                    )
+                    tmp = [T1, 
+                            "%."+"%d"%max(n, 0)+"f",
+                            r"$\pm$%."+"%d" % max(n, 0)+"f"
+                        ]
+                    tmp[1] = tmp[1]%boot["best"][k1]
+                    tmp[2] = tmp[2]%boot["uncer"][k1]
+                    tmp = [eval('r"'+t+'"') for t in tmp]
+                    tmp = '\n'.join(tmp)
+                    print(tmp)
+                    #tmp = eval('r"'+tmp+'"')
+                    #print(tmp)
+                    plt.title(tmp, fontsize=fontsize)
                 else:
                     tmp = [T1, 
                         "%." + "%d" % max(n, 0) + "f", 
