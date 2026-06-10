@@ -9095,6 +9095,7 @@ def showBootstrap(
                     #print(tmp)
                     tmp = r'\n'.join(tmp)
                     #tmp = eval('r"'+tmp+'"')
+                    print(tmp)
                     plt.title(tmp, fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
