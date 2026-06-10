@@ -9085,13 +9085,14 @@ def showBootstrap(
                         fontsize=fontsize,
                     )
                 else:
-                    fmt = "%s\n" + "%." + "%d" % max(n, 0) + "f\n"
-                    tmp = fmt%(T1,boot["best"][k1])
-                    fmt = r"$^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f}$"
-                    tmp += fmt%(boot["uncer+"][k1],boot["uncer-"][k1]) 
-                    print(f"{fmt=} {tmp=}")
+                    tmp = [T1, 
+                        "%." + "%d" % max(n, 0) + "f", 
+                        r"$^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f}$"]
+                    tmp[1] = tmp[1]%boot["best"][k1]
+                    tmp[2] = tmp[2]%(boot["uncer+"][k1],boot["uncer-"][k1])
+                    print(tmp, '\n'.join(tmp))
                     
-                    plt.title(tmp, fontsize=fontsize,)
+                    plt.title('\n'.join(tmp), fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
             plt.legend(fontsize=5)
