@@ -9089,7 +9089,7 @@ def showBootstrap(
                     fmt += r"$^{+" + "%." + "%d" % max(n, 0) + "f}"
                     fmt += r"_{-" + "%." + "%d" % max(n, 0) + "f}$"
                     plt.title(
-                        fmt
+                        r''+fmt
                         % (
                             T1,
                             boot["best"][k1],
