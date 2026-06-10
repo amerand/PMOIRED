@@ -9303,10 +9303,11 @@ def showBootstrap(
                 _AY[i2].tick_params(axis="y", labelsize=fontsize * 0.8)
             else:
                 ax.yaxis.set_visible(False)
-    try:
-        plt.tight_layout()
-    except:
-        print('failed to run tight_layout()')
+    # try:
+    #     plt.tight_layout()
+    # except:
+    #     print('failed to run tight_layout()')
+    plt.tight_layout()
     plt.subplots_adjust(
         hspace=0,  # 0.65*fig.subplotpars.hspace,
         wspace=0,  # 0.65*fig.subplotpars.wspace
