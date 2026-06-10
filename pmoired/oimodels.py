@@ -744,7 +744,7 @@ def VsingleOI(
     if not smear is None:
         _debug = False
         if _debug:
-            print("DBG> VsingleOI: init smearing [%d]" % len(res["WL"]), end=" -> ")
+            print("DBG> VsingleOI: init smearing WL [%d]" % len(res["WL"]), end=" -> ")
         # expand the WL table -> re bin *after* combining components!
         res["binWL"] = res["WL"] * 1.0
         # res['WL'] = np.linspace(res['WL'].min(), res['WL'].max(), len(res['WL'])*smear)
@@ -1861,6 +1861,7 @@ def VsingleOI(
     res["param"] = param
 
     if not smear is None:
+        _debug=False
         if _debug:
             print("DBG> closing smearing")
             if not k in res["OI_VIS2"].keys():
@@ -1881,6 +1882,7 @@ def VsingleOI(
                 res["OI_VIS2"][k]["V2"].shape,
                 np.min(res["OI_VIS2"][k]["V2"]),
             )
+        _debug=False
     return res
 
 
@@ -2674,7 +2676,6 @@ def VmodelOI(
     imY=0.0,
     timeit=False,
     indent=0,
-    v2smear=True,
     fullOutput=False,
     debug=False,
     asTemplate=False,
@@ -2695,7 +2696,6 @@ def VmodelOI(
                 timeit=timeit,
                 indent=indent,
                 fullOutput=fullOutput,
-                v2smear=v2smear,
                 debug=debug,
                 asTemplate=asTemplate,
             )
@@ -2760,7 +2760,31 @@ def VmodelOI(
                 )
 
         if "smear" in res:
+            debug=False
+            if debug:
+                print('DBG> smearing: rebinning data for single component')
+                if 'OI_T3' in res:
+                    T3ptp_1 = {}
+                    if list(res['OI_T3'].keys())==['all']:
+                        for k in set(res['OI_T3']['all']['NAME']):
+                            w = res['OI_T3']['all']['NAME']==k
+                            T3ptp_1[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                    else:
+                        for k in set(res['OI_T3']):
+                            T3ptp_1[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
             res = oifits._binOI(res, binning=res["smear"], noError=True)
+            if debug:
+                if 'OI_T3' in res:
+                    T3ptp_2 = {}
+                    if list(res['OI_T3'].keys())==['all']:
+                        for k in set(res['OI_T3']['all']['NAME']):
+                            w = res['OI_T3']['all']['NAME']==k
+                            T3ptp_2[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                    else:
+                        for k in set(res['OI_T3']):
+                            T3ptp_2[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
+                    for k in sorted(T3ptp_1):
+                        print(k, f"{T3ptp_1[k]:.2f} -> {T3ptp_2[k]:.2f}")
 
         if asTemplate:
             res = _asTemplate(res, oi)
@@ -3126,7 +3150,6 @@ def VmodelOI(
 
     t0 = time.time()
 
-
     if "OI_T3" in oi.keys():
         res["OI_T3"] = {}
         for k in oi["OI_T3"].keys():
@@ -3166,9 +3189,21 @@ def VmodelOI(
             print(" " * indent + "VmodelOI > T3 %.3fms" % (1000 * (time.time() - t0)))
 
     if "smear" in res:
+        debug=False
         # needs to happen before T3PHI, differential phase and normalise flux
-        if  debug:
-            print(f"VmodelOI: closing smearing (binning) {res['smear']}")
+        if debug:
+            print(f"VmodelOI: closing smearing  {res['smear']} WL [{len(res['WL'])}] ->", end=' ')
+            if 'OI_T3' in res:
+                T3ptp_1 = {}
+                if list(res['OI_T3'].keys())==['all']:
+                    for k in set(res['OI_T3']['all']['NAME']):
+                        w = res['OI_T3']['all']['NAME']==k
+                        T3ptp_1[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                else:
+                    for k in set(res['OI_T3']):
+                        T3ptp_1[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
+
+
         if 'fit' in res and 'wl kernel' in res['fit']:
             # -- kernel expressed in orginal wavelength resolution 
             wlKernel = res['smear']*res['fit']['wl kernel']
@@ -3176,11 +3211,25 @@ def VmodelOI(
             wlKernel = 0
         res = _applyWlKernel(res, wlKernel=np.sqrt(res["smear"]**2+wlKernel**2))
         res = oifits._binOI(res, binning=res["smear"], noError=True)
-
-    # -- must be before computeDiffPhiOI and computeNormFluxOI
-    if not 'smear' in res:
+        if debug:
+            print(f"[{len(res['WL'])}]")
+            if 'OI_T3' in res:
+                T3ptp_2 = {}
+                if list(res['OI_T3'].keys())==['all']:
+                    for k in set(res['OI_T3']['all']['NAME']):
+                        w = res['OI_T3']['all']['NAME']==k
+                        T3ptp_2[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                else:
+                    for k in set(res['OI_T3']):
+                        T3ptp_2[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
+            for k in sorted(T3ptp_1):
+                print(k, f"{T3ptp_1[k]:.2f} -> {T3ptp_2[k]:.2f}")
+        debug=False
+    else:
+        # -- must be before computeDiffPhiOI and computeNormFluxOI
         # -- was already done in smearing above
         res = _applyWlKernel(res, debug=debug, fullWlRange=True)
+
     res = oifits._applyTF(res)
 
     t0 = time.time()
@@ -8156,7 +8205,7 @@ def showOI(
                 if l == "NFLUX":
                     ax.set_xlabel(Xlabel)
             if (allInOne or l=='T3PHI') and showLegend:
-                if not showUV or l=='T3PHI':
+                if (not showUV or l=='T3PHI') and not spectro:
                     ax.legend(fontsize=5.5 if showUV else 6.5, 
                         loc='upper center',
                         ncol=4 if l=='T3PHI' else 6)
@@ -9076,8 +9125,6 @@ def showBootstrap(
                         ]
                     tmp[1] = tmp[1]%boot["best"][k1]
                     tmp[2] = tmp[2]%boot["uncer"][k1]
-                    # tmp = [eval('r"'+t+'"') for t in tmp]
-                    # tmp = tmp[0]+'\n'+tmp[1]+'\n'+tmp[2]
                     tmp = tmp[0]+'\n'+tmp[1]+'\n'+eval('r"'+tmp[2]+'"')
                     plt.title(tmp, fontsize=fontsize)
                 else:
@@ -9087,12 +9134,9 @@ def showBootstrap(
                         r"$_{-" + "%." + "%d" % max(n, 0) + "f}^{+" + "%." + "%d" % max(n, 0) + "f}$"]
                         
                     tmp[1] = tmp[1]%boot["best"][k1]
-                    #tmp[2] = tmp[2]%(boot["uncer+"][k1], boot["uncer-"][k1])
                     tmp[2] = tmp[2]%(boot["uncer-"][k1], boot["uncer+"][k1])
-                    print(tmp)
                     tmp = tmp[0]+'\n'+tmp[1]+'\n'+eval('r"'+tmp[2]+'"')
-                    print(tmp)
-                    plt.title(tmp, fontsize=fontsize,)
+                    plt.title(tmp, fontsize=fontsize)
 
         if showSingleFit and i1 == 0:
             plt.legend(fontsize=5)

@@ -967,7 +967,7 @@ __mjd0 = 57000
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                  diam=None, cube=None, noise=None, thres=None,
                  model=None, insname='synthetic', debug=False,
-                 doubleDL=False, wlKernel=None):
+                 doubleDL=False, wlKernel=None, setup={}):
     """
     for VLTI!
 
@@ -985,6 +985,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     doubleDL = use double passage delay line (default=False)
     noise = noise to apply. If ==0, no noise; if None, typical noise (relative / degrees):
           {'V2': 0.01, '|V|':0.01, 'PHI':1., 'FLUX':0.01, 'T3PHI':1., 'T3AMP':0.01}
+    setup = can contain {'smear', 'wl kernel'}, default is {}
     """
     global __mjd0
 
@@ -1064,6 +1065,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
            'baselines': tmp['baselines'],
            'TELLURICS': np.ones(len(wl)),
            'MJD': tmp['MJD'],
+           'fit':setup
            }
     # print('res:', res)
 
@@ -1239,6 +1241,7 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
     if cube is None:
         param = model
         res['fit'] = {'obs': ['V2', '|V|', 'T3PHI', 'T3AMP', 'PHI', 'FLUX']}
+        res['fit'] |= setup
         res = oimodels.VmodelOI(res, param, fullOutput=True)
 
         # -- wait what?!
