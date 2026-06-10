@@ -9086,19 +9086,11 @@ def showBootstrap(
                     )
                 else:
                     fmt = "%s\n" + "%." + "%d" % max(n, 0) + "f\n"
-                    fmt += r"$^{+" + "%." + "%d" % max(n, 0) + "f}"
-                    fmt += r"_{-" + "%." + "%d" % max(n, 0) + "f}$"
-                    print(fmt)
-                    plt.title(
-                        r''+fmt
-                        % (
-                            T1,
-                            boot["best"][k1],
-                            boot["uncer+"][k1],
-                            boot["uncer-"][k1],
-                        ),
-                        fontsize=fontsize,
-                    )
+                    fmt += r"$^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f}$"
+                    tmp =r''+fmt%(T1,boot["best"][k1],boot["uncer+"][k1],boot["uncer-"][k1]) 
+                    print(f"{fmt=} {tmp=}")
+                    
+                    plt.title(tmp, fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
             plt.legend(fontsize=5)
