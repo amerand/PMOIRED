@@ -9038,18 +9038,10 @@ def showBootstrap(
                 )
 
                 n = int(np.ceil(-np.log10(boot["uncer"][k1]) + 1))
-                fmt = (
-                    "%s\n"
-                    + "%."
-                    + "%d" % max(n, 0)
-                    + "f\n"
-                    + r"$\pm$"
-                    + "%."
-                    + "%d" % max(n, 0)
-                    + "f"
-                )
+                fmt = "%s\n"+"%."+"%d" % max(n, 0)+"f\n"+"$\pm$"+"%."+"%d" % max(n, 0)+"f"
+                
                 plt.title(
-                    fmt % (T1, boot["best"][k1], boot["uncer"][k1]), fontsize=fontsize
+                   r''+fmt % (T1, boot["best"][k1], boot["uncer"][k1]), fontsize=fontsize
                 )
 
             else:
