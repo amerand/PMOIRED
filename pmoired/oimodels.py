@@ -9093,7 +9093,7 @@ def showBootstrap(
                     #print('eval!', end=' ')
                     tmp = [eval('r"'+t+'"') for t in tmp]
                     #print(tmp)
-                    tmp = '\n'.join(tmp)
+                    tmp = r'\n'.join(tmp)
                     #tmp = eval('r"'+tmp+'"')
                     plt.title(tmp, fontsize=fontsize,)
 
