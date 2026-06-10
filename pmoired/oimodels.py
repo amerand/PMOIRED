@@ -9089,6 +9089,7 @@ def showBootstrap(
                         "%." + "%d" % max(n, 0) + "f", 
                         r"$ ^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f} $"]
                     tmp[1] = tmp[1]%boot["best"][k1]
+                    print('eval!', end=' ')
                     tmp[2] = eval('r"'+tmp[2]%(boot["uncer+"][k1], boot["uncer-"][k1])+'"')
                     print(tmp)
                     plt.title('\n'.join(tmp), fontsize=fontsize,)
