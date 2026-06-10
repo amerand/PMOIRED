@@ -9090,7 +9090,7 @@ def showBootstrap(
                         r"$^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f}$"]
                     tmp[1] = tmp[1]%boot["best"][k1]
                     tmp[2] = tmp[2]%(boot["uncer+"][k1],boot["uncer-"][k1])
-                    #print(tmp, )
+                    print(tmp, )
                     plt.title('\n'.join(tmp), fontsize=fontsize,)
 
         if showSingleFit and i1 == 0:
