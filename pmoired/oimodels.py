@@ -9086,9 +9086,9 @@ def showBootstrap(
                     )
                 else:
                     fmt = "%s\n" + "%." + "%d" % max(n, 0) + "f\n"
-                    tmp = fmt%T1
+                    tmp = fmt%(T1,boot["best"][k1])
                     fmt = r"$^{+" + "%." + "%d" % max(n, 0) + "f}_{-" + "%." + "%d" % max(n, 0) + "f}$"
-                    tmp += fmt%(boot["best"][k1],boot["uncer+"][k1],boot["uncer-"][k1]) 
+                    tmp += fmt%(boot["uncer+"][k1],boot["uncer-"][k1]) 
                     print(f"{fmt=} {tmp=}")
                     
                     plt.title(tmp, fontsize=fontsize,)
