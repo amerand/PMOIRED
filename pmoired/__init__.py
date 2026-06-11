@@ -46,9 +46,11 @@ def _customPlots(b):
     else:
         matplotlib.rc_file_defaults()
 
-
-if os.getlogin() == "amerand" and platform.uname().node == "MDVH47TQ2XR":
-    _customPlots(True)
+try:
+    if os.getlogin() == "amerand" and platform.uname().node == "MDVH47TQ2XR":
+        _customPlots(True)
+except:
+    pass
 
 __versions__ = {
     "pmoired": __version__,
