@@ -1647,18 +1647,11 @@ def _binVec(x, X, Y, E=None, medFilt=None, phase=False):
     # -- X can be irregular, so traditionnal convolution may not work
     y = np.zeros(len(x))
     Gx = np.gradient(x)
-    #dx = np.median(np.diff(x))
     for i,x0 in enumerate(x):
-        # -- kernel
-        #k = np.exp(-(X-x0)**2/(0.6*dx)**2)
-        k = np.exp(-(X-x0)**2/(0.6*Gx[i])**2)
+        # -- kernel with FWHM of Gx[i]/2
+        k = np.exp(-(X-x0)**2/(2*(0.5*Gx[i]/2.35482)**2))
         no = np.sum(k/E) # normalisation
         if phase:
-            # if no!=0 and np.isfinite(no):
-            #     y[i] = np.sum(k/E*((Y-y[i]+180)%360 - 180 + y[i]))/no
-            # else:
-            #     y[i] = np.sum(k*((Y-y[i]+180)%360 - 180 + y[i]))/np.sum(k)
-
             if no!=0 and np.isfinite(no):
                y[i] = np.angle(np.sum(k/E*np.exp(1j*Y*np.pi/180))/no)*180/np.pi
             else:

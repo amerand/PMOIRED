@@ -2727,8 +2727,44 @@ def VmodelOI(
             allParams=param,
         )
 
+        if "smear" in res:
+            debug=False
+            if debug:
+                print('DBG> smearing: rebinning data for single component')
+                if 'OI_T3' in res:
+                    T3ptp_1 = {}
+                    if list(res['OI_T3'].keys())==['all']:
+                        for k in set(res['OI_T3']['all']['NAME']):
+                            w = res['OI_T3']['all']['NAME']==k
+                            T3ptp_1[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                    else:
+                        for k in set(res['OI_T3']):
+                            T3ptp_1[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
+
+            if 'fit' in res and 'wl kernel' in res['fit']:
+                wlKernel = np.abs(res['fit']['wl kernel'])
+            else:
+                wlKernel = 0
+            if wlKernel>0:
+                res = _applyWlKernel(res, wlKernel=res['smear']*wlKernel)
+            res = oifits._binOI(res, binning=res["smear"], noError=True)
+            if debug:
+                if 'OI_T3' in res:
+                    T3ptp_2 = {}
+                    if list(res['OI_T3'].keys())==['all']:
+                        for k in set(res['OI_T3']['all']['NAME']):
+                            w = res['OI_T3']['all']['NAME']==k
+                            T3ptp_2[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
+                    else:
+                        for k in set(res['OI_T3']):
+                            T3ptp_2[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
+                    for k in sorted(T3ptp_1):
+                        print(k, f"{T3ptp_1[k]:.2f} -> {T3ptp_2[k]:.2f}")
+
+        else:
         # -- apply before differential computations:
-        res = _applyWlKernel(res, debug=debug, fullWlRange=True)
+            res = _applyWlKernel(res, debug=debug, fullWlRange=True)
+    
         res = oifits._applyTF(res)
 
         if (
@@ -2758,33 +2794,6 @@ def VmodelOI(
                     " " * indent
                     + "VmodelOI > normFlux %.3fms" % (1000 * (time.time() - t0))
                 )
-
-        if "smear" in res:
-            debug=False
-            if debug:
-                print('DBG> smearing: rebinning data for single component')
-                if 'OI_T3' in res:
-                    T3ptp_1 = {}
-                    if list(res['OI_T3'].keys())==['all']:
-                        for k in set(res['OI_T3']['all']['NAME']):
-                            w = res['OI_T3']['all']['NAME']==k
-                            T3ptp_1[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
-                    else:
-                        for k in set(res['OI_T3']):
-                            T3ptp_1[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
-            res = oifits._binOI(res, binning=res["smear"], noError=True)
-            if debug:
-                if 'OI_T3' in res:
-                    T3ptp_2 = {}
-                    if list(res['OI_T3'].keys())==['all']:
-                        for k in set(res['OI_T3']['all']['NAME']):
-                            w = res['OI_T3']['all']['NAME']==k
-                            T3ptp_2[k] = np.ptp(res['OI_T3']['all']['T3PHI'][w])
-                    else:
-                        for k in set(res['OI_T3']):
-                            T3ptp_2[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
-                    for k in sorted(T3ptp_1):
-                        print(k, f"{T3ptp_1[k]:.2f} -> {T3ptp_2[k]:.2f}")
 
         if asTemplate:
             res = _asTemplate(res, oi)
@@ -3203,13 +3212,13 @@ def VmodelOI(
                     for k in set(res['OI_T3']):
                         T3ptp_1[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
 
-
         if 'fit' in res and 'wl kernel' in res['fit']:
             # -- kernel expressed in orginal wavelength resolution 
-            wlKernel = res['smear']*res['fit']['wl kernel']
+            wlKernel = res['fit']['wl kernel']
         else:
             wlKernel = 0
-        res = _applyWlKernel(res, wlKernel=np.sqrt(res["smear"]**2+wlKernel**2))
+        if wlKernel>0:
+            res = _applyWlKernel(res, wlKernel=res["smear"]*wlKernel)
         res = oifits._binOI(res, binning=res["smear"], noError=True)
         if debug:
             print(f"[{len(res['WL'])}]")

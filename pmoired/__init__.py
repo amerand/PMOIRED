@@ -926,13 +926,15 @@ class OI:
                     self.data[i]["units"] = {"FLUX": unit}
         return
 
-    def setupFit(self, fit, update=False, debug=False, insname=None):
+    def setupFit(self, fit, update=False, debug=False, insname=None, auto=True):
         """
         set fit parameters by giving a dictionnary (or a list of dict, same length
         as 'data'):
 
         insname: only apply to this insname (default: None -> apply to all).
             Can be a string (single insname) or list of insnames.
+
+        auto: will try to apply some sensible rules (only of 'wl kernel' currently)
 
         "fit" contains the following keys (only "obs" is mandatory):
 
@@ -1049,7 +1051,7 @@ class OI:
         if debug:
             print("fit>obs:", [d["fit"]["obs"] for d in self.data])
 
-        for d in self.data:
+        for i,d in enumerate(self.data):
             if "fit" in d and "obs" in d["fit"]:
                 if debug:
                     print(
@@ -1057,6 +1059,23 @@ class OI:
                         list(filter(lambda x: x.startswith("OI_"), d.keys())),
                     )
                 d["fit"]["obs"] = _checkObs(d, d["fit"]["obs"]).copy()
+
+                if auto:
+                    if not 'wl kernel' in d["fit"] and len(d['WL'])>1:
+                        R = np.mean(d['WL']/d['dWL'])
+                        P = np.mean(d['WL']/np.gradient(d['WL']))
+                        wlk = round(P/R, 2)
+                        if 'MATISSE' in insname and wlk<4:
+                            if np.mean(d['WL'])<7:
+                                wlk = 5
+                            else:
+                                wlk = 7
+                            print(f'setupFit> {i}/{d['insname']}: setting "wl kernel":{wlk} according to '+
+                                'https://www.eso.org/sci/facilities/paranal/instruments/matisse/inst.html')             
+                        else:
+                            print(f'setupFit> {i}/{d['insname']}: setting "wl kernel":{wlk} according to WL definition')
+                        d["fit"]["wl kernel"] = wlk
+
                 if debug:
                     print("fit>obs:", d["fit"]["obs"])
         return
