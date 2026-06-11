@@ -1070,7 +1070,7 @@ class OI:
                                 wlk = 5
                             else:
                                 wlk = 7
-                            print(f"setupFit> {i}/{d['insname']}: setting "wl kernel":{wlk} according to "+
+                            print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to "+
                                 'https://www.eso.org/sci/facilities/paranal/instruments/matisse/inst.html')             
                         else:
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to WL definition")
