@@ -91,7 +91,6 @@ def _createDataFile():
     with open(os.path.join(this_dir, bin_file), "wb") as f:
         pickle.dump(({1: tran10, 2: tran20, 5: tran50, 8: tran80}, lbda), f)
 
-
 if os.path.exists(resources.files("pmoired").joinpath(bin_file)):
     tfile = resources.files("pmoired").joinpath(bin_file)
     pfile = resources.files("pmoired").joinpath(p2vm_file)

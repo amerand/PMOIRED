@@ -25,6 +25,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
+try:
+    # Necessary while Python versions below 3.9 are supported.
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
+
 __version__ = "1.3.16"
 
 FIG_MAX_WIDTH = 9.5
@@ -80,6 +86,14 @@ def _isiterable(x):
         res = False
     return res
 
+
+def modelsDefinitions():
+    modelDefFile = r'Model definitions and examples.html'
+    r = resources.files("pmoired").joinpath(modelDefFile)
+    if os.path.exists(r):
+        print(str(r).replace('.html', '.ipynb'))
+        os.system('open '+str(r).replace(' ', r'\ '))
+    return 
 
 class OI:
     def __init__(
@@ -1077,8 +1091,7 @@ class OI:
                         elif 'GRAVITY' in insname and np.abs(wlk-1.5)>.5:
                             wlk = 2          
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to "+
-                                'expected value')   
-
+                                'expected value')
                         else:
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to WL definition")
                         d["fit"]["wl kernel"] = wlk

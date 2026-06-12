@@ -54,7 +54,7 @@ pip3 install .
 ```
 python3 -m venv pmrd
 source pmrd/bin/activate
-pip3 install git+https://github.com/amerand/PMOIRED jupyterlab ipympl
+pip3 install git+https://github.com/amerand/PMOIRED jupyterlab ipympl catppuccin-jupyterlab
 pmrd/bin/jupyter-lab pmrd/lib/python*/site-packages/pmoired/Model\ definitions\ and\ examples.ipynb
 deactivate
 ```
@@ -67,7 +67,11 @@ pip3 uninstall pmoired
 
 ## Examples and tutorials
 
-This repository comes with a [Jupyter Notebook showing basic model syntax](https://nbviewer.org/github/amerand/PMOIRED/blob/master/pmoired/Model%20definitions%20and%20examples.ipynb).
+This repository comes with a [Jupyter Notebook showing basic model syntax](https://nbviewer.org/github/amerand/PMOIRED/blob/master/pmoired/Model%20definitions%20and%20examples.ipynb). You can call this page from Python:
+```
+>>> import pmoired
+>>> pmoired.modelsDefinitions()
+```
 
 Full examples, how to load real data and analyse them, are available in a separate repository: [PMOIRED_examples](https://github.com/amerand/PMOIRED_examples). These examples are Jupyter Notebooks reproducing published results with other tools, and serve both as tutorials and verification of `PMOIRED`. They cover most of the features of `PMOIRED`, from the basics to more advanced operations.
 
