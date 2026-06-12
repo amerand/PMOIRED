@@ -52,10 +52,10 @@ pip3 install .
 ### Install in an environment and run the [model definition notebook](https://nbviewer.org/github/amerand/PMOIRED/blob/master/pmoired/Model%20definitions%20and%20examples.ipynb)
 
 ```
-python3 -m venv _pmoired
-source _pmoired/bin/activate
-pip3 install git+https://github.com/amerand/PMOIRED jupyterlab
-jupyter-lab _pmoired/lib/python*/site-packages/pmoired/Model\ definitions\ and\ examples.ipynb
+python3 -m venv pmrd
+source pmrd/bin/activate
+pip3 install git+https://github.com/amerand/PMOIRED jupyterlab ipympl
+pmrd/bin/jupyter-lab pmrd/lib/python*/site-packages/pmoired/Model\ definitions\ and\ examples.ipynb
 deactivate
 ```
 
