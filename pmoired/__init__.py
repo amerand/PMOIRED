@@ -1066,14 +1066,19 @@ class OI:
                     if not 'wl kernel' in d["fit"] and len(d['WL'])>1:
                         R = np.mean(d['WL']/d['dWL'])
                         P = np.mean(d['WL']/np.gradient(d['WL']))
-                        wlk = round(P/R, 2)
+                        wlk = round(P/R, 1)
                         if 'MATISSE' in insname and wlk<4:
                             if np.mean(d['WL'])<7:
                                 wlk = 5
                             else:
                                 wlk = 7
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to "+
-                                'https://www.eso.org/sci/facilities/paranal/instruments/matisse/inst.html')             
+                                'https://www.eso.org/sci/facilities/paranal/instruments/matisse/inst.html')   
+                        elif 'GRAVITY' in insname and np.abs(wlk-1.5)>.5:
+                            wlk = 2          
+                            print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to "+
+                                'expected value')   
+
                         else:
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to WL definition")
                         d["fit"]["wl kernel"] = wlk
