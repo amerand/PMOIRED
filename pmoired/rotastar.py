@@ -8,7 +8,7 @@ from astropy import constants as CONST
 from astropy import units as U
 import urllib, os, glob, time, pickle
 
-
+_aknowledge = {'rotastar': True} 
 
 try:
     # Necessary while Python versions below 3.9 are supported.
