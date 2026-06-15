@@ -119,6 +119,13 @@ The latest version of `PMOIRED` has been tested on:
 
 ## Acknowledgments
 
+- `PMOIRED` uses extensively [Numpy](https://numpy.org/), [Scipy](https://scipy.org), [Matplotlib](https://matplotlib.org/), [Astropy](https://www.astropy.org/) and [Astroquery](https://github.com/astropy/astroquery). It is optimised to be used with [Jupyter](https://jupyter.org/) notebooks.
+- Telluric corrections use HITRANS models computed by A. Smette (private comm.), similar to those used for [MOLECFIT](https://ui.adsabs.harvard.edu/abs/2015A%26A...576A..77S/abstract)
+- The Keplerian disk model is adapted from [Delaa+2011](https://ui.adsabs.harvard.edu/abs/2011A%26A...529A..87D/abstract) and [Meilland+2012](https://ui.adsabs.harvard.edu/abs/2012A%26A...538A.110M/abstract)
+- The rotating star is adapted from [Aufdenberg+2006](https://ui.adsabs.harvard.edu/abs/2006ApJ...645..664A/abstract)
+- The spherical ATLAS models used for center-to-limb darkening have been computed by Neilson and Lester (2013), for [red giants](https://www.aanda.org/articles/aa/full_html/2013/06/aa21502-13/aa21502-13.html) and [FGK dwarfs](https://www.aanda.org/articles/aa/full_html/2013/08/aa21888-13/aa21888-13.html)
+- The [JSDC](https://jmmc.osug.fr/english/tools/data-bases/jsdc-72/) is used for calibrators' angular diameters
+
 `PMOIRED` has received contributions from Akke Corporaal, Evgenia Koumpia and Robert Klement.
 
 This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 101004719.
