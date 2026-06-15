@@ -4,6 +4,8 @@ import numpy as np
 
 this_dir, this_filename = os.path.split(__file__)
 
+_aknowledge = {'SATLAS':True}
+
 def createRossTable():
     # -- Load the LD/Ross sent by Hilding, where LD is the outer diameter
     cols = ["mass", "L", "Teff", "logg", "Ross", "Outer", "Ross/Outer"]
@@ -50,7 +52,6 @@ rossTable = createRossTable()
 rossFilesSph = [os.path.basename(f) for f in rossTable["spheric"]]
 rossFilesPla = [os.path.basename(f) for f in rossTable["spheric"]]
 
-
 def getClosestModel(
     Teff, logg, mass=None, localdir=None, verbose=False, modeltype="spheric"
 ):
@@ -59,11 +60,19 @@ def getClosestModel(
 
     downloaded on local directory.
 
-    Models from Neilson 2013 and 2014:
+    Models from Neilson & Lester 2013:
         https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/554/A98
         https://cdsarc.u-strasbg.fr/viz-bin/qcat?J/A+A/556/A86
     """
     global rossTable, _ross, _i
+
+    if _aknowledge['SATLAS']:
+        print('\033[97m-- Please aknowledge the use the SATLAS models', '-'*61)
+        print('SATLAS models computed by Neilson & Lester in 2013:')
+        print(r' red giant stars: https://www.aanda.org/articles/aa/full_html/2013/06/aa21502-13/aa21502-13.html')
+        print(r' FGK dwarf stars: https://www.aanda.org/articles/aa/full_html/2013/08/aa21888-13/aa21888-13.html')
+        print('-'*101, '\033[0m')
+        _aknowledge['SATLAS'] = False
 
     if modeltype == "spheric":
         dist = [

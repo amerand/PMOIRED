@@ -9,6 +9,7 @@ from astropy import units as U
 import urllib, os, glob, time, pickle
 
 
+
 try:
     # Necessary while Python versions below 3.9 are supported.
     import importlib_resources as resources
@@ -542,7 +543,15 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     result: complex visibility (np.array of dimension N x M)
 
     """
-    global star, Ncolat
+    global star, Ncolat, _aknowledge
+
+    if _aknowledge['rotastar']:
+        print('\033[97m-- Please aknowledge the use the rotating star model', '-'*11)
+        print('Rotating star model initially developped for Vega:')
+        print(r' Aufdenberg+2006: https://ui.adsabs.harvard.edu/abs/2006ApJ...645..664A/abstract')
+        print('-'*51, '\033[0m')
+        _aknowledge['rotastar'] = False
+
     if 'beta' in param:
         beta = param['beta']
     else:

@@ -42,7 +42,7 @@ _c = np.pi**2 / 180 / 3600 / 1000 * 1e6
 # -- default max number of processes
 MAX_THREADS = multiprocessing.cpu_count()
 US_SPELLING = False
-
+_aknowledge = {'Vkepler':True}
 
 def closefig(fig):
     # -- helps avoid memory ballooning?
@@ -51,7 +51,6 @@ def closefig(fig):
         plt.clf()
     plt.close(fig)
     return
-
 
 def Ssingle(oi, param, noLambda=False, allParams=None):
     """
@@ -2140,7 +2139,7 @@ def Vkepler(
     wl,
     param,
     plot=False,
-    _fudge=1.,
+    _fudge=1.5,
     _p=1.5,
     fullOutput=False,
     imFov=None,
@@ -2150,11 +2149,13 @@ def Vkepler(
     imN=None,
 ):
     """
-    _fudge=1.5, _p=1.5
-
     complex visibility of keplerian disk:
     u, v: 1D-ndarray spatial frequency (m). u and v must have same length N
     wl: 1D-ndarray wavelength (um). can have a different length from u and v
+
+    adapted from: 
+    Delaa+2011: https://ui.adsabs.harvard.edu/abs/2011A%26A...529A..87D/abstract
+    Meilland+2012: https://ui.adsabs.harvard.edu/abs/2012A%26A...538A.110M/abstract
 
     param: parameters of disk:
         Geometry:
@@ -2187,7 +2188,15 @@ def Vkepler(
     returns:
     nd.array of shape (N,M) of complex visibilities
     """
-    global P
+    global P, _aknowledge
+    if _aknowledge['Vkepler']:
+        print('\033[97m-- Please aknowledge the use the Keplerian model', '-'*11)
+        print('Keplerian model initially developped for Be stars by:')
+        print(r' Delaa+2011: https://ui.adsabs.harvard.edu/abs/2011A%26A...529A..87D/abstract')
+        print(r' Meilland+2012: https://ui.adsabs.harvard.edu/abs/2012A%26A...538A.110M/abstract')
+        print('-'*51, '\033[0m')
+        _aknowledge['Vkepler'] = False
+
     t0 = time.time()
     u = np.array(u)
     v = np.array(v)
@@ -7301,6 +7310,10 @@ def showOI(
         colors = list(colors)[1:5] + list(colors)[-1:-3:-1]
         #colors = list(colors)[-1::-2] + list(colors)[-2::-2]
 
+        colors = matplotlib.colormaps["tab20"](
+            np.linspace(1/40, 1 - 1/40, 20))
+        colors = list(colors)[0::2] + list(colors)[1::2]        
+
     else:
         colors = matplotlib.colormaps[cmapBaselines](
             np.linspace(0, 0.9, len(oi["baselines"]))
@@ -8157,12 +8170,15 @@ def showOI(
                     # ax.grid(color=(0.2, 0.4, 0.7), alpha=0.2)
                     ax.grid(color=(0.4, 0.6, 0.9), alpha=0.15)
             else:
-                if l in ["V2", "|V|"]:
+                if l in ["V2", "|V|", "T3AMP"]:
                     if logV:
-                        ax.set_ylim(1e-4, 1)
+                        #ax.set_ylim(0.5e-5, 1)
+                        #if l=="T3AMP":
+                        #    ax.set_ylim(1e-6, 1)
                         ax.set_yscale("log")
                     elif not autoLimV:
-                        ax.set_ylim(0, 1)
+                        #ax.set_ylim(0, 1)
+                        pass
                     else:
                         # ax.set_ylim(0)
                         pass
@@ -8213,11 +8229,12 @@ def showOI(
                     axv.set_xlabel("velocity (km/s)", fontsize=6)
                 if l == "NFLUX":
                     ax.set_xlabel(Xlabel)
-            if (allInOne or l=='T3PHI') and showLegend:
-                if (not showUV or l=='T3PHI') and not spectro:
-                    ax.legend(fontsize=5.5 if showUV else 6.5, 
-                        loc='upper center',
-                        ncol=4 if l=='T3PHI' else 6)
+            # if (allInOne or l=='T3PHI') and showLegend:
+            #     if (not showUV and (l=='T3PHI' or l=='V2' or l=='|V|')) and not spectro:
+            if showLegend and not spectro and (l=='T3PHI' or not showUV):
+                ax.legend(fontsize=5.5 if showUV else 6, 
+                    loc='upper center', ncol=4 if l=='T3PHI' else 6)
+            
         i_col += 1
         if debug:
             print()

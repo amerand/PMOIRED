@@ -17,6 +17,7 @@ from inspect import signature
 
 import astropy
 import astroquery
+from astroquery.vizier import Vizier
 
 # import warnings
 # warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -43,7 +44,6 @@ def setUSspelling(b):
     US_SPELLING = b
     oimodels.US_SPELLING = US_SPELLING
 
-
 def _customPlots(b):
     if b:
         # -- colors to go with dark themes from https://github.com/catppuccin/jupyterlab
@@ -67,6 +67,7 @@ __versions__ = {
     "astroquery": astroquery.__version__,
     "matplotlib": matplotlib.__version__,
 }
+_aknowledge = {'JSDC':True, 'PMOIRED':True}
 
 # not required for the core module
 # try:
@@ -85,7 +86,6 @@ def _isiterable(x):
     except:
         res = False
     return res
-
 
 def modelsDefinitions():
     modelDefFile = r'Model definitions and examples.html'
@@ -142,6 +142,12 @@ class OI:
 
         See Also: addData, load, save
         """
+        if _aknowledge['PMOIRED']:
+            print('\033[97m-- Please aknowledge the use of PMOIRED', '-'*11)
+            print(r'https://github.com/amerand/PMOIRED#using-and-quoting-pmoired')
+            print('-'*51, '\033[0m')
+            _aknowledge['PMOIRED'] = False
+
         self.debug = debug
         # -- last best fit to the data
         self.bestfit = {}
@@ -3878,6 +3884,54 @@ class OI:
             if chi2 > chi2p:
                 return mp
         return m
+    def JSDCdiameter(self, altName=None):
+        """
+        returns a multi band model of the calibrator using uniform disk diameters tabulated from JSDC.
+
+        altName: alternate Name for Simbad, in case the name is not resolved
+        
+        please aknowledge the use of JSDC:
+
+            This research has made use of the Jean-Marie Mariotti Center JSDC catalogue, which involves 
+            the JMDC catalogue. \footnote{JSDC available at http://www.jmmc.fr/jsdc}
+        
+        """
+        global _aknowledge
+
+        bands = {'B':.445, 'V':.551, 'R':.658, 'I':0.806, 'J':1.22, 
+                 'H':1.63, 'K':2.19, 'L':3.45, 'M':4.75, 'N':10.5}
+        res = {}
+        for d in self.data:
+            dist = np.array([np.abs(bands[k]-np.mean(d['WL'])) for k in bands])
+            band = np.array(list(bands.keys()))[np.argmin(dist)]
+            name = d['targname'].replace('_', ' ')
+            if not altName is None:
+                name = altName
+            try:
+                V = Vizier.query_object(name, catalog="II/346")
+                res[band+',ud'] = V[0]['UDD'+band][0]
+                if _aknowledge['JSDC']:
+                    print('\033[97m-- Please aknowledge the use of the JSDC to estimate the diameter! ', '-'*44)
+                    print("This research has made use of the Jean-Marie Mariotti Center JSDC catalogue, "+
+                          "which involves the JMDC catalogue. ")
+                    print(r"\footnote{JSDC available at http://www.jmmc.fr/jsdc}")
+                    print('-'*112, '\033[0m')
+                    _aknowledge['JSDC'] = False
+
+            except:
+                print('warning: could not find diameter in JSDC!')
+                res[band+',ud'] = 0.
+                
+            if not band+',range' in res:        
+                res[band+',range'] = (np.min(d['WL']), np.max(d['WL']))
+            else:
+                res[band+',range'] = (min(np.min(d['WL']), res[band+',range'][0]), 
+                                      max(np.max(d['WL']), res[band+',range'][1]))
+        K = list(filter(lambda x: x.endswith(',range'), res.keys()))
+        for k in K:
+            res[k.replace('range', 'spectrum')] = f'($WL>={res[k][0]})*($WL<={res[k][1]})'
+            res.pop(k)
+        return res
 
 
 def _computeSpectra(model, data, models):
