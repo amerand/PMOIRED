@@ -1982,7 +1982,7 @@ def mergeOI(OI, collapse=True, groups=None, verbose=False, debug=False, dMJD=Non
                             tmp[k][p] = r['fit'][k][p]
                         else:
                             tmp[k] = {p:r['fit'][k][p]}
-            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges',
+            r['fit'] = {k:r['fit'][k] for k in ['obs', 'wl ranges', 'baseline ranges', 'spatial frequency ranges',
                                                 'MJD ranges', 'continuum ranges', 'prior',
                                                 'Nr', 'DPHI order', 'N|V| order', 'NV2 order',
                                                 'NFLUX order', 'ignore negative flux',

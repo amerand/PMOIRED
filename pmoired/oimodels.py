@@ -4507,7 +4507,6 @@ def residualsOI(
                     mask = np.logical_and(w[None, :], ~oi[ext[f]][k]["FLAG"])
                     err = oi[ext[f]][k]["E" + f].copy()
                     if "baseline ranges" in oi["fit"]:
-                        # print('debug: baseline ranges')
                         bmask = np.zeros(mask.shape, dtype=bool)
                         for bmin, bmax in oi["fit"]["baseline ranges"]:
                             if "FLUX" in ext[f]:
@@ -4537,6 +4536,37 @@ def residualsOI(
                                     * (oi[ext[f]][k]["B/wl"] * oi["WL"] >= bmin),
                                 )
                         mask *= bmask
+
+                    if "spatial frequency ranges" in oi['fit']:
+                        fmask = np.zeros(mask.shape, dtype=bool)
+                        for fmin, fmax in oi["fit"]["spatial frequency ranges"]:
+                            if "FLUX" in ext[f]:
+                                fmask = np.ones(mask.shape, dtype=bool)
+                            elif "T3" in ext[f]:
+                                tmpmask = np.ones(mask.shape, dtype=bool)
+                                for b in ["B1", "B2", "B3"]:
+                                    try:
+                                        tmpmask = np.logical_and(
+                                            tmpmask,
+                                            (oi[ext[f]][k][b]/oi['WL'] <= fmax)
+                                            * (oi[ext[f]][k][b]/oi['WL'] >= fmin),
+                                        )
+                                    except:
+                                        tmpmask = np.logical_and(
+                                            tmpmask,
+                                            (
+                                                (oi[ext[f]][k][b]/oi['WL'] <= fmax)
+                                                * (oi[ext[f]][k][b]/oi['WL'] >= fmin)
+                                            )[:, None],
+                                        )
+                                fmask = np.logical_or(fmask, tmpmask)
+                            else:
+                                fmask = np.logical_or(
+                                    fmask,
+                                    (oi[ext[f]][k]["B/wl"] <= fmax)
+                                    * (oi[ext[f]][k]["B/wl"] >= fmin),
+                                )
+                        mask *= fmask
 
                     if "MJD ranges" in oi["fit"]:
                         mjdmask = np.zeros(mask.shape, dtype=bool)
@@ -7693,17 +7723,6 @@ def showOI(
                 ign = (~mask).copy()
                 showIgn = False
                 if "baseline ranges" in oi["fit"]:
-                    # for bmin, bmax in oi['fit']['baseline ranges']:
-                    #     if 'FLUX' in data[l]['ext']:
-                    #         pass
-                    #     elif 'T3' in data[l]['ext']:
-                    #         for b in ['B1', 'B2', 'B3']:
-                    #             mask *= ((oi[data[l]['ext']][k][b][j]<=bmax)*
-                    #                         (oi[data[l]['ext']][k][b][j]>=bmin))
-                    #     else:
-                    #         mask *= (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']<=bmax)*\
-                    #                 (oi[data[l]['ext']][k]['B/wl'][j,:]*oi['WL']>=bmin)
-
                     bmask = np.zeros(mask.shape, dtype=bool)
                     for bmin, bmax in oi["fit"]["baseline ranges"]:
                         if "FLUX" in data[l]["ext"]:
@@ -7737,10 +7756,37 @@ def showOI(
                             )
                     mask *= bmask
 
-                # if 'MJD ranges' in oi['fit']:
-                #     for mjdmin, mjdmax in oi['fit']['MJD ranges']:
-                #         mask *= (oi[data[l]['ext']][k]['MJD2'][j,:]<=mjdmax)*\
-                #                 (oi[data[l]['ext']][k]['MJD2'][j,:]>=mjdmin)
+                if "spatial frequency ranges" in oi['fit']:
+                    fmask = np.zeros(mask.shape, dtype=bool)
+                    for fmin, fmax in oi["fit"]["spatial frequency ranges"]:
+                        if "FLUX" in data[l]["ext"]:
+                            fmask = np.ones(mask.shape, dtype=bool)
+                        elif "T3" in data[l]["ext"]:
+                            tmpmask = np.ones(mask.shape, dtype=bool)
+                            for b in ["B1", "B2", "B3"]:
+                                try:
+                                    tmpmask = np.logical_and(
+                                        tmpmask,
+                                        (oi[data[l]["ext"]][k][b][j]/oi['WL'] <= fmax)
+                                        * (oi[data[l]["ext"]][k][b][j]/oi['WL'] >= fmin),
+                                    )
+                                except:
+                                    tmpmask = np.logical_and(
+                                        tmpmask,
+                                        (
+                                            (oi[data[l]["ext"]][k][b][j]/oi['WL'] <= fmax)
+                                            * (oi[data[l]["ext"]][k][b][j]/oi['WL'] >= fmin)
+                                        )[:, None],
+                                    )
+                            fmask = np.logical_or(fmask, tmpmask)
+                        else:
+                            fmask = np.logical_or(
+                                fmask,
+                                  (oi[data[l]["ext"]][k]["B/wl"][j, :] <= fmax)
+                                * (oi[data[l]["ext"]][k]["B/wl"][j, :] >= fmin),
+                            )
+                    mask *= fmask
+
                 if "MJD ranges" in oi["fit"]:
                     mjdmask = np.zeros(mask.shape, dtype=bool)
                     for mjdmin, mjdmax in oi["fit"]["MJD ranges"]:

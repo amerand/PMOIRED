@@ -982,6 +982,11 @@ class OI:
             it will affect bose baselines AND triangles if any baseline if out of range(s)
         -> by default, the full defined range is fitted.
 
+        'spatial frequency ranges': gives a list of spatial freq ranges (in m/um) where to fit.
+            e.g. [(10, 20), (40, 100)] it will not override flagged data
+            it will affect bose baselines AND triangles if any baseline if out of range(s)
+        -> by default, the full defined range is fitted.
+
         'MJD ranges': a list of ranges in MJD where to fit.
 
         'min error': forcing errors to have a minimum value. Keyed by the same
@@ -4174,6 +4179,7 @@ def _checkSetupFit(fit):
         "obs": list,
         "wl ranges": list,
         "baseline ranges": list,
+        "spatial frequency ranges": list,
         "MJD ranges": list,
         "Nr": int,
         "continuum ranges": list,
