@@ -33,6 +33,17 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 The simplest way to use PMOIRED on MacOS / Linux, with python3 and git installed. 
 
+```
+wget https://raw.githubusercontent.com/amerand/PMOIRED/refs/heads/master/pmrd.py
+chmod +x pmrd.py
+./pmrd.py --install
+```
+which will install `PMOIRED` from this repository in the environment located in `~/.pmrd`.
+
+Then, you can start a python console, ipython, notbook or jupyter-lab by typing `./pmrd -p`, `./pmrd -i`, `./pmrd -n` or `./pmrd -j` repsectively. Run the [examples](https://github.com/amerand/PMOIRED_examples) by typing `./pmrd.py -e`
+
+You can update `PMOIRED` from github with `./pmrd.py -u`. Removing the environment is achieved with `./pmrd.py --remove`.
+
 ### Install with pip
 
 `PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
