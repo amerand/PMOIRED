@@ -2,7 +2,7 @@
 
 # https://github.com/amerand/PMOIRED
 
-import os, sys, shutil
+import os, sys, shutil, pathlib
 
 home = os.path.expanduser('~')
 pmrd = os.path.join(home, '.pmrd')
@@ -72,9 +72,18 @@ if do_ver:
 	
 run = f""". {pmrd}/bin/activate
 {pmrd}/bin/{prgm} """
-if not do_ver and len(directory)==1:
-	run += ' ',join(directory)
-if do_ver:
+
+if not do_ver: 
+	if len(directory)==1:
+		run = f""". {pmrd}/bin/activate
+cd {os.path.abspath(os.path.dirname(directory[0]))}
+{pmrd}/bin/{prgm} """
+
+	if not os.path.isdir(directory[0]):
+		run += os.path.basename(directory[0]).replace(' ', '\\ ')
+	else:
+		run += ' '.join(directory)
+else:
 	run += ' -c "import pmoired, pprint; pprint.pprint(pmoired.__versions__)"'
 	
 update_pmoired = f""". {pmrd}/bin/activate
@@ -96,7 +105,8 @@ git pull
 """
 
 run_examples = f""". {pmrd}/bin/activate
-{pmrd}/bin/jupyter-lab {pmrd}/PMOIRED_examples/notebooks
+cd {pmrd}/PMOIRED_examples/notebooks
+{pmrd}/bin/jupyter-lab 
 """
 
 def main():
@@ -139,6 +149,7 @@ def main():
 		return
 		
 	if prgm!='':
+		print(run)
 		os.system(run)
 
 if __name__=='__main__':
