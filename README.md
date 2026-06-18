@@ -31,7 +31,7 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ### Use [`pmrd.py`](pmrd.py) script
 
-The simplest way to use PMOIRED on MacOS / Linux, with python3 and git installed. 
+The simplest way to use PMOIRED on MacOS / Linux, with python3 and git installed (requires about 1G of disk space): 
 
 ```
 wget https://raw.githubusercontent.com/amerand/PMOIRED/refs/heads/master/pmrd.py
@@ -40,17 +40,10 @@ chmod +x pmrd.py
 ```
 which will install `PMOIRED` from this repository in the environment located in `~/.pmrd`.
 
-Then, you can start a python console, ipython, notbook or jupyter-lab by typing `./pmrd -p`, `./pmrd -i`, `./pmrd -n` or `./pmrd -j` repsectively. Run the [examples](https://github.com/amerand/PMOIRED_examples) by typing `./pmrd.py -e`
+Then, you can start a python console, ipython, notebook or jupyter-lab by typing `./pmrd -p`, `./pmrd -i`, `./pmrd -n` or `./pmrd -j` respectively. Run the [examples](https://github.com/amerand/PMOIRED_examples) by typing `./pmrd.py -e`
 
 You can update `PMOIRED` from github with `./pmrd.py -u`. Removing the environment is achieved with `./pmrd.py --remove`.
 
-### Install with pip
-
-`PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
-
-```
-pip3 install pmoired
-```
 ### Install with git
 
 The Github version is the most up-to-date. To install from the github repository directly:
@@ -64,20 +57,25 @@ cd PMOIRED
 pip3 install .
 ``` 
 
-### Install in an environment and run the [model definition notebook](https://nbviewer.org/github/amerand/PMOIRED/blob/master/pmoired/Model%20definitions%20and%20examples.ipynb)
+### Install with pip
+
+`PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
 
 ```
-python3 -m venv pmrd
-source pmrd/bin/activate
-pip3 install git+https://github.com/amerand/PMOIRED jupyterlab ipympl catppuccin-jupyterlab
-pmrd/bin/jupyter-lab pmrd/lib/python*/site-packages/pmoired/Model\ definitions\ and\ examples.ipynb
-deactivate
+pip3 install pmoired
 ```
+
+Note that the pip version is not updated as often, and to get the latests features and bug fix, it is recommended to use the git version, or better yet, [`pmrd.py`](pmrd.py) (see above).
 
 ### Uninstall
 To uninstall (works for both PyPI and github versions):
 ```
 pip3 uninstall pmoired
+```
+
+if you use [`pmrd.py`](pmrd.py), the following will remove the whole environment:
+```
+pmrd.py --remove
 ```
 
 ## Examples and tutorials

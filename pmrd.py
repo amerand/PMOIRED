@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 
-# https://github.com/amerand/PMOIRED
+# https://github.com/amerand/PMOIRED 
 
-import os, sys, shutil, pathlib
+import os, sys, shutil
 
 home = os.path.expanduser('~')
 pmrd = os.path.join(home, '.pmrd')
 github = 'https://github.com/amerand/PMOIRED'
 
 add_packages = ['jupyterlab','ipympl', 'notebook',
-				'catppuccin-jupyterlab']
+							  'catppuccin-jupyterlab']
 
 help_text = f"""manage your PMOIRED python environment with {sys.argv[0]}
+{github}
 
 options:
   --help or -h: this help
-  --install: install the environment in {pmrd}, including PMOIRED from github
-	{github}
+  --install: install the environment in {pmrd}, including PMOIRED from github	
   --update or -u: update to the latest gihub version of PMOIRED
   --update-all: update the major packages:
-                numpy scipy matplotlib astropy astroquery jupyterlab
+                numpy scipy matplotlib astropy astroquery {' '.join(add_packages)}
   --version or -v: show the versions of main libraries
   --remove: remove the environment
   --python or -p : start python console or run script
@@ -49,9 +49,12 @@ do_expl = '--examples' in sys.argv or '-e' in sys.argv
 if len(sys.argv)>1:
 	directory = list(filter(lambda x: os.path.exists(os.path.expanduser(x)),
 							sys.argv[1:]))
+	if len(directory)==0:
+		directory = ''
 else:
 	directory = ''
 	
+
 install = f"""python3 -m venv {pmrd}
 . {pmrd}/bin/activate
 pip install -U pip
@@ -78,8 +81,7 @@ if not do_ver:
 		run = f""". {pmrd}/bin/activate
 cd {os.path.abspath(os.path.dirname(directory[0]))}
 {pmrd}/bin/{prgm} """
-
-	if not os.path.isdir(directory[0]):
+	if directory!='' and not os.path.isdir(directory[0]):
 		run += os.path.basename(directory[0]).replace(' ', '\\ ')
 	else:
 		run += ' '.join(directory)
