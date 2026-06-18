@@ -2187,6 +2187,11 @@ def Vkepler(
 
     returns:
     nd.array of shape (N,M) of complex visibilities
+
+    model in global "P":
+    # -- x_mas, y, z, vx_km/s, vy, vz, rmin/r, PA, surface area
+    # -- 0      1  2  3        4   5   6       7   8
+
     """
     global P, _aknowledge
     if _aknowledge['Vkepler']:
@@ -3747,6 +3752,7 @@ def computeDiffPhiOI(
                     print("computeDiffPhiOI: removing median")
                 # -- not polynomial fit, use median
                 data.append(phi - np.median(phi))
+
         if visamp:
             vdata = []
             edata = []
