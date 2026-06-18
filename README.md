@@ -29,6 +29,10 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
+### Use [`pmrd.py`](pmrd.py) script
+
+The simplest way to use PMOIRED on MacOS / Linux, with python3 and git installed. 
+
 ### Install with pip
 
 `PMOIRED` is regularly pushed to PyPI at [https://pypi.org/project/pmoired/](https://pypi.org/project/pmoired/) so you can install directly using `pip`, by typing:
