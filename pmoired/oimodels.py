@@ -3424,7 +3424,7 @@ def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=Fals
                     res["DVIS"][k]["DPHI"][i][w] = conv(res["DVIS"][k]["DPHI"][i][w])
                 if "DVIS" in res.keys() and "|V|" in res["DVIS"][k]:
                     res["DVIS"][k]["|V|"][i][w] = conv(res["DVIS"][k]["N|V|"][i][w])
-
+            
     if "OI_CF" in res:
         if "OI_CF" in res:
             for k in res["OI_CF"].keys():
@@ -3433,10 +3433,8 @@ def _applyWlKernel(res, debug=False, fullWlRange=False, wlKernel=None, noT3=Fals
                     #res["OI_CF"][k]["PHI"][i][w] = conv(res["OI_CF"][k]["PHI"][i][w])
 
                     # -- mimic phasor average:
-                    tmp = conv(res["OI_CF"][k]["CF"][i][w]*np.exp(np.pi*1j*res["OI_CF"][k]["PHI"][i][w]/180))
+                    tmp = conv(res["OI_CF"][k]["CF"][i][w]*np.exp(np.pi*1j*res["OI_VIS"][k]["PHI"][i][w]/180))
                     res["OI_CF"][k]["CF"][i][w] = np.abs(tmp)
-                    res["OI_CF"][k]["PHI"][i][w] = np.angle(tmp)*180/np.pi
-
 
     if "OI_VIS2" in res:
         for k in res["OI_VIS2"].keys():
@@ -3504,20 +3502,10 @@ def computeLambdaParams(params, MJD=0):
                         elif s + "MJD" in tmp and not s in tmp.replace(s + "MJD", ""):
                             # -- no more replacement
                             compute = True
-                    for kp in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
-                        if kp in tmp and not s + kp in tmp:
-                            raise Exception(
-                                "missing "
-                                + s
-                                + " for '"
-                                + kp
-                                + "' in {"
-                                + "'"
-                                + k
-                                + "': '"
-                                + paramsI[k]
-                                + "'}?"
-                            )
+                    #for kp in sorted(list(paramsI.keys()), key=lambda x: -len(x)):
+                    #    if kp in tmp and not s + kp in tmp:
+                    #        raise Exception(
+                    #            "missing "+s+" for '"+kp+"' in {"+"'"+k+"': '"+paramsI[k]+"'}?")
                     # if s in tmp:
                     #    raise Exception('unknow parameters definition in {'+
                     #        "'"+_k+'": "'+paramsI[k]+'"}?')
@@ -4620,12 +4608,7 @@ def residualsOI(
                         try:
                             tmp = rf(oi[ext[f]][k][f][mask] - m[ext[f]][k][f][mask])
                         except:
-                            print(
-                                "!",
-                                oi[ext[f]][k][f].shape,
-                                mask.shape,
-                                m[ext[f]][k][f].shape,
-                            )
+                            print(f"! {oi[ext[f]][k][f].shape=}, {mask.shape=}, {m[ext[f]][k][f].shape=}")
                         if not ignoreErr is None:
                             _i = i + np.arange(len(tmp))
                             tmp /= err[mask] * (1 - ignoreErr[_i]) + ignoreErr[_i]
