@@ -187,10 +187,21 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     if withHeader:
         res['header'] = h[0].header
 
+    calibrated = 'unknown' 
+    if withHeader and 'VISCAL' in res['header']:
+            calibrated = res['header']['VISCAL']=='CALIBRATED'
+
     if verbose:
         print('loadOI: loading', res['filename'])
         print('  > insname:', '"'+insname+'"','targname:', '"'+targname+'"',
-                'pipeline:', '"'+res['pipeline']+'"')
+                'pipeline:', '"'+res['pipeline']+'"', end=' ')
+        if calibrated==True:
+            c = '\033[32m'
+        elif calibrated==False:
+            c = '\033[41m'
+        else:
+            c = '\033[35m'
+        print(f'calibrated: {c}{calibrated}\033[0m')
 
     # -- wavelength
     for hdu in h:
@@ -932,6 +943,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
                 for k in res[e].keys():
                     mjd.extend(list(res[e][k]['MJD']))
         mjd = np.array(sorted(set(mjd)))
+
         #print('  > MJD:', sorted(set(mjd)))
         print('  > MJD:', mjd.shape, '[%.4f..%.4f]'%(min(mjd), max(mjd)), end=' ')
         print('~'+Time(np.mean(mjd), format='mjd').to_value('isot'))
@@ -943,6 +955,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             _cr = '\033[31m'
         else:
             _cr = '\033[0m'
+
 
         print('WL:', res['WL'].shape, '[', round(np.min(res['WL']), 3), '..',
               round(np.max(res['WL']), 3),
@@ -2443,3 +2456,9 @@ def getESOPipelineParams(H, verbose=True):
                     'parameters':p,
                     'files':F}
     return P
+
+
+def isCalibrated(oi):
+    """
+    guess if the data are calibrated or not, based on header
+    """
