@@ -98,7 +98,7 @@ def normaliseV(x, y, z):
     return x/n, y/n, z/n
 
 def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, 
-            vpuls=0, dist=None):
+            vpuls=0, vrad=0, dist=None):
     """
     N: number of co-latitudes (better of odd)
     Rpole: polar radius (in Rsun)
@@ -111,6 +111,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     vpuls: pulsation velocity in km/s
         for non radial, {(l,m):amplitude_km/s} or {(l,m):(amplitude_km/s, phase_in_lon_rad)}
         the l=0, m=0 is radial mode. Note that the phase is irrelevant for m=0!
+    vrad: radial velocity offset (km/s)
 
     dist: dispance in pc
     """
@@ -210,9 +211,9 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
         res['vpulsy'] -= res['ny']*vpuls
         res['vpulsz'] -= res['nz']*vpuls
 
-    res['vx'] = res['vrotx'] + res['vpulsx']
-    res['vy'] = res['vroty'] + res['vpulsy']
-    res['vz'] = res['vrotz'] + res['vpulsz']
+    res['vx'] = res['vrotx'] + res['vpulsx'] - vrad
+    res['vy'] = res['vroty'] + res['vpulsy'] - vrad
+    res['vz'] = res['vrotz'] + res['vpulsz'] - vrad
     
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
@@ -537,6 +538,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     - 'omega': fractional rotational rate (/OmegaCrit)
     - 'dist' in pc 
     - 'beta': optional (default 0.25)
+    - 'vrad': radial velocity (km/s)
     - 'vpuls': optional pulsation velocity, in km/s (default=0) 
         or {'vamp 2 1': ,'lon0 2 1':} for l=2,m=1 non radial mode 
             in km/s for and and degrees for lon0
@@ -561,6 +563,12 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         vpuls = param['vpuls']
     else:
         vpuls = 0
+
+    if 'vrad' in param:
+        vrad = param['vrad']
+    else:
+        vrad = 0
+
     V = {k:param[k] for k in param if k.startswith('vamp')}
     if len(V)>0:
         vpuls = {}
@@ -609,7 +617,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
 
     star = surface(Ncolat, Rpole, mass, omega, param['Tpole'], 
                    incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
-                   beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'])
+                   beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'], vrad=vrad)
 
     star['Rpole'] = Rpole
     star['Veq'] = np.max(np.abs(star['V']))
