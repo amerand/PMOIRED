@@ -888,7 +888,8 @@ class OI:
     def getESOPipelineParams(self, verbose=True):
         for i, d in enumerate(self.data):
             if "header" in d:
-                print("\033[5m=", d["filename"], "=" * 20, "\033[0m")
+                if verbose:
+                    print("\033[5m=", d["filename"], "=" * 20, "\033[0m")
                 self.data[i]["recipes"] = oifits.getESOPipelineParams(
                     d["header"], verbose=verbose)
         return
@@ -3160,7 +3161,7 @@ class OI:
                     plt.plot(
                         self.spectra[key + "WL"][w] * bcorr,
                         self.spectra[key + "COMP"][c][w],
-                        "-",
+                        ".",
                         label=c,
                         color=col,
                         linewidth=1.5,
@@ -3180,7 +3181,7 @@ class OI:
                 plt.plot(
                     self.spectra[key + "WL"] * bcorr,
                     self.spectra[key + "TOTAL"],
-                    "-",
+                    ".",
                     label="TOTAL",
                     linewidth=2,
                     color="0.4",
@@ -3889,7 +3890,7 @@ class OI:
             if chi2 > chi2p:
                 return mp
         return m
-    def JSDCdiameter(self, altName=None):
+    def getJSDCdiameter(self, altName=None):
         """
         returns a multi band model of the calibrator using uniform disk diameters tabulated from JSDC.
 
