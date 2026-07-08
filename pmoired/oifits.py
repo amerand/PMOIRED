@@ -82,7 +82,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     useTelluricsWL: use wavelength calibration provided by the tellurics (default==True)
     barycentric: compute barycentric velocities (default=False)
 
-    autoFlat: correct P2VM flat is not ran during reduction
+    autoFlat: correct P2VM flat is not ran during reduction (GRAVITY only)
 
     """
     global gravityP2vm
@@ -198,7 +198,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         if calibrated==True:
             c = '\033[32m'
         elif calibrated==False:
-            c = '\033[41m'
+            c = '\033[101m'
         else:
             c = '\033[35m'
         print(f'calibrated: {c}{calibrated}\033[0m')
@@ -1030,9 +1030,11 @@ def _applyTF(res, param=None):
     '#TF_T3PHI_U2U1U3_+n' : additive factor of polynomial (Wl-mean(WL))**n for 
         triangle U2U1U3 and phase closure.
     
-    can also provide per instrument [replace '_' with '']
+    can also provide per instrument [replace '_' with '' in the name of the instrument]
     '#TFGRAVITYSC_T3PHI_U2U1U3_+n' : additive factor of polynomial (Wl-mean(WL))**n for 
         triangle U2U1U3 and phase closure.
+
+    a TF for a given MJD can be given by adding "_xxx.xxx" at the end, for MJD=xxx.xxx
 
     Observables: V2, |V|, T3PHI, PHI or CF
 
