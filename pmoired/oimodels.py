@@ -3191,6 +3191,7 @@ def VmodelOI(
                 "B1",
                 "B2",
                 "B3",
+                "MJD2",
             ]:
                 if not oi["OI_T3"][k][l] is None:
                     res["OI_T3"][k][l] = oi["OI_T3"][k][l].copy()
