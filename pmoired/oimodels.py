@@ -2680,7 +2680,6 @@ def VfromImageOI(oi):
 
 SMEA = 7
 
-
 def VmodelOI(
     oi,
     p,
@@ -3191,7 +3190,6 @@ def VmodelOI(
                 "B1",
                 "B2",
                 "B3",
-                "MJD2",
             ]:
                 if not oi["OI_T3"][k][l] is None:
                     res["OI_T3"][k][l] = oi["OI_T3"][k][l].copy()
@@ -3201,8 +3199,8 @@ def VmodelOI(
             if "NAME" in oi["OI_T3"][k]:
                 res["OI_T3"][k]["NAME"] = oi["OI_T3"][k]["NAME"].copy()
             res["OI_T3"][k]["FLAG"] = np.bool(
-                0 * res["OI_T3"][k]["MJD"][:, None] + 0 * res["WL"][None, :]
-            )
+                0 * res["OI_T3"][k]["MJD"][:, None] + 0 * res["WL"][None, :])
+            res["OI_T3"][k]["MJD2"] = res["OI_T3"][k]["MJD"][:, None] + 0*res['WL'][None,:]
 
         if debug:
             print("VmodelOI: computing T3")
@@ -7978,7 +7976,6 @@ def showOI(
                                     + (np.mean(ym[mask]) - 90) % 180
                                     - 180
                                 )
-
                             else:
                                 ym[mask] = np.unwrap(ym[mask], period=360)
                                 ym[mask] = (
@@ -8061,6 +8058,9 @@ def showOI(
                                 color=color,
                                 label=label,
                             )
+                            # if l=='T3PHI':
+                            #     print('T3PHI:', ym[maskc2])
+
                         try:
                             ymin = min(ymin, np.min(ym[maskp] + yoffset * i))
                             ymax = max(ymax, np.max(ym[maskp] + yoffset * i))
