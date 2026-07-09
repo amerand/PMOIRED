@@ -1042,7 +1042,6 @@ def _applyTF(res, param=None):
 
     type: *n or +n for multiplicative or additive TF
     """
-
     if param is None and 'param' in res:
         param = res['param']
 
@@ -1102,13 +1101,14 @@ def _applyTF(res, param=None):
                         _tfmult[mjd] = np.zeros(res["WL"].shape)
                         for sn in SN:
                             _n = int(sn[1:])
-                            _tfmult[mjd] += (res["WL"] - np.mean(res["WL"]))**_n * TF[o][b][mjd][sn]
-                    SN = list(filter(lambda x: x.startswith("+") and x[1:].isdigit(),TF[o][b][mjd]))
+                            _tfmult[mjd] += TF[o][b][mjd][sn] * (res["WL"] - np.mean(res["WL"]))**_n  
+                    SN = list(filter(lambda x: x.startswith("+") and x[1:].isdigit(), TF[o][b][mjd]))
                     if len(SN)>0:
                         _tfadd[mjd] = np.zeros(res["WL"].shape)                            
                         for sn in SN:
                             _n = int(sn[1:])
-                            _tfadd[mjd] += (res["WL"] - np.mean(res["WL"]))**_n*TF[o][b][mjd][sn]
+                            _tfadd[mjd] += TF[o][b][mjd][sn]*(res["WL"] - np.mean(res["WL"]))**_n
+                    
                     if not mjd is None:
                         # -- weight based on proximity in time HARD CODED!!!
                         if 'all' in res[O[o]]:
@@ -1116,14 +1116,13 @@ def _applyTF(res, param=None):
                             _weight[mjd] = np.exp(-((res[O[o]]['all']['MJD2'][w,:]-mjd)/smooth)**2)
                         else:
                             _weight[mjd] = np.exp(-((res[O[o]][b]['MJD2']-mjd)/smooth)**2)
-
                 # -- merged data
                 if 'all' in res[O[o]]:
-                    #print('merged data')
+                    #print('merged data', o)
                     w = res[O[o]]["all"]["NAME"] == b
                     _b = 'all'
                 else:
-                    #print('baselines')
+                    #print('baselines', o, res[O[o]].keys())
                     w = np.isfinite(res[O[o]][b]['MJD'])
                     _b = b
 
@@ -1150,7 +1149,6 @@ def _applyTF(res, param=None):
                         _tf += _weight[x]*_tfmult[x][None,:]
                         _n += _weight[x]
                     res[O[o]][_b][o][w,:] *= _tf/_n
-
     return res
 
 def getTF(param, obs, b, wl):
