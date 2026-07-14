@@ -203,6 +203,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             c = '\033[35m'
         print(f'calibrated: {c}{calibrated}\033[0m')
 
+    res['calibrated'] = calibrated
+
     # -- wavelength
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH' and\
@@ -2457,8 +2459,3 @@ def getESOPipelineParams(H, verbose=True):
                     'files':F}
     return P
 
-
-def isCalibrated(oi):
-    """
-    guess if the data are calibrated or not, based on header
-    """
