@@ -561,7 +561,7 @@ class OI:
 
         oi.setupFit(...)
         m = {'ud':3.14}
-        m |= oi.oi.getTfParameters()
+        m |= oi.getTfParameters()
         m |= oi.isoplanetismTf()
         
         # then:
@@ -882,8 +882,8 @@ class OI:
         self.data.pop(i2)
         return
 
-    def getTfParameters(self, obs=None, withVSlope=False):
-        return _getTfParamsOI(self.data, obs=obs, withVSlope=withVSlope)
+    def getTfParameters(self, obs=None, order=None):
+        return _getTfParamsOI(self.data, obs=obs, order=order)
 
     def getESOPipelineParams(self, verbose=True):
         for i, d in enumerate(self.data):
@@ -4270,12 +4270,15 @@ def _recsizeof(s):
     else:
         return sys.getsizeof(s)
 
-def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
+def _getTfParamsOI(oi, obs=None, order=None):
     if type(oi) == list:
         res = {}
         for d in oi:
-            res.update(_getTfParamsOI(d, obs=obs, withVSlope=withVSlope))
+            res.update(_getTfParamsOI(d, obs=obs, order=order))
         return res
+        
+    if order is None:
+        order = {}
     # -- generate Transfer Function parameters depending on baselines
     if obs is None and "fit" in oi and "obs" in oi["fit"]:
         obs = oi["fit"]["obs"]
@@ -4283,17 +4286,19 @@ def _getTfParamsOI(oi, obs=None, withVSlope=False, withT3Slope=False):
     res = {}
     ext = {"V2": "OI_VIS2", "|V|": "OI_VIS", "T3PHI": "OI_T3"}
     ext = {k: ext[k] for k in obs if k in ext}
+
     for e in ext:
         for k in oi[ext[e]]:
-            if "VIS" in ext[e]:
-                res["#TF_" + e + "_" + k + "_*0"] = 1.0
-                if withVSlope:
-                    res["#TF_" + e + "_" + k + "_*1"] = 0.01
-            else:
+            if e=='T3PHI':
                 res["#TF_" + e + "_" + k + "_+0"] = 0.01
-                if 'T3' in e and withT3Slope:
-                    res["#TF_" + e + "_" + k + "_+1"] = 0.01
-
+                if e in order:
+                    for i in range(order[e]):
+                        res["#TF_" + e + "_" + k + "_+"+str(i+1)] = 0.01
+            else:
+                res["#TF_" + e + "_" + k + "_*0"] = 1.0
+                if e in order:
+                    for i in range(order[e]):
+                        res["#TF_" + e + "_" + k + "_*"+str(i+1)] = 0.01
     return res
 
 def GRAVITYfiberLoss(sep, D=8.2, wl=2.2e-6, verbose=False):
