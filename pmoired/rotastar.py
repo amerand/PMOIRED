@@ -644,7 +644,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         # -- without LD effects
         flx = star['flux'][w]*star['proj dS'][w][:,None]
     
-    # -- x,y phase offset is taken care somewhere else (in "oimodels.py")
+    # -- global x,y phase offset is taken care somewhere else (in "oimodels.py")
     vis = np.exp(-2j*np.pi*c*(u[:,None,None]*(star['x_mas'][w][None,:,None]+x0) + 
                               v[:,None,None]*(star['y_mas'][w][None,:,None]+y0))/wl[None,None,:])
 
