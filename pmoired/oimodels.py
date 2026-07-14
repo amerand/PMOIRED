@@ -1686,8 +1686,8 @@ def VsingleOI(
             # -- this takes care of the x,y shift
             V[:, wwl] *= PHI(res[key][k])
         else:
-            # print('debug: MJD=%.3f, X=%.3f, Y=%.3f'%(np.mean(oi[key][k]['MJD']),
-            #                    np.mean(x(oi[key][k])), np.mean(y(oi[key][k]))))
+            #print({x:_param[x] for x in _param if not x.startswith('#TF')}, 
+            #        k, key, np.mean(PHI(res[key][k])))
             # -- this takes care of the x,y shift
             V[:, wwl] = Vf(res[key][k]) * PHI(res[key][k])
 
@@ -6646,7 +6646,7 @@ def sigmaClippingOI(oi, sigma=4, n=5, param=None):
                 if k.replace("wl0", "lorentzian") in param.keys():
                     dwl = 3 * param[k.replace("wl0", "lorentzian")] / 1000.0
                 if k.replace("wl0", "truncexp") in param.keys():
-                    dwl = 2 * param[k.replace("wl0", "lorentzian")] / 1000.0
+                    dwl = 2 * param[k.replace("wl0", "truncexp")] / 1000.0
                 vel = 0
                 if "," in k:
                     kv = k.split(",")[0] + "," + "Vin"
