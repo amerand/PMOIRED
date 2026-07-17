@@ -189,7 +189,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
 
     calibrated = 'unknown' 
     if withHeader and 'VISCAL' in res['header']:
-            calibrated = res['header']['VISCAL']=='CALIBRATED'
+        calibrated = res['header']['VISCAL']=='CALIBRATED'
+    if withHeader and 'PRODCATG' in res['header'] and 'UNCALIBRATED' in res['header']['PRODCATG']:
+        calibrated = False
 
     if verbose:
         print('loadOI: loading', res['filename'])
