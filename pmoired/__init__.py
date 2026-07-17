@@ -882,7 +882,7 @@ class OI:
         self.data.pop(i2)
         return
 
-    def getTfParameters(self, obs=None, order=None):
+    def getTfParameters(self, order=None, obs=None,):
         return _getTfParamsOI(self.data, obs=obs, order=order)
 
     def getESOPipelineParams(self, verbose=True):
@@ -4276,7 +4276,7 @@ def _getTfParamsOI(oi, obs=None, order=None):
         for d in oi:
             res.update(_getTfParamsOI(d, obs=obs, order=order))
         return res
-        
+
     if order is None:
         order = {}
     # -- generate Transfer Function parameters depending on baselines
