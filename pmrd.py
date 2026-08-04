@@ -92,12 +92,14 @@ else:
 	run += ' -c "import pmoired, pprint; pprint.pprint(pmoired.__versions__)"'
 	
 update_pmoired = f""". {pmrd}/bin/activate
+pip uninstall pmoired
 pip install -U git+{github}
 """
 
+# -- see https://stackoverflow.com/questions/2720014/how-to-upgrade-all-python-packages-with-pip
 update_all = f""". {pmrd}/bin/activate
-pip install -U pip numpy scipy matplotlib astropy astroquery
-pip install -U pip {' '.join(add_packages)}
+pip --disable-pip-version-check list --outdated --format=json | python3 -c "import json, sys; print('\\n'.join([x['name'] for x in json.load(sys.stdin)]))" | xargs -n1 pip install -U
+pip uninstall pmoired
 pip install -U git+{github}
 """
 
