@@ -667,7 +667,6 @@ class OI:
             for e in E:
                 if e in oi.data[i]:
                     d[e] = oi.data[i][e]
-
         return
 
     def avgGravityPola(self, info=False):
@@ -738,21 +737,12 @@ class OI:
             f1n2 = np.logical_and(f1, ~f2)
             # -- weighted average where data are common
             self.data[i1]["OI_VIS2"][k]["V2"][~f12] = (
-                self.data[i1]["OI_VIS2"][k]["V2"][~f12]
-                / self.data[i1]["OI_VIS2"][k]["EV2"][~f12]
-                + self.data[i2]["OI_VIS2"][k]["V2"][~f12]
-                / self.data[i2]["OI_VIS2"][k]["EV2"][~f12]
-            ) / (
-                1 / self.data[i1]["OI_VIS2"][k]["EV2"][~f12]
-                + 1 / self.data[i2]["OI_VIS2"][k]["EV2"][~f12]
+                self.data[i1]["OI_VIS2"][k]["V2"][~f12]/self.data[i1]["OI_VIS2"][k]["EV2"][~f12]
+                + self.data[i2]["OI_VIS2"][k]["V2"][~f12]/self.data[i2]["OI_VIS2"][k]["EV2"][~f12]
+            ) / (1/self.data[i1]["OI_VIS2"][k]["EV2"][~f12] + 1/self.data[i2]["OI_VIS2"][k]["EV2"][~f12]
             )
             self.data[i1]["OI_VIS2"][k]["EV2"][~f12] = (
-                1
-                / (
-                    1 / self.data[i1]["OI_VIS2"][k]["EV2"][~f12] ** 2
-                    + 1 / self.data[i2]["OI_VIS2"][k]["EV2"][~f12] ** 2
-                )
-                ** 0.5
+                1/(1/self.data[i1]["OI_VIS2"][k]["EV2"][~f12]**2 + 1/self.data[i2]["OI_VIS2"][k]["EV2"][~f12]**2)**0.5
             )
             # -- data valid in 2 but not in 1
             self.data[i1]["OI_VIS2"][k]["V2"][f1n2] = self.data[i2]["OI_VIS2"][k]["V2"][
@@ -1151,7 +1141,7 @@ class OI:
         factor=100,
         _zeroCorrelations=False,
         _maxRho=1,
-        inject=None,
+        inject=None, fitInject=True,
         saveBest=True,
     ):
         """
@@ -1234,7 +1224,8 @@ class OI:
         if not inject is None:
             self._merged = oimodels._injectFeatures(self._merged, model, inject)
             # -- add inject to fitted parameters
-            model = model | inject
+            if fitInject:
+                model = model | inject
             if "doNotFit" in remem and not remem["doNotFit"] is None:
                 doNotFit = remem["doNotFit"]
             if "fitOnly" in remem and not remem["fitOnly"] is None:
