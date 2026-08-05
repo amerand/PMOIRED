@@ -4667,7 +4667,7 @@ def residualsOI(
                                 else:
                                     kk = []
                                     if not "NAME" in oi[ext[f]][k]:
-                                        print("!", f, ext[f], k)
+                                        print("! NO NAME", f, ext[f], k)
                                     for _j, _n in enumerate(oi[ext[f]][k]["NAME"]):
                                         kk.extend([_n] * sum(mask[_j, :]))
 
