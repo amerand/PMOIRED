@@ -1347,6 +1347,7 @@ class OI:
         ndof=None,
         nfit=None,
         debug=False,
+        inject=None,
     ):
         """
         WARNING: does not take into correlations!
@@ -1374,6 +1375,9 @@ class OI:
         self._merged = oifits.mergeOI(
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
+        if not inject is None:
+            self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            
         prior += self._setPrior(model, prior, autoPrior)
 
         # -- warning: "correlations"" is global (i.e. applies to all data)!
