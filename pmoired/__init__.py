@@ -1755,6 +1755,8 @@ class OI:
         constrain=None,
         verbose=2,
         deltaChi2=None,
+        inject=None,
+        fitInject=True,
     ):
         """
         perform "Nfits" fit on data, starting from "model" (default last best fit),
@@ -1835,6 +1837,13 @@ class OI:
         self._merged = oifits.mergeOI(
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
+
+        if not inject is None:
+            self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            # -- add inject to fitted parameters
+            if fitInject:
+                model = model | inject
+
         prior = self._setPrior(model, prior, autoPrior)
         if correlations:
             # -- this is going to be very slow for bootstrapping :(
