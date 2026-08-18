@@ -41,7 +41,7 @@ authors = [
 ]
 
 dependencies = [
-    "scipy >= 1.10.0",
+    "scipy >= 1.15.0",
     "numpy >= 2.0.0",
     "matplotlib >= 3.8.0",
     "astropy >= 6.0.0",
