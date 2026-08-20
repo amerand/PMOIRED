@@ -21,10 +21,10 @@ options:
   --help or -h: this help
   --install: install the environment in {pmrd}, including PMOIRED from github	
   --update or -u: update to the latest gihub version of PMOIRED
-  --update-all: update the major packages:
-                numpy scipy matplotlib astropy astroquery {' '.join(add_packages)}
+  --update-all: update all python packages from the environment
   --version or -v: show the versions of main libraries
   --remove: remove the environment
+  --add-package or -a: add a package(s) to the environment
   --python or -p : start python console or run script
   --ipython or -i : start ipython console
   --notebook or -n : start notebook (can pass a directory of file)
@@ -48,6 +48,7 @@ do_ipy = '--ipython' in sys.argv or '-i' in sys.argv
 do_py = '--python' in sys.argv or '-p' in sys.argv
 do_ver = '--version' in sys.argv or '-v' in sys.argv
 do_expl = '--examples' in sys.argv or '-e' in sys.argv
+do_add = '--add-package' in sys.argv or '-a' in sys.argv
 
 if len(sys.argv)>1:
 	directory = list(filter(lambda x: os.path.exists(os.path.expanduser(x)),
@@ -57,6 +58,11 @@ if len(sys.argv)>1:
 else:
 	directory = ''
 	
+if do_add:
+	print(len(sys.argv))
+	# -- expect packages as arguments
+	assert len(sys.argv)>2, f'expecting package name(s), e.g. "{sys.argv[0]} {sys.argv[1]} pmoired"'
+	pckg = sys.argv[2:]
 
 install = f"""python3 -m venv {pmrd}
 . {pmrd}/bin/activate
@@ -75,7 +81,10 @@ if do_py:
 	prgm = 'python'
 if do_ver:
 	prgm = 'python'
-	
+if do_add:
+	prgm = ' '.join(['pip install']+pckg)	
+	print('!', prgm)
+
 run = f""". {pmrd}/bin/activate
 {pmrd}/bin/{prgm} """
 
