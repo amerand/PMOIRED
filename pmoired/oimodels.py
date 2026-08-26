@@ -199,7 +199,7 @@ def Ssingle(oi, param, noLambda=False, allParams=None):
         sp = sp.replace("$WL", 'oi["WL"]')
         # while '$' in sp:
         for j in range(3):
-            # -- iterate a few times for recusrsive definitions
+            # -- iterate a few times for recursive definitions
             for k in _param.keys():
                 if k in sp and not k.endswith(",spectrum"):
                     sp.replace("$" + k, str(_param[k]))
@@ -223,6 +223,9 @@ def Ssingle(oi, param, noLambda=False, allParams=None):
         except:
             print("!!! cannot evaluate", sp)
             print(f"{sp=}")
+
+    if "spectrum function" in _param.keys() and "spectrum parameters" in _param.keys():
+        f = _param["spectrum function"](oi["WL"], _param['spectrum parameters'])
 
     return np.nan_to_num(f)
 

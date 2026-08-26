@@ -32,7 +32,7 @@ try:
 except ImportError:
     from importlib import resources
 
-__version__ = "1.3.16"
+__version__ = "1.3.17"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
@@ -93,6 +93,8 @@ def modelsDefinitions():
     if os.path.exists(r):
         print(str(r).replace('.html', '.ipynb'))
         os.system('open '+str(r).replace(' ', r'\ '))
+    else:
+        print(str(r), 'cannot be found')
     return 
 
 class OI:
