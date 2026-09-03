@@ -42,7 +42,7 @@ which will install `PMOIRED` from this repository in the environment located in 
 
 Then, you can start a python console, ipython, notebook or jupyter-lab by typing `./pmrd -p`, `./pmrd -i`, `./pmrd -n` or `./pmrd -j` respectively. Run the [examples](https://github.com/amerand/PMOIRED_examples) by typing `./pmrd.py -e`
 
-You can update `PMOIRED` from github with `./pmrd.py -u`. Removing the environment is achieved with `./pmrd.py --remove`.
+You can update `PMOIRED` from github with `./pmrd.py -u`. Removing the environment is achieved with `./python pmrd.py --remove`.
 
 ### Install with git
 
@@ -75,7 +75,7 @@ pip3 uninstall pmoired
 
 if you use [`pmrd.py`](pmrd.py), the following will remove the whole environment:
 ```
-pmrd.py --remove
+python pmrd.py --remove
 ```
 
 ## Examples and tutorials
