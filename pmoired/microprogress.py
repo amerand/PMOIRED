@@ -9,8 +9,7 @@ def _guessPorts():
     return ports
 
 def _getId(port):
-    return hashlib.sha256(bytes('|'.join([platform.node(), 
-                                   port]), 'utf8')).hexdigest()
+    return hashlib.sha256(bytes('|'.join([platform.node(), port]), 'utf8')).hexdigest()
 
 def _scan(ports=None, debug=False):
     if ports is None:
@@ -127,9 +126,13 @@ def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, 
     ser.close()
     return
 
-_available = [p for p in _guessPorts() if _getId(p) in _trusted]
-# if len(_available)>0:
-#     print('available and trusted:', _available)
+_found = {p:_getId(p) for p in _guessPorts()}
+#print('found %d micropython boards'%len(_found))
+#for p in _found:
+#    print(p, _found[p])
+_available = [p for p in _found if _found[p] in _trusted]
+#if len(_available)>0:
+#    print('available and trusted:', _available)
 
 def progress(prog, port=None):
     global _available
