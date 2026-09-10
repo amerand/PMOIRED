@@ -69,14 +69,15 @@ __versions__ = {
 }
 _aknowledge = {'JSDC':True, 'PMOIRED':True}
 
-# not required for the core module
-# try:
-#     jup = os.popen('jupyter --version').readlines()
-#     for j in jup:
-#         __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
-# except:
-#     # -- cannot get versions of jupyter tools
-#     pass
+# -- not required for the core module, but could be good to debug
+try:
+    jup = os.popen('jupyter --version').readlines()
+    for j in jup:
+        if ':' in j:
+            __versions__[j.split(':')[0].strip()] = j.split(':')[1].split('\n')[0].strip()
+except:
+    # -- cannot get versions of jupyter tools
+    pass
 
 
 def _isiterable(x):
@@ -3931,7 +3932,7 @@ class OI:
                     _aknowledge['JSDC'] = False
 
             except:
-                print('warning: could not find diameter in JSDC!')
+                print('\033[91mwarning: could not find diameter in JSDC!\033[0m')
                 res[band+',ud'] = 0.
                 
             if not band+',range' in res:        
