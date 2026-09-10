@@ -4,6 +4,14 @@
 
 import os, sys, shutil
 
+
+C = ['BLACK', 'RED', 'GREEN', 'YELLOW', 'BLUE', 'MAGENTA', 'CYAN', 'GRAY']
+colors = {'NONE':'\033[0m'}
+colors.update({c:f'\033[{30+i}m' for i,c in enumerate(C)})
+colors.update({'H_'+c:f'\033[{40+i}m' for i,c in enumerate(C)})
+colors.update({'D'+c:f'\033[{90+i}m' for i,c in enumerate(C)})
+colors.update({'H_D'+c:f'\033[{100+i}m' for i,c in enumerate(C)})
+
 home = os.path.expanduser('~')
 pmrd = os.path.join(home, '.pmrd')
 github = 'https://github.com/amerand/PMOIRED'
@@ -33,8 +41,8 @@ options:
 	{github}_examples
 
 to activate the envirnoment manually, run:
-
-source {pmrd}/bin/activate"""
+"""+colors['DRED']+"""
+source {pmrd}/bin/activate"""+colors['NONE']
 
 do_help =  len(sys.argv)==1 or ('--help' in sys.argv or '-h' in sys.argv)
 
@@ -85,8 +93,11 @@ if do_add:
 	prgm = ' '.join(['pip install']+pckg)	
 	print('!', prgm)
 
-run = f""". {pmrd}/bin/activate
+if prgm!='':
+	run = f""". {pmrd}/bin/activate
 {pmrd}/bin/{prgm} """
+else:
+	run = f""". {pmrd}/bin/activate"""
 
 if not do_ver: 
 	if len(directory)==1:
@@ -132,6 +143,7 @@ def main():
 		
 	if not os.path.exists(pmrd) or do_install :
 		print('#'*20+"\n INSTALLING\n"+'#'*20)
+		print(colors['DBLUE']+install+colors['NONE'])
 		os.system(install)
 		return
 	
@@ -142,7 +154,9 @@ def main():
 	
 	if do_expl:
 		if not os.path.exists(os.path.join(pmrd, 'PMOIRED_examples')):
+			print(colors['DBLUE']+get_examples+colors['NONE'])
 			os.system(get_examples)
+		print(colors['DBLUE']+run_examples+colors['NONE'])
 		os.system(run_examples)
 
 	if do_remove:
@@ -153,19 +167,22 @@ def main():
 		
 	if do_update:
 		print('#'*30+"\n UPDATING PMOIRED from github\n"+'#'*30)
+		print(colors['DBLUE']+update_pmoired+colors['NONE'])
 		os.system(update_pmoired)
 		if os.path.exists(os.path.join(pmrd, 'PMOIRED_examples')):
 			print('#'*30+"\n UPDATING PMOIRED examples\n"+'#'*30)
+			print(colors['DBLUE']+update_examples+colors['NONE'])
 			os.system(update_examples)
 		return
 
 	if do_update_all:
 		print('#'*20+"\n UPDATING ALL\n"+'#'*20)
+		print(colors['DBLUE']+update_all+colors['NONE'])
 		os.system(update_all)
 		return
 		
 	if prgm!='':
-		print(run)
+		print(colors['DBLUE']+run+colors['NONE'])
 		os.system(run)
 
 if __name__=='__main__':
