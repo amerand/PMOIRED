@@ -58,7 +58,18 @@ def _scan(ports=None, debug=False):
         print('dbg>', 'no more ports to scan')
     return res
 
-def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, debug=False):
+
+"""
+ 0  1. 2. 3. 4
+ 5. 6. 7. 8. 9
+10 11 12 13 14
+15 16 17 18 19
+20 21 22 23 24
+"""
+spiral5 = [12, 11, 6, 7, 8, 13, 18, 17, 16, 15, 10, 5, 0, 1, 2, 3, 4, 9, 14, 19, 24, 23, 22, 21, 20]
+   
+def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, debug=False,
+    pattern=None):
     """
     default values ledPin=5 and npix=4 for the Adafruit Neo Trinkey
     """
@@ -77,21 +88,25 @@ def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, 
         color1 = (20,0,0)
     if color2 is None:
         color2 = (0,10,10)
+    if pattern is None:
+        pattern = [i for i in range(npix)]
+
     cont = ['p,n = %d, %d'%(ledPin, npix),
             'color1 = '+str(color1),
             'color2 = '+str(color2), 
             'import machine, neopixel, time',
             'np = neopixel.NeoPixel(machine.Pin(p, machine.Pin.OUT), n)',
             'def showProg(prog):',
+            '   pattern = ['+', '.join([str(x) for x in pattern])+']',
             '   for i in range(np.n):',
             '      if i<int(prog*np.n):',
-            '          np[i]=color2',
+            '          np[pattern[i]]=color2',
             '      elif i<prog*np.n:',
             '          x = prog*np.n-i',
             '          print(i, prog*np.n, x)',
-            '          np[i]=[int(color2[j]*x+(1-x)*color1[j]) for j in range(3)]',
+            '          np[pattern[i]]=[int(color2[j]*x+(1-x)*color1[j]) for j in range(3)]',
             '      else:',
-            '          np[i]=(0,0,0)',
+            '          np[pattern[i]]=(0,0,0)',
             '   np.write()',
             '   return',
             'def test():',
@@ -126,20 +141,28 @@ def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, 
     ser.close()
     return
 
-_found = {p:_getId(p) for p in _guessPorts()}
-#print('found %d micropython boards'%len(_found))
-#for p in _found:
-#    print(p, _found[p])
-_available = [p for p in _found if _found[p] in _trusted]
-#if len(_available)>0:
-#    print('available and trusted:', _available)
+_available = []
+def _getAvailable(trusted=False, verbose=False):
+    global _available
+    _found = {p:_getId(p) for p in _guessPorts()}
+    if verbose:
+        print('found %d micropython boards'%len(_found))
+        for p in _found:
+           print(p, _found[p])
+    if trusted:
+        _available = [p for p in _found if _found[p] in _trusted]
+    else:
+        _available = [p for p in _found]
+    return
+_getAvailable()
 
-def progress(prog, port=None):
+def progress(prog, port=None, verbose=False):
     global _available
     if port is None:
-        # --  scan ports for progres <= 0
+        # --  scan ports for progress <= 0
         if prog<=0:
-            _available = [p for p in _guessPorts() if _getId(p) in _trusted]
+            _getAvailable(
+                )
         if len(_available)>0:
             port = _available[0]
     try:
@@ -158,7 +181,7 @@ def test():
     x = 0
     t = time.time()
     while x<1:
-        progress(x)
+        progress(x, verbose=True)
         x+=1/20
         time.sleep(0.1)
     progress(1)
