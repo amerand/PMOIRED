@@ -182,7 +182,7 @@ def Ftran(l, param, retWL=False, retS=False):
             kp = param["kernp"]
         else:
             kp = 2.0
-        kern = np.exp(-(np.abs((tmpL - np.mean(tmpL)) / param["kern"]) ** kp))
+        kern = np.exp(-(np.abs((tmpL - tmpL[(len(tmpL) - 1) // 2]) / param["kern"]) ** kp))
         kern /= np.sum(kern)
         tmpT = np.convolve(tmpT, kern, "same")
 
@@ -196,10 +196,10 @@ def Ftran(l, param, retWL=False, retS=False):
         else:
             kp_max = 2.0
         kern_min = np.exp(
-            -(np.abs((tmpL - np.mean(tmpL)) / param["kern_min"]) ** kp_min)
+            -(np.abs((tmpL - tmpL[(len(tmpL) - 1) // 2]) / param["kern_min"]) ** kp_min)
         )
         kern_max = np.exp(
-            -(np.abs((tmpL - np.mean(tmpL)) / param["kern_max"]) ** kp_max)
+            -(np.abs((tmpL - tmpL[(len(tmpL) - 1) // 2]) / param["kern_max"]) ** kp_max)
         )
         kern_min /= np.sum(kern_min)
         kern_max /= np.sum(kern_max)
