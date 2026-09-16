@@ -32,7 +32,7 @@ try:
 except ImportError:
     from importlib import resources
 
-__version__ = "1.3.17"
+__version__ = "1.3.18"
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
