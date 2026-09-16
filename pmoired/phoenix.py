@@ -201,16 +201,16 @@ def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None):
     _logg = np.array([g for g in allLogg[m] if Teff<maxTeff[m][g]+200])
     dg = np.abs(logg - _logg)
     s = np.argsort(dg)
-    logg1 = _logg[s[0]]
-    logg2 = _logg[s[1]]
+    logg1 = float(_logg[s[0]])
+    logg2 = float(_logg[s[1]])
     
     Teff1 = np.array(list(set([k[0] for k in allFiles[m] if k[1]==logg1])))
     d1 = np.abs(Teff-Teff1)
-    Teff1 = (Teff1[np.argsort(d1)[0]], Teff1[np.argsort(d1)[1]])
+    Teff1 = (float(Teff1[np.argsort(d1)[0]]), float(Teff1[np.argsort(d1)[1]]))
     
     Teff2 = np.array(list(set([k[0] for k in allFiles[m] if k[1]==logg2])))
     d2 = np.abs(Teff-Teff2)
-    Teff2 = (Teff2[np.argsort(d2)[0]], Teff2[np.argsort(d2)[1]])
+    Teff2 = (float(Teff2[np.argsort(d2)[0]]), float(Teff2[np.argsort(d2)[1]]))
 
     K = [(Teff1[0], logg1, m), (Teff1[1], logg1, m), (Teff2[0], logg2, m), (Teff2[1], logg2, m)]
     addAny = False
@@ -227,12 +227,14 @@ def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None):
                 print('  writing', filename)
             with open(filename, 'wb') as f:
                 f.write(data)
+            addAny = True
+            
     if addAny or _ip_data is None:
         initInterpolator(verbose=verbose)
     
     if verbose:
         print(logg1, Teff1, logg2, Teff2)
-        
+
     F1 = _ip_data[(Teff1[0], logg1)]+(Teff-Teff1[0])*(_ip_data[(Teff1[1], logg1)]-_ip_data[(Teff1[0], logg1)])/(Teff1[0]-Teff1[1])
     F2 = _ip_data[(Teff2[0], logg2)]+(Teff-Teff2[0])*(_ip_data[(Teff2[1], logg2)]-_ip_data[(Teff1[0], logg2)])/(Teff2[0]-Teff2[1])
     
