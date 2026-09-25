@@ -72,6 +72,7 @@ def initBoard(port=None, ledPin=5, npix=4, color1=None, color2=None, test=True, 
     pattern=None):
     """
     default values ledPin=5 and npix=4 for the Adafruit Neo Trinkey
+    ledPin=16 for waveshare rp2040 matrix (5x5 matrix )
     """
     if port is None:
         ports = _guessPorts()
