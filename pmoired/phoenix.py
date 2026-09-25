@@ -102,8 +102,7 @@ def getFilesList(metal=0):
     files = [l.split('href="')[1].split('"')[0] for l in data.decode().split('\n') if 'PHOENIX' in l and '.fits' in l]
     # -- key by Teff, logg
     return {file2Key(f):f for f in files}
-
-    
+   
 def continuum(WL, SP, width=15e-4):
     """
     hacky way to compute continuum for *noiseless* synthetic spectra
@@ -115,75 +114,121 @@ def continuum(WL, SP, width=15e-4):
 
 # -- default for CO bandheads for GRAVITY HR
 _ip_wlmin = 2.25
-_ip_wlmax = 2.4
+_ip_wlmax = 2.42
 _ip_R = 9000 
 _ip_metal = 0.0
 _ip_data = None
-def initInterpolator(wlmin=None, wlmax=None, R=None, metal=None, dirdata=None, verbose=False):
+
+def initInterpolator(wlmin=None, wlmax=None, R=None, metal=None, dirdata=None, verbose=True, 
+    Tmin=None, Tmax=None, loggmin=None, loggmax=None, addFiles=None, savefile=None):
     global _ip_wlmin, _ip_wlmax, _ip_R, _ip_metal, _ip_data, WL, _dirdata
+
+    if Tmin is None:
+        Tmin = 0        
+    if Tmax is None:
+        Tmax = 1e6
+    if loggmin is None:
+        loggmin = 0        
+    if loggmax is None:
+        loggmax = 1e6
 
     if _dirdata is None:
         changeDataDirectory(dirdata)
 
-    _init = False
-    if not (wlmin is None and wlmax is None and R is None):
-        _ip_wlmin = wlmin
-        _ip_wlmax = wlmax
-        _ip_R = R
-        _ip_metal = metal
-        _init = True   
+    if not savefile is None and os.path.exists(os.path.join(_dirdata, savefile)):
+        savefile = os.path.join(_dirdata, savefile)
 
-    savefile = 'GRID_'
-    if _ip_metal is None:
-        _ip_metal = 0.0
-        
-    if _ip_metal<=0:
-        savefile += '-%.1f_'%np.abs(_ip_metal)
+    if not savefile is None and os.path.exists(savefile):
+        _ip_metal = float(os.path.basename(savefile).split('_')[1])
+        _ip_wlmin = float(os.path.basename(savefile).split('_')[2].split('um')[0])
+        _ip_wlmax = float(os.path.basename(savefile).split('_')[2].split('-')[1].split('um')[0])
+        _ip_R = float(os.path.basename(savefile).split('_R')[1].split('.')[0])
+        _init = True
+        _justLoad = True
     else:
-        savefile += '+%.1f_'%np.abs(_ip_metal)
+        _justLoad = False
+        _init = False
+        if not (wlmin is None and wlmax is None and R is None):
+            _ip_wlmin = wlmin
+            _ip_wlmax = wlmax
+            _ip_R = R
+            _ip_metal = metal
+            _init = True   
 
-    savefile += '%.4fum-%.4fum_R%.0f.pckl'%(_ip_wlmin, _ip_wlmax, _ip_R)
+        savefile = 'GRID_'
+        if _ip_metal is None:
+            _ip_metal = 0.0
+            
+        if _ip_metal<=0:
+            savefile += '-%.1f_'%np.abs(_ip_metal)
+        else:
+            savefile += '+%.1f_'%np.abs(_ip_metal)
+
+        savefile += '%.4fum-%.4fum_R%.0f.pckl'%(_ip_wlmin, _ip_wlmax, _ip_R)
+        savefile = os.path.join(_dirdata, savefile)
 
     if _ip_data is None:
         _init = True
     
     if _init:    
-        if os.path.exists(os.path.join(_dirdata, savefile)):
+        if os.path.exists(savefile):
             if verbose:
                 print('restoring', savefile)
-            with open(os.path.join(_dirdata, savefile), 'rb') as f:
+            with open(savefile, 'rb') as f:
                 _ip_data = pickle.load(f)
+            if _justLoad:
+                return
         else:
+            if verbose:
+                print('preparing object')
             _ip_data = {'metal':_ip_metal,
                         'wlmin':_ip_wlmin,
                         'wlmax':_ip_wlmax,
                         'R':_ip_R,
-                        'w':(WL>=_ip_wlmin)*(WL<=_ip_wlmax)}
-            _ip_data['WL'] = WL[_ip_data['w']]
+                        'w':(WL>=_ip_wlmin)*(WL<=_ip_wlmax),
+                        'flux':{}, 'nsp':{}}
+            # -- reduce data size 
+            #_ip_data['WL'] = WL[_ip_data['w']]
+            _ip_data['WL'] = np.linspace(_ip_wlmin, _ip_wlmax, 
+                                int(4*(_ip_wlmax-_ip_wlmin)/(0.5*(_ip_wlmax+_ip_wlmin))*_ip_R))
+
+            # wl/dwl = R -> dwl = wl/R 
         
     files = os.listdir(_dirdata)
     files = [f for f in files if f.startswith('lte') and f.endswith('.fits') and file2Key(f, withMetal=True)[2]==_ip_metal]
 
     _add = 0
-    for f in files:
-        k = file2Key(f)
-        if not k in _ip_data:
+    if not addFiles is None:
+        files = [f for f in files if f in addFiles or os.path.join(_dirdata, f) in addFiles]
+
+    for i,f in enumerate(files):
+        k = file2Key(f) # key in Teff, logg
+        if not k in _ip_data['flux'] and k[0]>=Tmin and k[0]<=Tmax and k[1]>=loggmin and k[1]<=loggmax: 
             if verbose:
-                print('  adding', f)
+                print('  adding %3d/%3d'%(i+1, len(files)), f)
             with fits.open(os.path.join(_dirdata, f)) as h:
-                _ip_data[k] = h[0].data[_ip_data['w']]
-            _ip_data[k] /= continuum(_ip_data['WL'], _ip_data[k])
-            _ip_data[k] = gaussian_filter1d(_ip_data[k], 
-                                            0.5*np.mean(_ip_data['WL']/np.gradient(_ip_data['WL']))/_ip_R)
+                _ip_data['flux'][k] = h[0].data[_ip_data['w']]
+            _c = continuum(WL[_ip_data['w']], _ip_data['flux'][k])
+            _ip_data['flux'][k] = gaussian_filter1d(_ip_data['flux'][k], 
+                                            0.5*np.mean(WL[_ip_data['w']]/np.gradient(WL[_ip_data['w']]))/_ip_R)
+            _ip_data['nsp'][k] = _ip_data['flux'][k]/_c
+            _ip_data['flux'][k] = np.interp(_ip_data['WL'], WL[_ip_data['w']], _ip_data['flux'][k])
+            _ip_data['nsp'][k] = np.interp(_ip_data['WL'], WL[_ip_data['w']], _ip_data['nsp'][k])
             _add += 1
+        # else:
+        #     print(k)
+
     if _add>0:
         if verbose:
             print('saving', savefile)
-        with open(os.path.join(_dirdata, savefile), 'wb') as f:
+        with open(savefile, 'wb') as f:
             pickle.dump(_ip_data, f)
     return
         
-def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None):
+def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None, type='nsp'):
+    """
+    type: 'flux' or 'nsp' for normalised spectrum (default)
+    """
     global allFiles, allLogg, allTeff, maxTeff, _ip_data, _dirdata
 
     if _dirdata is None:
@@ -213,7 +258,7 @@ def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None):
     Teff2 = (float(Teff2[np.argsort(d2)[0]]), float(Teff2[np.argsort(d2)[1]]))
 
     K = [(Teff1[0], logg1, m), (Teff1[1], logg1, m), (Teff2[0], logg2, m), (Teff2[1], logg2, m)]
-    addAny = False
+    addAny = []
     for k in K:
         filename = os.path.join(_dirdata, makeFileName(k[0], k[1], k[2]))
         if not os.path.exists(filename):
@@ -227,16 +272,18 @@ def interpolator(Teff, logg, metal=0, verbose=False, dirdata=None):
                 print('  writing', filename)
             with open(filename, 'wb') as f:
                 f.write(data)
-            addAny = True
+        addAny.append(filename)
             
-    if addAny or _ip_data is None:
-        initInterpolator(verbose=verbose)
+    if len(addAny) or _ip_data is None:
+        initInterpolator(verbose=True, addFiles=addAny)
     
     if verbose:
         print(logg1, Teff1, logg2, Teff2)
 
-    F1 = _ip_data[(Teff1[0], logg1)]+(Teff-Teff1[0])*(_ip_data[(Teff1[1], logg1)]-_ip_data[(Teff1[0], logg1)])/(Teff1[0]-Teff1[1])
-    F2 = _ip_data[(Teff2[0], logg2)]+(Teff-Teff2[0])*(_ip_data[(Teff2[1], logg2)]-_ip_data[(Teff1[0], logg2)])/(Teff2[0]-Teff2[1])
-    
+    F1 = _ip_data[type][(Teff1[0], logg1)] + (Teff-Teff1[0])*\
+                (_ip_data[type][(Teff1[1], logg1)]-_ip_data[type][(Teff1[0], logg1)])/(Teff1[1]-Teff1[0])
+    F2 = _ip_data[type][(Teff2[0], logg2)] + (Teff-Teff2[0])*\
+                (_ip_data[type][(Teff2[1], logg2)]-_ip_data[type][(Teff1[0], logg2)])/(Teff2[1]-Teff2[0])
+        
     return F1 + (logg-logg1)*(F2-F1)/(logg2-logg1)
     
