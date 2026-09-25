@@ -98,7 +98,7 @@ def normaliseV(x, y, z):
     return x/n, y/n, z/n
 
 def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False, 
-            vpuls=0, vrad=0, dist=None):
+            vpuls=0, vgamma=0, dist=None):
     """
     N: number of co-latitudes (better of odd)
     Rpole: polar radius (in Rsun)
@@ -111,7 +111,7 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
     vpuls: pulsation velocity in km/s
         for non radial, {(l,m):amplitude_km/s} or {(l,m):(amplitude_km/s, phase_in_lon_rad)}
         the l=0, m=0 is radial mode. Note that the phase is irrelevant for m=0!
-    vrad: radial velocity offset (km/s)
+    vgamma: radial velocity offset (km/s)
 
     dist: dispance in pc
     """
@@ -211,9 +211,9 @@ def surface(N, Rpole, Mass, w, Tpole, incl=0, pa=0, beta=0.25, verbose=False,
         res['vpulsy'] -= res['ny']*vpuls
         res['vpulsz'] -= res['nz']*vpuls
 
-    res['vx'] = res['vrotx'] + res['vpulsx'] - vrad
-    res['vy'] = res['vroty'] + res['vpulsy'] - vrad
-    res['vz'] = res['vrotz'] + res['vpulsz'] - vrad
+    res['vx'] = res['vrotx'] + res['vpulsx'] - vgamma
+    res['vy'] = res['vroty'] + res['vpulsy'] - vgamma
+    res['vz'] = res['vrotz'] + res['vpulsz'] - vgamma
     
     if not dist is None:
         c = (1*U.Rsun).to(U.m)/(dist*U.pc).to(U.m)*180*3600*1000/np.pi
@@ -370,7 +370,7 @@ def Imudata(savedata=False):
             pickle.dump(data, f)
     return data 
 
-def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
+def addFluxImu(star, wl, plot=False, verbose=False, plines=None, spectralGrid=None):
     """
     add broad band flux to a model dict "star" for the wavelength vector "wl"
 
@@ -384,13 +384,16 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     star['flux'] = np.zeros((len(star['x']), len(wl)) )
     star['ld'] = np.zeros((len(star['x']), len(wl)) )
     star['wl'] = wl
+    star['spectrum'] = np.ones(len(wl))
+
     # -- positive vz points towards observer -> blue shifted
     star['doppler wl'] = wl[None,:]*(1-star['vz'][:,None]/299792.4580)
 
     # take advantage of colatitude layering
-    T = set(star['Teff'][star['nz']>=0])
+    # rounding temperatur because resilution is not needed, makes calulcations much faster
+    T = set(np.round(star['Teff'][star['nz']>=0], 0))
 
-    # == total flux over disk should be 1
+    # == LD correction -> total flux over disk should be 1
     # alpha = np.linspace(0, 1, 41)
     # print('_a=', [round(float(a), 3) for a in alpha])
     # mu = np.linspace(0, 1, 1000)
@@ -405,10 +408,12 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     _c= [1.0, 0.97042, 0.9429, 0.91671, 0.89175, 0.86795, 0.84522, 0.82351, 0.80275, 0.78288, 0.76384, 0.74559, 0.72808, 0.71128, 0.69513, 0.6796, 0.66466, 0.65028, 0.63642, 0.62307, 0.61019, 0.59777, 0.58577, 0.57418, 0.56298, 0.55215, 0.54167, 0.53153, 0.52171, 0.51219, 0.50297, 0.49403, 0.48536, 0.47695, 0.46878, 0.46085, 0.45314, 0.44565, 0.43837, 0.43129, 0.42441]
     norma = lambda a: np.interp(a, _a, _c)
 
-    for t in T:
-        w = (star['nz']>=0)*(star['Teff']==t)
+    for it, t in enumerate(T):
+        # -- select part of the star which is visible and at a given Teff/logg
+        w = (star['nz']>=0)*(np.round(star['Teff'], 0)==t)
         lg = np.mean(star['logg'][w])
-        # 2 closest models
+
+        # 2 closest I(mu) models
         d = ((_imuTeff-t)/10000.)**2 + (_imulogg-lg)**2
         i0 = np.argsort(d)[0]
         i1 = np.argsort(d)[1]
@@ -420,19 +425,47 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
                 np.log10(_imudata[i1]['WAVEL']), 
                 np.log10(_imudata[i1]['FLAMBDA']))
 
-        # -- this ignores doppler wavelength shift!
+        # -- this ignores doppler wavelength shift, but at low spectral resolution it is OK
         if _imudata[i0]['TEFF'] != _imudata[i1]['TEFF']:
             star['flux'][w] = f0 + (f1-f0)*(t-_imudata[i0]['TEFF'])/(_imudata[i1]['TEFF']-_imudata[i0]['TEFF'])
         elif _imudata[i0]['LOGG'] != _imudata[i1]['LOGG']:
             star['flux'][w] = f0 + (f1-f0)*(lg-_imudata[i0]['LOGG'])/(_imudata[i1]['LOGG']-_imudata[i0]['LOGG'])
         else:
             print('WARNING! I do not know how to interpolate')
-        alpha = np.interp(wl, _imudata[i0]['alpha'][0], _imudata[i0]['alpha'][1])
-        star['ld'][w] = star['nz'][w][:,None]**alpha[None,:]
-        # -- flux normalisation
-        star['ld'][w] /= norma(alpha)[None,:]
+        #print(it, t, i0, i1, star['flux'][w].mean())
 
-    spectrum = np.ones(len(wl))
+        alpha = np.interp(wl, _imudata[i0]['alpha'][0], _imudata[i0]['alpha'][1])
+
+        # allow correction in lines
+        dalpha = 0
+        if not plines is None:
+            for l in plines:
+                if 'alpha' in l:
+                    if 'gaussian' in l:
+                        dalpha += l['alpha']*np.exp(-(star['doppler wl'][w,:] - l['wl0'])**2/
+                                             (2*(l['gaussian']/1000/2.35482)**2))
+                    elif 'lorentzian' in l:
+                        dalpha = l['alpha']*(0.5*l['lorentzian']/1000)**2/\
+                            ((star['doppler wl'] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2)
+
+        star['ld'][w] = star['nz'][w][:,None]**(alpha[None,:]+dalpha)
+        # -- flux normalisation 
+        star['ld'][w] /= norma(alpha[None,:]+dalpha)
+
+        if  type(spectralGrid)==str and spectralGrid.lower()=='phoenix': # -- phoenix models
+            from pmoired import phoenix
+            #print(f'phoenix Teff={t:.1f}K logg={lg:.2f}')
+            try:
+                phoe = phoenix.interpolator(Teff=t, logg=lg, metal=0, type='flux')
+                star['flux'][w] = np.interp(star['doppler wl'][w,:], phoenix._ip_data['WL'], phoe)
+            except:
+                print('!', t, lg)
+
+            #phoe = phoenix.interpolator(Teff=t, logg=lg, metal=0, type='nsp')
+            #star['flux'][w] *= np.interp(star['doppler wl'][w,:], phoenix._ip_data['WL'], phoe)
+
+    w = star['nz']>=0
+    #print(f"{star['flux'][w].mean()=}")
     if not plines is None:
         """
         dict
@@ -441,9 +474,6 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
         'f': depth compared to 1. <0 for abs, >0 for emission
         opt: 'f XXXX': depth compared 1, at Teff=XXXX
         """
-        w = star['nz']>=0
-        #w = np.isfinite(star['nz'])
-
         for l in plines:
             #print(f'DBG> {l=}')
             # -- temp dependent depth
@@ -470,10 +500,11 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
                         ((star['doppler wl'] - l['wl0'])**2+(0.5*l['lorentzian']/1000)**2)
 
             star['flux'][w,:] *= 1+tmp
-            spectrum += np.sum(star['ld'][w]*star['proj dS'][w][:,None]*tmp, axis=0)/\
-                        np.sum(star['ld'][w]*star['proj dS'][w][:,None], axis=0)
+            # star['spectrum'] += np.sum(star['ld'][w]*star['proj dS'][w][:,None]*tmp, axis=0)/\
+            #                     np.sum(star['ld'][w]*star['proj dS'][w][:,None], axis=0)
 
-    star['spectrum'] = spectrum
+    star['spectrum'] = np.sum(star['ld'][w]*star['proj dS'][w][:,None]*star['flux'][w,:], axis=0)/\
+                       np.sum(star['ld'][w]*star['proj dS'][w][:,None], axis=0)
 
     if verbose:
         print(f"flux computation in {1000*(time.time()-t0):.1f}ms for {len(wl)} wavelengths")
@@ -525,9 +556,10 @@ def addFluxImu(star, wl, plot=False, verbose=False, plines=None):
     return star
 
 Ncolat= 51
-def Vrota(u, v, wl, param, plot=False, fullOutput=False,
-          imFov=None, imPix=None, imX=0, imY=0, imN=None,):
+def Vrota(u, v, wl, param, plot=False, fullOutput=False, imFov=None, imPix=None, imX=0, imY=0, imN=None,):
     """
+    compute complex visibilities for rotating star
+
     u, v: baselines in m (1D np.array: dimension N)
     wl: wavelength in um (1D np.array: dimension M)
 
@@ -538,10 +570,14 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     - 'omega': fractional rotational rate (/OmegaCrit)
     - 'dist' in pc 
     - 'beta': optional (default 0.25)
-    - 'vrad': radial velocity (km/s)
+    - 'vgamma': radial velocity offset (km/s) 
     - 'vpuls': optional pulsation velocity, in km/s (default=0) 
         or {'vamp 2 1': ,'lon0 2 1':} for l=2,m=1 non radial mode 
             in km/s for and and degrees for lon0
+
+    - lines as "pline_0_wl0", "pline_0_gaussian", "pline_0_f" for rotating lines
+    - "spectral grid":"phoenix" 
+
     result: complex visibility (np.array of dimension N x M)
 
     """
@@ -564,10 +600,10 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     else:
         vpuls = 0
 
-    if 'vrad' in param:
-        vrad = param['vrad']
+    if 'vgamma' in param:
+        vgamma = param['vgamma']
     else:
-        vrad = 0
+        vgamma = 0
 
     V = {k:param[k] for k in param if k.startswith('vamp')}
     if len(V)>0:
@@ -598,7 +634,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         mass = param['mass']
     else:
         mass = 2.0
-        print(f'WARNING rotastar.Vrota: default mass {mass} Msun')
+        #print(f'WARNING rotastar.Vrota: default mass {mass} Msun')
 
     if 'omega' in param:
         omega = min(param['omega'], 1)
@@ -615,14 +651,16 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
             Rpole = Rpole.value
     #print(f'{Rpole=}Rsun')
 
+    # -- compute surface and physical parameters (Teff, logg, velocities)
     star = surface(Ncolat, Rpole, mass, omega, param['Tpole'], 
                    incl=param['incl']*np.pi/180, pa=param['projang']*np.pi/180, 
-                   beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'], vrad=vrad)
+                   beta=beta, vpuls=vpuls, verbose=False, dist=param['dist'], vgamma=vgamma)
 
     star['Rpole'] = Rpole
     star['Veq'] = np.max(np.abs(star['V']))
 
-    # -- only account for plines, i.e photospheric lines
+    # == photospheric lines =====================================================
+    # --  only account for plines, i.e photospheric lines
     tmp = {k:param[k] for k in param if k.startswith('pline_')}
     if len(tmp)>0:
         L = set(['_'.join(k.split('_')[:2]) for k in tmp])
@@ -630,8 +668,14 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
     else:
         plines = None
     tmp = {k:param[k] for k in param if k.startswith('line_')}
-    #print(f'DBG> {plines=}')
-    star = addFluxImu(star, wl, plines=plines)
+
+    if 'spectral grid' in param:
+        spectralGrid = param['spectral grid']
+    else:
+        spectralGrid = None
+
+    # == add flux (lines) and limb darkening 
+    star = addFluxImu(star, wl, plines=plines, spectralGrid=spectralGrid)
 
     # -- visible points
     w = star['nz']>=0
@@ -675,6 +719,7 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
         # -- interpolations scale
         dr2 = 0.1*np.max(r2lim)/np.sqrt(len(star['x_mas'][w]))
         n = 3 # interpolations points
+        null = 0
         for i,x in enumerate(X):
             for j,y in enumerate(Y):
                 if (x-x0)**2+(y-y0)**2 <= np.interp(np.arctan2(x-x0, y-y0), palim, r2lim):
@@ -694,16 +739,9 @@ def Vrota(u, v, wl, param, plot=False, fullOutput=False,
                         cube[:,j,i] += d2[k[l]]*star['flux'][w][k[l],:]*star['ld'][w][k[l],:] 
                         norm += d2[k[l]]
                     cube[:,j,i] /= norm
-
-        # @@@@@@@ THIS IS EXTREMELY SLOW! @@@@@@@@@@@@@@@@@@@@
-        # grP = [(float(star['x_mas'][w][i]+x0), float(star['y_mas'][w][i]+y0)) for i in range(len(star['x'][w]))]
-        # print('DBG>', grP[:10])
-        # gr = np.array([_X, _Y]).reshape(2, -1).T
-        # for i in range(len(wl)):
-        #     cube[i, :, :] = scipy.interpolate.RBFInterpolator(
-        #         grP, star['flux'][w][:,i]*star['ld'][w][:,i],
-        #         #kernel="gaussian", neighbors=2
-        #         )(gr).reshape((imN, imN))
+                else:
+                    null +=1
+        print(f"null points: {100*null/(len(X)*len(Y)):.1f}%")           
     else:
         _X, _Y, cube = None, None, None
 
