@@ -2781,7 +2781,6 @@ class OI:
 
         errSED: show uncertainties in SED (should only be used for best fit model!)
         """
-
         # -- just if the function is used to show models
         if len(self.data) == 0 or (len(self.data) == 1 and not WL is None):
             # assert not WL is None, 'specify wavelength vector "WL="'
