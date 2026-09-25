@@ -1123,6 +1123,7 @@ def VsingleOI(
             imN = None
         else:
             imN = int(np.sqrt(len(X.flatten())))
+        #print(f"VsingleOI: rotastar {imFov=}")
         tmp = rotastar.Vrota(
             np.array([1]),
             np.array([1]),
