@@ -17,10 +17,11 @@ pmrd = os.path.join(home, '.pmrd')
 github = 'https://github.com/amerand/PMOIRED'
 
 add_packages = ['jupyterlab',
-							  'ipympl', 
-							  'notebook',
-							  'catppuccin-jupyterlab', 
-							  'jupyter-resource-usage']
+				'ipympl', 
+				'notebook',
+				'catppuccin-jupyterlab', 
+				'jupyter-resource-usage',
+				'specutils']
 
 help_text = f"""manage your PMOIRED python environment with {sys.argv[0]}
 {github}
