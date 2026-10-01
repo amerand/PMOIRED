@@ -52,7 +52,7 @@ def closefig(fig):
     plt.close(fig)
     return
 
-def Ssingle(oi, param, noLambda=False, allParams=None):
+def Ssingle(oi, param, noLambda=False, allParams=None, debug=False):
     """
     build spectrum for Vsingle
 
@@ -76,6 +76,9 @@ def Ssingle(oi, param, noLambda=False, allParams=None):
     elif not "spectrum" in _param and not any([x.startswith("fwvl") for x in _param]):
         # -- no continuum is defined, assumes 1.0
         f += 1.0
+    if debug:
+        print(f"Ssingle {f=}")
+
     # == polynomials ============================
     As = filter(lambda x: x.startswith("f") and x[1:].isdigit(), _param.keys())
     for a in As:
@@ -227,8 +230,9 @@ def Ssingle(oi, param, noLambda=False, allParams=None):
     if "spectrum function" in _param.keys() and "spectrum parameters" in _param.keys():
         f = _param["spectrum function"](oi["WL"], _param['spectrum parameters'])
 
+    if debug:
+        print(f'Ssingle: {f=}')
     return np.nan_to_num(f)
-
 
 def _Kepler3rdLaw(a=None, P=None, M1M2=None):
     """
@@ -616,7 +620,6 @@ def _expandVec(x, n: int, dx=None):
         res = np.linspace(x - dx / 2, x + dx / 2, 2 * n + 1)
     return res
 
-
 def VsingleOI(
     oi,
     param,
@@ -632,6 +635,7 @@ def VsingleOI(
     _dwl=0.0,
     fullOutput=False,
     allParams=None,
+    debug=False,
 ):
     """
     build copy of OI, compute VIS, VIS2 and T3 for a single object parametrized
@@ -740,13 +744,20 @@ def VsingleOI(
     else:
         smear = None
 
-    _debug = False
+    if ("fit" in oi
+        and "ignore negative flux" in oi["fit"]
+        and oi["fit"]["ignore negative flux"]
+        ):
+        ignoreNegativeFlux = True
+    else:
+        ignoreNegativeFlux = False
+
+
     # -- copy u,v, etc, exampdin WL range in case of smearing
 
     if not smear is None:
-        _debug = False
-        if _debug:
-            print("DBG> VsingleOI: init smearing WL [%d]" % len(res["WL"]), end=" -> ")
+        if debug:
+            print("VsingleOI: init smearing WL [%d]" % len(res["WL"]), end=" -> ")
         # expand the WL table -> re bin *after* combining components!
         res["binWL"] = res["WL"] * 1.0
         # res['WL'] = np.linspace(res['WL'].min(), res['WL'].max(), len(res['WL'])*smear)
@@ -755,14 +766,13 @@ def VsingleOI(
             res["WL"] = _expandVec(res["WL"][0], smear - 1, dx=res["dWL"][0])
         else:
             res["WL"] = _expandVec(res["WL"], smear - 1)
-        if _debug:
-            print("[%d]" % len(res["WL"]))
+        if debug:
+            print("VsingleOI: [%d]" % len(res["WL"]))
             # print('')
         if not "dWL" in res:
             res["dWL"] = np.gradient(res["WL"])
         else:
             res["dWL"] = np.interp(res["WL"], _WL, res["dWL"])
-        _debug = False
 
     if "OI_FLUX" in oi:
         res["OI_FLUX"] = {}
@@ -859,8 +869,10 @@ def VsingleOI(
 
     # -- spectrum, fraction of it if needed for bandwith smearing
     # -- vector, same length as oi['WL']
-    flux = Ssingle(res, _param, noLambda=True, allParams=allParams) * _ffrac
-
+    flux = Ssingle(res, _param, noLambda=True, allParams=allParams, debug=debug) * _ffrac
+    if debug:
+        print(f"VsingleOI: {_param=}")
+        print(f"VsingleOI: {flux=}")
     if any(flux > 0):
         # -- check negativity of spectrum
         negativity = 100 * np.sum(flux[flux < 0]) / np.sum(flux[flux >= 0])
@@ -869,11 +881,7 @@ def VsingleOI(
     else:
         negativity = 0
 
-    if (
-        "fit" in oi
-        and "ignore negative flux" in oi["fit"]
-        and oi["fit"]["ignore negative flux"]
-    ):
+    if ignoreNegativeFlux:
         negativity = 0.0
 
     if timeit:
@@ -1158,7 +1166,7 @@ def VsingleOI(
 
     elif "ud" in _param.keys():  # == uniform disk ================================
         Rout = _param["ud"] / 2
-        if any(flux > 0):
+        if any(flux > 0) or ignoreNegativeFlux:
             Vf = lambda z: (
                 2*scipy.special.j1(_c * _param["ud"] * _Bwl(z) + 1e-12)
                 / (_c * _param["ud"] * _Bwl(z) + 1e-12))
@@ -1206,7 +1214,7 @@ def VsingleOI(
             a = None
             Vf = lambda z: 1 + 0 * _Bwl(z)
 
-        if not any(flux > 0):
+        if not any(flux > 0) or ignoreNegativeFlux:
             # -- save time
             Vf = lambda z: np.zeros(_Bwl(z).shape)
 
@@ -1357,6 +1365,7 @@ def VsingleOI(
                 flux *= np.ones(len(res["WL"])) * _param["surf bri"]
             else:
                 flux *= eval(_param["surf bri"].replace("$WL", 'res["WL"]'))
+
             if any(flux > 0):
                 # -- check negativity of spectrum
                 negativity = np.sum(flux[flux < 0]) / np.sum(flux[flux >= 0])
@@ -1456,14 +1465,9 @@ def VsingleOI(
                 negativity += np.sum(flux[flux < 0])
             else:
                 negativity += 0
-            if (
-                "fit" in oi
-                and "ignore negative flux" in oi["fit"]
-                and oi["fit"]["ignore negative flux"]
-            ):
-                negativity = 0.0
-
+            
         negativity += np.sum(flux) * _negativityAzvar(_n, _phi, _amp)
+
         Vf = lambda z: _Vazvar(
             z["u/wl"][:, wwl] / cwl,
             z["v/wl"][:, wwl] / cwl,
@@ -1475,7 +1479,13 @@ def VsingleOI(
             stretch=stretch,
         )
 
-        if not any(flux > 0):
+        if ignoreNegativeFlux:
+            negativity = 0.0
+            if debug:
+                print(f"Vsingle: ignoring negative flux")    
+        elif not any(flux > 0):
+            if debug:
+                print(f"Vsingle: negative flux! setting V to 0")    
             # -- save time
             Vf = lambda z: np.zeros(_Bwl(z).shape)
 
@@ -1864,8 +1874,7 @@ def VsingleOI(
     res["param"] = param
 
     if not smear is None:
-        _debug=False
-        if _debug:
+        if debug:
             print("DBG> closing smearing")
             if not k in res["OI_VIS2"].keys():
                 k = list(res["OI_VIS2"].keys())[0]
@@ -1878,14 +1887,14 @@ def VsingleOI(
             print("DBG> res.keys()", res.keys())
         # -- should de-bin after combining components!
         res["smear"] = smear
-        if _debug:
+        if debug:
             print(
                 "DBG> OI_VIS2[V2]",
                 k,
                 res["OI_VIS2"][k]["V2"].shape,
                 np.min(res["OI_VIS2"][k]["V2"]),
             )
-        _debug=False
+        debug=False
     return res
 
 
@@ -2742,6 +2751,7 @@ def VmodelOI(
             indent=indent + 1,
             fullOutput=fullOutput,
             allParams=param,
+            debug=debug
         )
 
         if "smear" in res:
@@ -2777,9 +2787,8 @@ def VmodelOI(
                             T3ptp_2[k] = np.ptp(res['OI_T3'][k]['T3PHI'][w])
                     for k in sorted(T3ptp_1):
                         print(k, f"{T3ptp_1[k]:.2f} -> {T3ptp_2[k]:.2f}")
-
         else:
-        # -- apply before differential computations:
+            # -- apply before differential computations:
             res = _applyWlKernel(res, debug=debug, fullWlRange=True)
     
         res = oifits._applyTF(res)
@@ -2948,6 +2957,7 @@ def VmodelOI(
                 _ffrac=_ffrac,
                 fullOutput=fullOutput,
                 allParams=param,
+                debug=debug
             )
             if _dwl != 0:
                 # -- correct wavelength offset
@@ -3335,6 +3345,7 @@ def _injectFeatures(oi, truth, inject):
         "OI_CF": ["CF"],
         "OI_T3": ["T3PHI", "T3AMP"],
     }
+
     res = {
         k: oi[k]
         for k in [
