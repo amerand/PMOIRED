@@ -29,6 +29,8 @@ The principles are close to tools such as [LITpro](https://www.jmmc.fr/english/t
 
 ## Install
 
+*Note: starting in October 2026, the version number will be based on the release date "YY.MM.DD".*
+
 ### Use [`pmrd.py`](pmrd.py) script
 
 The simplest way to use PMOIRED on MacOS / Linux, with python3 and git installed (requires about 1G of disk space): 
