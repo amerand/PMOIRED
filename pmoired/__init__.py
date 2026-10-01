@@ -154,6 +154,8 @@ class OI:
         self.debug = debug
         # -- last best fit to the data
         self.bestfit = {}
+        self._basemodel = {}
+        self._inject = {}
         # -- bootstrap results:
         self.boot = None
         # -- grid / random fits:
@@ -1224,8 +1226,11 @@ class OI:
         self._merged = oifits.mergeOI(
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
+        self._basemodel = model.copy()
+        self._inject = {}
         if not inject is None:
             self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            self._inject = inject.copy()
             # -- add inject to fitted parameters
             if fitInject:
                 model = model | inject
@@ -1845,8 +1850,12 @@ class OI:
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
 
+        self._basemodel = model.copy()
+        self._inject = {}
         if not inject is None:
             self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            self._inject = inject.copy()
+
             # -- add inject to fitted parameters
             if fitInject:
                 model = model | inject
@@ -2343,6 +2352,9 @@ class OI:
 
         if allInOne or perSetup:
             data = oifits.mergeOI(data, collapse=False, verbose=False, dMJD=self.dMJD)
+
+        if self._inject != {}:
+            data = oimodels._injectFeatures(data, self._basemodel, self._inject)
 
         if not model is None and not imFov is None and checkImVis:
             # -- only works with single model!

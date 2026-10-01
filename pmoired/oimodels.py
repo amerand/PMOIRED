@@ -6017,15 +6017,8 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
         #         t['firstGuess'].append(res[j]['firstGuess'])
     # print()
 
-    res = tmp
-    res = sorted(res, key=lambda r: r["chi2"])
+    res = sorted(tmp, key=lambda r: r["chi2"])
 
-    # -- add bad fits:
-    for b in bad:
-        res.append(b)
-        if type(res[-1]["firstGuess"]) != list:
-            res[-1]["firstGuess"] = [res[-1]["firstGuess"].copy()]
-        res[-1]["bad"] = True
     if verbose:
         print(time.asctime() + ": done")
         print("-" * 12)
@@ -6036,6 +6029,15 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
             dpfit.dispCor(res[0])
     except:
         pass
+
+
+    # -- add bad fits:
+    for i,b in enumerate(bad):
+        res.append(b)
+        if type(res[-1]["firstGuess"]) != list:
+            res[-1]["firstGuess"] = [res[-1]["firstGuess"].copy()]
+        res[-1]["bad"] = True
+
     return res
 
 
