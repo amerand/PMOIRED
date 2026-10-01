@@ -3317,7 +3317,6 @@ def _asTemplate(res, oi):
                 )
     return res
 
-
 def _injectFeatures(oi, truth, inject):
     """
     oi: an oidata dict or a list thereof

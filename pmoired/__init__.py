@@ -1309,7 +1309,7 @@ class OI:
         if verbose:
             if len(self.bestfit["not significant"]):
                 print(
-                    "\033[31mWARNING: thiese parameters do not change the chi2!:",
+                    "\033[31mWARNING: these parameters do not change the chi2!:",
                     end=" ",
                 )
                 print(self.bestfit["not significant"], "\033[0m")
