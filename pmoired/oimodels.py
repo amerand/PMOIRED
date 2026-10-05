@@ -8193,7 +8193,14 @@ def showOI(
                 if setylim:
                     yamp = ymax - ymin
                     if yamp > 0:
-                        ax.set_ylim(ymin - 0.2 * yamp - i * yoffset, ymax + 0.2 * yamp)
+                        limits = (ymin - 0.2 * yamp - i * yoffset, ymax + 0.2 * yamp)
+
+                        # account for all ylims from all files 
+                        previous = getattr(ax, "_pmoired_spectro_ylim", limits)
+                        limits = (min(previous[0], limits[0]), max(previous[1], limits[1]))
+                        ax._pmoired_spectro_ylim = limits
+                        ax.set_ylim(*limits)
+
                 if "UV" in obs and "FLUX" in l and i == 0:
                     # yoffset = yamp # -- offset spectra of each telescope
                     pass
