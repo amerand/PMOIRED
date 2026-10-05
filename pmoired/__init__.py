@@ -33,7 +33,7 @@ except ImportError:
     from importlib import resources
 
 #__version__ = "1.3.18"
-__version__ = "26.10.1" # using release date
+__version__ = "26.10.5" # using release date
 
 FIG_MAX_WIDTH = 9.5
 FIG_MAX_HEIGHT = 6
