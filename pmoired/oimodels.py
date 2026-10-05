@@ -6030,17 +6030,16 @@ def analyseGrid(fits, expl, debug=False, verbose=1, deltaChi2=None):
     res = sorted(tmp, key=lambda r: r["chi2"])
 
     if verbose:
-        print(time.asctime() + ": done")
-        print("-" * 12)
-        print("best fit: chi2=", res[0]["chi2"])
-        dpfit.dispBest(res[0])
-    try:
-        if type(verbose) == int and verbose > 1:
-            dpfit.dispCor(res[0])
-    except:
-        pass
-
-
+        try:
+            print(time.asctime() + ": done")
+            print("-" * 12)
+            print("best fit: chi2=", res[0]["chi2"])
+            dpfit.dispBest(res[0])
+            if type(verbose) == int and verbose > 1:
+                dpfit.dispCor(res[0])
+        except:
+            pass 
+            
     # -- add bad fits:
     for i,b in enumerate(bad):
         res.append(b)
@@ -9490,7 +9489,7 @@ def _Vazvar(
     V0=None,
     numerical=False,
     XY=None,
-    nB=30,
+    nB=200,
     numVis=False,
 ):
     """
