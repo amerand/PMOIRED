@@ -1147,7 +1147,7 @@ class OI:
         factor=100,
         _zeroCorrelations=False,
         _maxRho=1,
-        inject=None, fitInject=True,
+        inject=None, truth=None, fitInject=True,
         saveBest=True,
     ):
         """
@@ -1229,12 +1229,18 @@ class OI:
         )
         self._basemodel = model.copy()
         self._inject = {}
+        firstGuess = model.copy()
         if not inject is None:
-            self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            if not truth is None:
+                self._basemodel = truth.copy() 
+            else:
+                self._basemodel = model.copy()
+            self._merged = oimodels._injectFeatures(self._merged, self._basemodel, inject)
             self._inject = inject.copy()
             # -- add inject to fitted parameters
             if fitInject:
-                model = model | inject
+                firstGuess = model | inject
+
             if "doNotFit" in remem and not remem["doNotFit"] is None:
                 doNotFit = remem["doNotFit"]
             if "fitOnly" in remem and not remem["fitOnly"] is None:
@@ -1244,12 +1250,12 @@ class OI:
             if "uncer" in remem:
                 for k in remem["uncer"]:
                     if remem["uncer"][k] > 0:
-                        model[k] += 1 * np.random.randn() * remem["uncer"][k]
+                        firstGuess[k] += 1 * np.random.randn() * remem["uncer"][k]
 
-        prior = self._setPrior(model, prior, autoPrior)
+        prior = self._setPrior(firstGuess, prior, autoPrior)
         if correlations:
             # -- this is going to be very slow for bootstrapping :(
-            _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
+            _tmp = oimodels.residualsOI(self._merged, firstGuess, fullOutput=True, what=True)
             self._correlations = oicorr.corrSpectra(_tmp)
 
             # -- check if correlations levels were given by user
@@ -1288,7 +1294,7 @@ class OI:
 
         tmp = oimodels.fitOI(
             self._merged,
-            model,
+            firstGuess,
             fitOnly=fitOnly,
             doNotFit=doNotFit,
             verbose=verbose,
@@ -1339,7 +1345,7 @@ class OI:
         # -- priors are added as data
         self.bestfit["ndof"] -= len(prior)
         self.bestfit["prior"] = prior
-        # -- compute final model
+        # -- compute final data's model
         self._model = oimodels.VmodelOI(self._merged, self.bestfit["best"])
         self.computeModelSpectra(uncer=False)
         return
@@ -1769,6 +1775,7 @@ class OI:
         verbose=2,
         deltaChi2=None,
         inject=None,
+        truth=None,
         fitInject=True,
     ):
         """
@@ -1851,20 +1858,26 @@ class OI:
             self.data, collapse=True, verbose=False, dMJD=self.dMJD
         )
 
-        self._basemodel = model.copy()
         self._inject = {}
+        firstGuess = model.copy()
+
         if not inject is None:
-            self._merged = oimodels._injectFeatures(self._merged, model, inject)
+            if not truth is None:
+                self._basemodel = truth.copy() 
+            else:
+                self._basemodel = model.copy()
             self._inject = inject.copy()
+
+            self._merged = oimodels._injectFeatures(self._merged, self._basemodel, self._inject)
 
             # -- add inject to fitted parameters
             if fitInject:
-                model = model | inject
+                firstGuess = model | inject
 
-        prior = self._setPrior(model, prior, autoPrior)
+        prior = self._setPrior(firstGuess, prior, autoPrior)
         if correlations:
             # -- this is going to be very slow for bootstrapping :(
-            _tmp = oimodels.residualsOI(self._merged, model, fullOutput=True, what=True)
+            _tmp = oimodels.residualsOI(self._merged, firstGuess, fullOutput=True, what=True)
             # print('len(tmp)', len(tmp))
             self._correlations = oicorr.corrSpectra(_tmp)
 
@@ -1891,7 +1904,7 @@ class OI:
 
         self.grid = oimodels.gridFitOI(
             self._merged,
-            model,
+            firstGuess,
             expl,
             Nfits,
             fitOnly=fitOnly,
