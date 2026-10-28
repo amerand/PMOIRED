@@ -762,17 +762,21 @@ def VsingleOI(
         res["binWL"] = res["WL"] * 1.0
         # res['WL'] = np.linspace(res['WL'].min(), res['WL'].max(), len(res['WL'])*smear)
         # res['WL'] = np.linspace(res['WL'][0], res['WL'][-1], len(res['WL'])*smear)
+        test = False
+       
         if len(res["WL"]) == 1:
-            res["WL"] = _expandVec(res["WL"][0], smear - 1, dx=res["dWL"][0])
+            res["WL"] = _expandVec([res["WL"][0]], smear - 1, dx=oi["dWL"][0])[:,0]
         else:
             res["WL"] = _expandVec(res["WL"], smear - 1)
         if debug:
             print("VsingleOI: [%d]" % len(res["WL"]))
             # print('')
-        if not "dWL" in res:
-            res["dWL"] = np.gradient(res["WL"])
-        else:
-            res["dWL"] = np.interp(res["WL"], _WL, res["dWL"])
+
+        #if not "dWL" in res:
+        #    res["dWL"] = np.gradient(res["WL"])
+        #else:
+        res["dWL"] = np.interp(res["WL"], res["binWL"], oi["dWL"])/smear
+
 
     if "OI_FLUX" in oi:
         res["OI_FLUX"] = {}
@@ -3246,7 +3250,13 @@ def VmodelOI(
             wlKernel = 0
         if wlKernel>0:
             res = _applyWlKernel(res, wlKernel=res["smear"]*wlKernel)
+
+        # _k0 = list(res['OI_VIS'].keys())[0]
+        # print(f"!! {res['OI_VIS'][_k0]['|V|'].shape=}")
+        # print(f"!! {res['OI_VIS'][_k0]['FLAG'].shape=}")
+        # print(f"!! {res['WL'].shape=}, {res['TELLURICS'].shape=}")        
         res = oifits._binOI(res, binning=res["smear"], noError=True)
+
         if debug:
             print(f"[{len(res['WL'])}]")
             if 'OI_T3' in res:
