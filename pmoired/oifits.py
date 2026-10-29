@@ -2,6 +2,7 @@ import copy
 import glob
 import os
 from collections import OrderedDict
+import itertools
 import pickle
 
 import numpy as np
@@ -2470,4 +2471,83 @@ def getESOPipelineParams(H, verbose=True):
                     'parameters':p,
                     'files':F}
     return P
+
+def quadriphase(D, plot=False, verbose=False, weighted=True):
+    """
+    check redundancy of the closure phases by checking the 4 closures in the 4 trinagles from 4 telescopes.
+    returns the quadriphase, which should be 0
+
+    """
+    B = list(D['baselines'])
+    T = list(D['triangles'])
+    
+    F = {}
+    for t in T:
+        tmp = {}
+        if t[:4] in B:
+            tmp[t[:4]] = 1
+        elif t[2:4]+t[:2] in B:
+            tmp[t[2:4]+t[:2]] = -1
+        
+        if t[-4:] in B:
+            tmp[t[-4:]] = 1
+        elif t[-2:]+t[-4:-2] in B:
+            tmp[t[-2:]+t[-4:-2]] = -1 
+        
+        if t[-2:]+t[:2] in B:
+            tmp[t[-2:]+t[:2]] = 1
+        elif t[:2]+t[-2:] in B:
+            tmp[t[:2]+t[-2:]] = -1
+        F[t] = tmp
+    if verbose:
+        display(F)
+    
+    if plot:
+        plt.close(0); plt.figure(0)
+        plt.close(1); plt.figure(1)
+        # -- check closure formulas from phase
+        for i,k in enumerate(F):
+            plt.subplot(2,2,i+1)
+            plt.title(k)
+            plt.plot(D[k]['T3PHI'][0], '-k')
+            plt.plot(np.sum([F[k][t]*D[t]['PHI'][0] for t in F[k]], axis=0), '-r')
+        plt.tight_layout()
+    
+    quad = {}
+    for q in itertools.combinations(D['telescopes'], 4):
+        # -- find 4 triangles in a quadrilater
+        tris = []
+        for k in F:
+            if k[:2] in q and k[2:4] in q and k[-2:] in q:
+                tris.append(k)
+        if verbose:
+            print(q, end=' -> ')
+        # -- find the 0-formula combining 4 closure phases
+        tmp = {tris[0]:1}
+        for i in range(3):
+            # find common baseline with previous triangle
+            k = [t for t in F[tris[i+1]] if t in F[tris[i]]][0]
+            if F[tris[i+1]][k]*F[tris[i]][k] == -1:
+                tmp[tris[i+1]] = tmp[tris[i]]
+            else:
+                tmp[tris[i+1]] = -tmp[tris[i]]
+        flag = False
+        for k in tmp:
+            flag = np.logical_or(flag, D['OI_T3'][k]['FLAG'])
+        
+        quad[''.join(q)] = {'FLAG':flag}
+        if weighted:
+            quad[''.join(q)]['T4PHI'] = np.sum([tmp[k]*D['OI_T3'][k]['T3PHI']/D['OI_T3'][k]['ET3PHI'] for k in tmp], axis=0)/\
+                                        np.sum([1/D['OI_T3'][k]['ET3PHI'] for k in tmp], axis=0)
+        else:
+            quad[''.join(q)]['T4PHI'] = np.sum([tmp[k]*D['OI_T3'][k]['T3PHI'] for k in tmp], axis=0)
+
+        if verbose:
+            print(tmp)
+        if plot:
+            plt.plot(np.sum(quad[''.join(q)], axis=0), label='-'.join(q))
+    if plot:
+        plt.legend()
+    if not verbose:
+        return quad
 
