@@ -963,7 +963,6 @@ def checkCubeShapes(cube, name='cube'):
 
 __mjd0 = 57000
 
-
 def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                  diam=None, cube=None, noise=None, thres=None,
                  model=None, insname='synthetic', debug=False,
@@ -1067,6 +1066,15 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
            'MJD': tmp['MJD'],
            'fit':setup
            }
+    if len(wl)>1:
+        res['dWL'] = np.gradient(wl)*wk
+    else:
+        if not 'dWL' in setup:
+            print('please provide dWL (in microns) in setup')
+            return
+        res['dWL'] = setup['dWL']*wk
+
+ 
     # print('res:', res)
 
     # == complex visibility function
@@ -1252,7 +1260,6 @@ def makeFakeVLTI(t, target, lst, wl, mjd0=None, lst0=0,
                 res['OI_VIS2'][b][k] = tmp[k][b][:, None]+0*res['WL'][None, :]
 
     res['configurations per MJD'] = conf
-    res['dWL'] = np.gradient(res['WL'])*wk
 
     # -- set Noise levels
     if 'OI_FLUX' in res:
