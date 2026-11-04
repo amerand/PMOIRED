@@ -368,7 +368,7 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
 
     med, rms = slidingRMS(sp)
     fl = np.logical_or(fl, sp>med+5*rms)
-    fl = np.logical_or(fl, sp>med-5*rms)
+    fl = np.logical_or(fl, sp<med-5*rms)
     
     # -- close FITS file
     f.close()
@@ -381,10 +381,10 @@ def gravity(filename, quiet=True, save=True, wlmin=None, wlmax=None, avoid=None,
         else:
             sp /= np.interp(wl, gravityP2vm['WL'], gravityP2vm['HIGH'])
 
-    # -- avoid some known lines
-    #print(wlmin, wlmax)
+    # -- build fitting domain
     w = (wl > wlmin) * (wl < wlmax) * ~fl * ~np.isnan(sp) * (sp != 0)
-
+    
+    # -- avoid some known lines
     if avoid is None:
         c = 3 if MR else 1
         # -- 2.058: HeI
@@ -681,7 +681,7 @@ def showTellurics(filename, fig=99):
         plt.close(fig)
         plt.figure(fig, figsize=(pmoired.FIG_MAX_WIDTH, 0.6 * pmoired.FIG_MAX_WIDTH))
 
-    flat = 1
+    flat = np.ones(len(h["TELLURICS"].data["EFF_WAVE"]))
     if useP2vm:
         k = h[0].header["ESO INS SPEC RES"].strip()
         flat = np.interp(h["TELLURICS"].data["EFF_WAVE"] * 1e6, 
