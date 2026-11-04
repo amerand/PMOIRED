@@ -145,7 +145,9 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
         try:
             targets = {t:targets[t] for t in targets if targets[t] in ins2targ[insname]}
         except:
-            print(targets, ins2targ)
+            # will come here in case of dual field for GRAVITY is both targets have same name!
+            #print('??', targets, ins2targ)
+            pass
 
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
