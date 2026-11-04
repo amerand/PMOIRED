@@ -241,7 +241,6 @@ class OI:
 
         with open(name, "wb") as f:
             data = {k: self.__dict__[k] for k in ext}
-            # print('data.keys():', data.keys())
             if type(data["bestfit"]) == dict and "func" in data["bestfit"]:
                 data["bestfit"]["func"] = None  # avoid potential problems...
                 data["bestfit"]["x"] = None  # takes too much space
@@ -1101,7 +1100,7 @@ class OI:
                                 'expected value')
                         else:
                             print(f"setupFit> {i}/{d['insname']}: setting 'wl kernel':{wlk} according to WL definition")
-                        d["fit"]["wl kernel"] = wlk
+                        d["fit"]["wl kernel"] = float(wlk)
 
                 if debug:
                     print("fit>obs:", d["fit"]["obs"])
