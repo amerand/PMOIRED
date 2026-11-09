@@ -115,6 +115,8 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
     # -- how many instruments?
     instruments = []
     ins2targ = {}
+    targets = {}
+
     for hdu in h:
         if 'EXTNAME' in hdu.header and hdu.header['EXTNAME']=='OI_WAVELENGTH':
             instruments.append(hdu.header['INSNAME'])
@@ -148,7 +150,7 @@ def loadOI(filename, insname=None, targname=None, verbose=True,
             # will come here in case of dual field for GRAVITY is both targets have same name!
             #print('??', targets, ins2targ)
             pass
-
+    #print(__name__, f'{targets=}')
     if targname is None and len(targets)==1:
         targname = list(targets.keys())[0]
     assert targname in targets.keys(), 'unknown targname "'+str(targname)+'", '+\
