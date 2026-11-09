@@ -698,7 +698,7 @@ class OI:
             return
         else:
             self._avgData(tmp[0][0], tmp[0][1])
-            self.avgGravityPola(info=True)
+            self.avgGravityPola(info=info)
         return
 
     def _avgData(self, i1, i2):
